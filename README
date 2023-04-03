@@ -4,7 +4,9 @@ These changes are used on a regulary basis and can be considered stable
 
 -Force the Balance Sheet and Income Statement to use the Book Company Name.
 Branch company-name-reports-4.13 is for versions up to 4.13, tested
+  can be compared with upstream tag 4.13
 Branch company-name-reports-4.14 is for versions 4.14 and higher, updated, but not yet tested
+  can be compared with upstream branch stable
 
 
 
