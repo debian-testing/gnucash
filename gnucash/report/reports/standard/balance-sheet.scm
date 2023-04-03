@@ -72,9 +72,6 @@
 (define optname-report-title (N_ "Report Title"))
 (define opthelp-report-title (N_ "Title for this report."))
 
-(define optname-party-name (N_ "Company name"))
-(define opthelp-party-name (N_ "Name of company/individual."))
-
 (define optname-date (N_ "Balance Sheet Date"))
 (define optname-report-form (N_ "Single column Balance Sheet"))
 (define opthelp-report-form
@@ -141,15 +138,11 @@
 
 ;; options generator
 (define (balance-sheet-options-generator)
-  (let* ((options (gnc:new-options))
-         (add-option 
-          (lambda (new-option)
-            (gnc:register-option options new-option))))
-    
-    (add-option
-      (gnc:make-string-option
+  (let* ((options (gnc-new-optiondb)))
+
+    (gnc-register-string-option options
       gnc:pagename-general optname-report-title
-      "a" opthelp-report-title (G_ reportname)))
+      "a" opthelp-report-title (G_ reportname))
     
     ;; date at which to report balance
     (gnc:options-add-report-date!
