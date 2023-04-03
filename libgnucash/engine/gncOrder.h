@@ -41,6 +41,10 @@ typedef struct _gncOrderClass GncOrderClass;
 #include "gncOwner.h"
 #include "qof.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define GNC_ID_ORDER "gncOrder"
 
 /* --- type macros --- */
@@ -98,8 +102,6 @@ gboolean gncOrderIsClosed (const GncOrder *order);
 /** Return a pointer to the instance gncOrder that is identified
  *  by the guid, and is residing in the book. Returns NULL if the
  *  instance can't be found.
- *  Equivalent function prototype is
- *  GncOrder * gncOrderLookup (QofBook *book, const GncGUID *guid);
  */
 static inline GncOrder * gncOrderLookup (const QofBook *book, const GncGUID *guid)
 {
@@ -117,6 +119,10 @@ static inline GncOrder * gncOrderLookup (const QofBook *book, const GncGUID *gui
 /** deprecated functions */
 #define gncOrderGetGUID(x) qof_instance_get_guid(QOF_INSTANCE(x))
 #define gncOrderGetBook(x) qof_instance_get_book(QOF_INSTANCE(x))
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* GNC_ORDER_H_ */
 /** @} */

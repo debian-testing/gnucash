@@ -30,14 +30,11 @@
 #include <string>
 #include <iostream>
 #include <gtest/gtest.h>
-#include <boost/version.hpp>
 
 TEST (GncGUID, creation)
 {
     auto guid = gnc::GUID::create_random ();
     EXPECT_NE (guid, gnc::GUID::null_guid ());
-    // There should be a default constructor.
-    GncGUID other;
 }
 
 TEST (GncGUID, copy)
@@ -75,18 +72,14 @@ TEST (GncGUID, from_string)
     bool fail = false;
     try
     {
-        auto guid = gnc::GUID::from_string (bogus);
+        gnc::GUID::from_string (bogus);
     }
     catch (gnc::guid_syntax_exception const &)
     {
         fail = true;
     }
-    /* Currently, boost uuid string parsing is mostly very permissive, but it has some
-     * odd pet peves. See https://svn.boost.org/trac/boost/ticket/12253 for more.*/
-    if (BOOST_VERSION >= 106600)
-        EXPECT_TRUE (fail) << "Parsing the bogus string should throw";
-    else
-        EXPECT_FALSE (fail) << "Perhaps boost uuid is fixed.";
+
+    EXPECT_TRUE (fail) << "Parsing the bogus string should throw";
 }
 
 TEST (GncGUID, round_trip)

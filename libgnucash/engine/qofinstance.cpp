@@ -30,11 +30,8 @@
  */
 
 #include "guid.hpp"
-extern "C"
-{
 #include <config.h>
 #include <glib.h>
-}
 
 #include <utility>
 #include "qof.h"
@@ -114,7 +111,7 @@ typedef struct QofInstancePrivate
 #define GET_PRIVATE(o)  \
     ((QofInstancePrivate*)qof_instance_get_instance_private((QofInstance*)o))
 
-G_DEFINE_TYPE_WITH_PRIVATE(QofInstance, qof_instance, G_TYPE_OBJECT);
+G_DEFINE_TYPE_WITH_PRIVATE(QofInstance, qof_instance, G_TYPE_OBJECT)
 QOF_GOBJECT_FINALIZE(qof_instance);
 #undef G_PARAM_READWRITE
 #define G_PARAM_READWRITE static_cast<GParamFlags>(G_PARAM_READABLE | G_PARAM_WRITABLE)
@@ -176,7 +173,7 @@ static void qof_instance_class_init(QofInstanceClass *klass)
                            "Object Last Update",
                            "A pointer to the last time this object was "
                            "updated.  This value is present for use by "
-                           "backends and shouldnot be written by other "
+                           "backends and shouldn't be written by other "
                            "code.",
                            G_PARAM_READWRITE));
 
@@ -693,7 +690,6 @@ gboolean
 qof_instance_get_dirty (QofInstance *inst)
 {
     QofInstancePrivate *priv;
-    QofCollection *coll;
 
     if (!inst)
     {
@@ -708,7 +704,6 @@ void
 qof_instance_set_dirty(QofInstance* inst)
 {
     QofInstancePrivate *priv;
-    QofCollection *coll;
 
     priv = GET_PRIVATE(inst);
     priv->dirty = TRUE;
@@ -1070,15 +1065,7 @@ qof_instance_set_kvp (QofInstance * inst, GValue const * value, unsigned count, 
 
 void qof_instance_get_path_kvp (QofInstance * inst, GValue * value, std::vector<std::string> const & path)
 {
-    auto temp = gvalue_from_kvp_value (inst->kvp_data->get_slot (path));
-    if (G_IS_VALUE (temp))
-    {
-        if (G_IS_VALUE (value))
-            g_value_unset (value);
-        g_value_init (value, G_VALUE_TYPE (temp));
-        g_value_copy (temp, value);
-        gnc_gvalue_free (temp);
-    }
+    gvalue_from_kvp_value (inst->kvp_data->get_slot (path), value);
 }
 
 void
@@ -1090,15 +1077,7 @@ qof_instance_get_kvp (QofInstance * inst, GValue * value, unsigned count, ...)
     for (unsigned i{0}; i < count; ++i)
         path.push_back (va_arg (args, char const *));
     va_end (args);
-    auto temp = gvalue_from_kvp_value (inst->kvp_data->get_slot (path));
-    if (G_IS_VALUE (temp))
-    {
-        if (G_IS_VALUE (value))
-            g_value_unset (value);
-        g_value_init (value, G_VALUE_TYPE (temp));
-        g_value_copy (temp, value);
-        gnc_gvalue_free (temp);
-    }
+    gvalue_from_kvp_value (inst->kvp_data->get_slot (path), value);
 }
 
 void
@@ -1123,8 +1102,8 @@ qof_instance_compare_kvp (const QofInstance *a, const QofInstance *b)
 char*
 qof_instance_kvp_as_string (const QofInstance *inst)
 {
-    //The std::string is a local temporary and doesn't survive this function.
-    return g_strdup(inst->kvp_data->to_string().c_str());
+    auto str{inst->kvp_data->to_string()};
+    return g_strdup(str.c_str());
 }
 
 void

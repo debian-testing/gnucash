@@ -96,7 +96,7 @@ hash_entry_free_gfunc(gpointer data, G_GNUC_UNUSED gpointer user_data)
 }
 
 /* GObject Initialization */
-G_DEFINE_TYPE(GNCPrice, gnc_price, QOF_TYPE_INSTANCE);
+G_DEFINE_TYPE(GNCPrice, gnc_price, QOF_TYPE_INSTANCE)
 
 static void
 gnc_price_init(GNCPrice* price)
@@ -118,7 +118,6 @@ static const char* source_names[(size_t)PRICE_SOURCE_INVALID + 1] =
 {
     /* sync with price_to_gui in dialog-price-editor.c */
     "user:price-editor",
-    /* sync with commidity-tz-quote->price in price-quotes.scm */
     "Finance::Quote",
     "user:price",
     /* String retained for backwards compatibility. */
@@ -836,7 +835,7 @@ gnc_price_list_equal(PriceList *prices1, PriceList *prices2)
  */
 
 /* GObject Initialization */
-QOF_GOBJECT_IMPL(gnc_pricedb, GNCPriceDB, QOF_TYPE_INSTANCE);
+QOF_GOBJECT_IMPL(gnc_pricedb, GNCPriceDB, QOF_TYPE_INSTANCE)
 
 static void
 gnc_pricedb_init(GNCPriceDB* pdb)
@@ -2492,6 +2491,9 @@ convert_price (const gnc_commodity *from, const gnc_commodity *to, PriceTuple tu
     int no_round = GNC_HOW_DENOM_EXACT | GNC_HOW_RND_NEVER;
 
     price = gnc_numeric_div (to_val, from_val, GNC_DENOM_AUTO, no_round);
+
+    gnc_price_unref (tuple.from);
+    gnc_price_unref (tuple.to);
 
     if (from_cur == from && to_cur == to)
         return price;

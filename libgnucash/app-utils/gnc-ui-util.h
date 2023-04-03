@@ -39,22 +39,16 @@
 #include "gncOwner.h"
 #include "qof.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 
 typedef QofSession * (*QofSessionCB) (void);
 
 
 gchar *gnc_normalize_account_separator (const gchar* separator);
 gboolean gnc_reverse_balance(const Account *account);
-
-/* Backward compatibility *******************************************
- * Return book's UNREVERSED_BUDGET feature check. */
-gboolean gnc_using_unreversed_budgets (QofBook* book);
-
-/* Backward compatibility *******************************************
- * Compare book's UNREVERSED_BUDGET with unreverse_check. If they
- * match, return account reversal according to global pref. If they
- * don't match, return FALSE. */
-gboolean gnc_reverse_budget_balance (const Account *account, gboolean unreversed);
 
 /* Backward compatibility *******************************************
  * Return that book's support opening balance accounts by equity type slot */
@@ -97,40 +91,6 @@ const gchar * gnc_get_current_book_tax_type (void);
   * callbacks when num_field_source book option changes so that
   * registers/reports can update themselves; sets feature flag */
 void gnc_book_option_num_field_source_change_cb (gboolean num_action);
-
-/** Calls gnc_book_option_book_currency_selected to initiate registered
-  * callbacks when currency accounting book option changes to book-currency so
-  * that registers/reports can update themselves; sets feature flag */
-void gnc_book_option_book_currency_selected_cb (gboolean use_book_currency);
-
-/** Returns TRUE if both book-currency and default gain/loss policy KVPs exist
-  * and are valid and trading accounts are not used */
-gboolean gnc_book_use_book_currency (QofBook *book);
-
-/** Returns pointer to Book Currency name for book or NULL; determines
-  * that both book-currency and default gain/loss policy KVPs exist and that
-  * both are valid, a requirement for the 'book-currency' currency accounting
-  * method to apply. */
-const gchar * gnc_book_get_book_currency_name (QofBook *book);
-
-/** Returns pointer to Book Currency for book or NULL; determines
-  * that both book-currency and default gain/loss policy KVPs exist and that
-  * both are valid, a requirement for the 'book-currency' currency accounting
-  * method to apply. */
-gnc_commodity * gnc_book_get_book_currency (QofBook *book);
-
-/** Returns pointer to default gain/loss policy for book or NULL; determines
-  * that both book-currency and default gain/loss policy KVPs exist and that
-  * both are valid, a requirement for the 'book-currency' currency accounting
-  * method to apply. */
-const gchar * gnc_book_get_default_gains_policy (QofBook *book);
-
-/** Returns pointer to default gain/loss account for book or NULL; determines
-  * that both book-currency and default gain/loss policy KVPs exist and that
-  * both are valid, a requirement for the 'book-currency' currency accounting
-  * method to apply. */
-Account * gnc_book_get_default_gain_loss_acct (QofBook *book);
-
 Account * gnc_get_current_root_account (void);
 gnc_commodity_table * gnc_get_current_commodities (void);
 
@@ -186,9 +146,6 @@ gchar *gnc_get_account_name_for_split_register(const Account *account,
  *                  of things like stock account values from share
  *                  values to an amount the requested currency.
  */
-char *gnc_ui_account_get_tax_info_string (const Account *account);
-
-char *gnc_ui_account_get_tax_info_sub_acct_string (const Account *account);
 
 const char * gnc_get_reconcile_str (char reconciled_flag);
 const char * gnc_get_reconcile_valid_flags (void);
@@ -375,19 +332,6 @@ gboolean xaccParseAmount (const char * in_str, gboolean monetary,
                           gnc_numeric *result, char **endstr);
 
 /**
- * Parses in_str to a gnc_numeric, with a flag to indicate whether the
- * locale's positive sign (or in absence the '+') character is
- * ignored. Setting skip to TRUE will cause the function to ignore any
- * positive sign. Setting it to FALSE, and positive signs will be
- * treated as unrecognized characters.  xaccParseAmount will run as if
- * skip is FALSE for compatibility reasons (gnc-expression-parser
- * depends on this behaviour).
- */
-gboolean
-xaccParseAmountPosSign (const char * in_str, gboolean monetary, gnc_numeric *result,
-                        char **endstr, gboolean skip);
-
-/**
  * Converts a string to a gnc_numeric. The caller must provide all the
  * locale-specific information.
  *
@@ -400,6 +344,37 @@ xaccParseAmountExtended (const char * in_str, gboolean monetary,
                          gunichar negative_sign, gunichar decimal_point,
                          gunichar group_separator, const char *ignore_list,
                          gnc_numeric *result, char **endstr);
+
+/**
+ * Similar to xaccParseAmount, but with two differences
+ * - it exposes a flag to indicate whether the
+ * locale's positive sign (or in absence the '+') character is
+ * ignored. Setting skip to TRUE will cause the function to ignore any
+ * positive sign. Setting it to FALSE, and positive signs will be
+ * treated as unrecognized characters.  xaccParseAmount will run as if
+ * skip is FALSE for compatibility reasons (gnc-expression-parser
+ * depends on this behaviour).
+ * - The other important difference with xaccParseAmount is that this
+ * function will never apply automatic decimal point logc, whereas
+ * xaccParseAmount will follow the automatic decimal point preference
+ * as set by the user.
+ */
+gboolean
+xaccParseAmountImport (const char * in_str, gboolean monetary,
+                       gnc_numeric *result,
+                       char **endstr, gboolean skip);
+
+/**
+ * Similar to xaccParseAmountExtended, but will not automatically
+ * set a decimal point, regardless of what the user has set for this
+ * option. Primarily meant for cases where numbers are coming into
+ * gnucash that are not typed in by the user (like via csv import).
+ */
+gboolean
+xaccParseAmountExtImport (const char * in_str, gboolean monetary,
+                             gunichar negative_sign, gunichar decimal_point,
+                             gunichar group_separator, const char *ignore_list,
+                             gnc_numeric *result, char **endstr);
 
 /**
  * Make a string representation of a gnc_numeric.  Warning, the
@@ -480,6 +455,10 @@ gchar * gnc_filter_text_for_currency_symbol (const gchar *incoming_text,
 gchar * gnc_filter_text_for_currency_commodity (const gnc_commodity *comm,
                                                 const gchar *incoming_text,
                                                 const gchar **symbol);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
 /** @} */

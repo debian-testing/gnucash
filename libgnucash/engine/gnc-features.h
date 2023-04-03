@@ -48,7 +48,6 @@ extern "C" {
 #define GNC_FEATURE_CREDIT_NOTES "Credit Notes"
 #define GNC_FEATURE_NUM_FIELD_SOURCE "Number Field Source"
 #define GNC_FEATURE_KVP_EXTRA_DATA "Extra data in addresses, jobs or invoice entries"
-#define GNC_FEATURE_BOOK_CURRENCY "Use a Book-Currency"
 #define GNC_FEATURE_GUID_BAYESIAN "Account GUID based Bayesian data"
 #define GNC_FEATURE_GUID_FLAT_BAYESIAN "Account GUID based bayesian with flat KVP"
 #define GNC_FEATURE_SQLITE3_ISO_DATES "ISO-8601 formatted date strings in SQLite3 databases."
@@ -66,6 +65,13 @@ extern "C" {
  * Returns a message to display if we found unknown features, NULL if we're okay.
  */
 gchar *gnc_features_test_unknown (QofBook *book);
+
+/**
+ * Indicate that the current book does not use the given feature. This
+ * will allow older versions of GnuCash that don't support this
+ * feature to load this book.
+ */
+void gnc_features_set_unused (QofBook *book, const gchar *feature);
 
 /**
  * Indicate that the current book uses the given feature. This will prevent

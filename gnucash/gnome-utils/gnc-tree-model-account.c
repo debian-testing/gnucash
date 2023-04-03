@@ -41,6 +41,7 @@
 #include "gnc-gobject-utils.h"
 #include "gnc-ui-balances.h"
 #include "gnc-ui-util.h"
+#include <gnc-locale-tax.h>
 
 #define TREE_MODEL_ACCOUNT_CM_CLASS "tree-model-account"
 
@@ -393,6 +394,7 @@ gnc_tree_model_account_get_column_type (GtkTreeModel *tree_model, int index)
     case GNC_TREE_MODEL_ACCOUNT_COL_BALANCE:
     case GNC_TREE_MODEL_ACCOUNT_COL_BALANCE_REPORT:
     case GNC_TREE_MODEL_ACCOUNT_COL_BALANCE_PERIOD:
+    case GNC_TREE_MODEL_ACCOUNT_COL_BALANCE_LIMIT:
     case GNC_TREE_MODEL_ACCOUNT_COL_CLEARED:
     case GNC_TREE_MODEL_ACCOUNT_COL_CLEARED_REPORT:
     case GNC_TREE_MODEL_ACCOUNT_COL_RECONCILED:
@@ -827,6 +829,12 @@ gnc_tree_model_account_get_value (GtkTreeModel *tree_model,
         string = gnc_tree_model_account_compute_period_balance (model, account, FALSE, &negative);
         gnc_tree_model_account_set_color (model, negative, value);
         g_free (string);
+        break;
+
+    case GNC_TREE_MODEL_ACCOUNT_COL_BALANCE_LIMIT:
+        g_value_init (value, G_TYPE_STRING);
+        string = gnc_ui_account_get_balance_limit_icon_name (account);
+        g_value_take_string (value, string);
         break;
 
     case GNC_TREE_MODEL_ACCOUNT_COL_CLEARED:

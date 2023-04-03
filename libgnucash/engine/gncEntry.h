@@ -31,10 +31,10 @@
 #ifndef GNC_ENTRY_H_
 #define GNC_ENTRY_H_
 
-#ifdef __cplusplus
-extern "C++" {
 #include <glib.h>
-}
+
+#ifdef __cplusplus
+extern "C" {
 #endif
 
 typedef struct _gncEntry GncEntry;
@@ -290,8 +290,6 @@ GncInvoice * gncEntryGetBill (const GncEntry *entry);
 /** Return a pointer to the instance gncEntry that is identified
  *  by the guid, and is residing in the book. Returns NULL if the
  *  instance can't be found.
- *  Equivalent function prototype is
- *  GncEntry * gncEntryLookup (QofBook *book, const GncGUID *guid);
  */
 static inline GncEntry * gncEntryLookup (const QofBook *book, const GncGUID *guid)
 {
@@ -334,6 +332,10 @@ int gncEntryCompare (const GncEntry *a, const GncEntry *b);
 
 /* deprecated functions, should be removed */
 #define gncEntryGetGUID(x) qof_instance_get_guid(QOF_INSTANCE(x))
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* GNC_ENTRY_H_ */
 /** @} */

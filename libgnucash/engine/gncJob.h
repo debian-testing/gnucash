@@ -37,6 +37,10 @@ typedef struct _gncJobClass GncJobClass;
 #include "gncAddress.h"
 #include "gncOwner.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define GNC_ID_JOB "gncJob"
 
 /* --- type macros --- */
@@ -57,6 +61,7 @@ GType gnc_job_get_type(void);
 
 GncJob *gncJobCreate (QofBook *book);
 void gncJobDestroy (GncJob *job);
+void gncJobFreeList (GList *jobs);
 
 /** \name Set Functions
 @{
@@ -89,8 +94,6 @@ gboolean     gncJobGetActive (const GncJob *job);
 /** Return a pointer to the instance gncJob that is identified
  *  by the guid, and is residing in the book. Returns NULL if the
  *  instance can't be found.
- *  Equivalent function prototype is
- *  GncJob * gncJobLookup (QofBook *book, const GncGUID *guid);
  */
 static inline GncJob * gncJobLookup (const QofBook *book, const GncGUID *guid)
 {
@@ -115,6 +118,10 @@ gboolean gncJobEqual(const GncJob *a, const GncJob *b);
 #define gncJobGetGUID(x) qof_instance_get_guid(QOF_INSTANCE(x))
 #define gncJobRetGUID(x) (x ? *(qof_instance_get_guid(QOF_INSTANCE(x))) : *(guid_null()))
 #define gncJobLookupDirect(G,B) gncJobLookup((B),&(G))
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* GNC_JOB_H_ */
 /** @} */

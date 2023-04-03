@@ -8,7 +8,6 @@ set(XML_TEST_INCLUDE_DIRS
   ${CMAKE_SOURCE_DIR}/libgnucash/engine/test-core
   ${CMAKE_BINARY_DIR}/common # for config.h
   ${CMAKE_SOURCE_DIR}/common/test-core  # for unittest-support.h
-  ${GLIB2_INCLUDE_DIRS}
   ${LIBXML2_INCLUDE_DIRS}
   ${ZLIB_INCLUDE_DIRS}
 )
@@ -95,8 +94,7 @@ set(test-real-data-env
   TEST_PATH=${CMAKE_BINARY_DIR}/bin
 )
 add_test(NAME test-real-data
-   COMMAND ${CMAKE_COMMAND} -E env
-    ${SHELL} ${CMAKE_CURRENT_SOURCE_DIR}/test-real-data.sh
+   COMMAND ${SHELL} ${CMAKE_CURRENT_SOURCE_DIR}/test-real-data.sh
    CONFIGURATIONS Debug;Release
 )
 set_tests_properties(test-real-data PROPERTIES ENVIRONMENT "${test-real-data-env}")

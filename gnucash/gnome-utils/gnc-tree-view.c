@@ -40,6 +40,7 @@
 
 #include "gnc-tree-view.h"
 #include "gnc-engine.h"
+#include "gnc-glib-utils.h"
 #include "gnc-gnome-utils.h"
 #include "gnc-gobject-utils.h"
 #include "gnc-cell-renderer-date.h"
@@ -1287,6 +1288,21 @@ gnc_tree_view_create_menu_item (GtkTreeViewColumn *column,
     // LEAVE(" ");
 }
 
+static gint
+column_menu_sort (GtkTreeViewColumn *columna, GtkTreeViewColumn *columnb)
+{
+    const gchar *column_namea = g_object_get_data (G_OBJECT(columna), REAL_TITLE);
+    const gchar *column_nameb = g_object_get_data (G_OBJECT(columnb), REAL_TITLE);
+
+    if (!column_namea)
+        column_namea = gtk_tree_view_column_get_title (columna);
+
+    if (!column_nameb)
+        column_nameb = gtk_tree_view_column_get_title (columnb);
+
+    return safe_utf8_collate (column_namea, column_nameb);
+}
+
 /** This function is called to build the column selection menu.  It
  *  first destroys any old column selection menu, then checks to see
  *  if a new menu should be built.  If so, it calls the
@@ -1324,6 +1340,7 @@ gnc_tree_view_build_column_menu (GncTreeView *view)
 
         /* Now build a new menu */
         column_list = gtk_tree_view_get_columns (GTK_TREE_VIEW(view));
+        column_list = g_list_sort (column_list, (GCompareFunc)column_menu_sort);
         g_list_foreach (column_list, (GFunc)gnc_tree_view_create_menu_item, view);
         g_list_free (column_list);
     }
@@ -1413,9 +1430,7 @@ void gnc_tree_view_expand_columns (GncTreeView *view,
                                    gchar *first_column_name,
                                    ...)
 {
-    GncTreeViewPrivate *priv;
     GtkTreeViewColumn *column;
-    gboolean hide_spacer;
     GList *columns, *tmp;
     gchar *name, *pref_name;
     va_list args;
@@ -1423,9 +1438,7 @@ void gnc_tree_view_expand_columns (GncTreeView *view,
     g_return_if_fail (GNC_IS_TREE_VIEW(view));
     ENTER(" ");
     va_start (args, first_column_name);
-    priv = GNC_TREE_VIEW_GET_PRIVATE(view);
     name = first_column_name;
-    hide_spacer = FALSE;
 
     /* First disable the expand property on all (non-infrastructure) columns. */
     columns = gtk_tree_view_get_columns (GTK_TREE_VIEW(view));
@@ -1445,7 +1458,6 @@ void gnc_tree_view_expand_columns (GncTreeView *view,
         if (column != NULL)
         {
             gtk_tree_view_column_set_expand (column, TRUE);
-            hide_spacer = TRUE;
         }
         name = va_arg (args, gchar*);
     }
@@ -1955,6 +1967,63 @@ gnc_tree_view_add_text_view_column (GncTreeView *view,
                                     model_data_column,
                                     model_visibility_column,
                                     column_sort_fn);
+}
+
+/** This function adds a new pixbuf view column to a GncTreeView base view.
+ *  It takes all the parameters necessary to hook a GtkTreeModel
+ *  column to a GtkTreeViewColumn.  If the tree has a state section
+ *  associated with it, this function also wires up the column so that
+ *  its visibility and width are remembered.
+ *
+ *  Parameters are defined in gnc-tree-view.h
+ */
+GtkTreeViewColumn *
+gnc_tree_view_add_pix_column (GncTreeView *view,
+                              const gchar *column_title,
+                              const gchar *pref_name,
+                              const gchar *sizing_text,
+                              gint model_data_column,
+                              gint model_visibility_column,
+                              GtkTreeIterCompareFunc column_sort_fn)
+{
+    GtkTreeViewColumn *column;
+    PangoLayout* layout;
+    int default_width, title_width;
+    GtkCellRenderer *renderer;
+
+    g_return_val_if_fail (GNC_IS_TREE_VIEW(view), NULL);
+
+    renderer = gtk_cell_renderer_pixbuf_new ();
+
+    column = gtk_tree_view_column_new ();
+    gtk_tree_view_column_set_title (column, column_title);
+
+    /* Set up a text renderer and attributes */
+    gtk_tree_view_column_pack_start (column, renderer, TRUE);
+
+    /* Set renderer attributes controlled by the model */
+    if (model_data_column != GNC_TREE_VIEW_COLUMN_DATA_NONE)
+        gtk_tree_view_column_add_attribute (column, renderer,
+                                            "icon-name", model_data_column);
+    if (model_visibility_column != GNC_TREE_VIEW_COLUMN_VISIBLE_ALWAYS)
+        gtk_tree_view_column_add_attribute (column, renderer,
+                                            "visible", model_visibility_column);
+
+    /* Default size is the larger of the column title and the sizing text */
+    layout = gtk_widget_create_pango_layout (GTK_WIDGET(view), column_title);
+    pango_layout_get_pixel_size (layout, &title_width, NULL);
+    g_object_unref (layout);
+    layout = gtk_widget_create_pango_layout (GTK_WIDGET(view), sizing_text);
+    pango_layout_get_pixel_size (layout, &default_width, NULL);
+    g_object_unref (layout);
+    default_width = MAX(default_width, title_width);
+    if (default_width)
+        default_width += 10; /* padding on either side */
+    gnc_tree_view_column_properties (view, column, pref_name, model_data_column,
+                                     default_width, TRUE, column_sort_fn);
+
+    gnc_tree_view_append_column (view, column);
+    return column;
 }
 
 

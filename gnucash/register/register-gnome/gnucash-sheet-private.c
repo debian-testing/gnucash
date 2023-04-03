@@ -257,30 +257,6 @@ static guint32 inc_intensity_10percent (guint32 argb)
 }
 #endif
 
-/** For a given byte value, multiply the value by a rational number,
-specified by numerator and denominator. This is some simple integer arithmetics
-for the case when we don't even need a conversion to floating point and
-backwards. */
-static guint8 dec_intensity_byte (guint8 input, int numerator, int denominator)
-{
-    guint8 result;
-    result = (input * numerator) / denominator;
-    return result;
-}
-
-/** For a given RGB value, decrease the color intensity for each of the three
-colors identically by 10 percent and return this changed RGB value. */
-static guint32 dec_intensity_10percent (guint32 argb)
-{
-    // Multiply each single byte by 9/10 i.e. by 0.9 which decreases the
-    // intensity by 10 percent.
-    guint32 result =
-            (dec_intensity_byte ((argb & 0x00FF0000) >> 16, 9, 10) << 16)
-            + (dec_intensity_byte ((argb & 0x0000FF00) >> 8, 9, 10) << 8)
-            + (dec_intensity_byte (argb & 0x000000FF, 9, 10));
-    return result;
-}
-
 /* Actual drawing routines */
 
 static inline void
@@ -375,6 +351,13 @@ draw_divider_line (cairo_t *cr, VirtualLocation virt_loc,
 }
 
 static void
+set_cell_insensitive (GtkStyleContext *stylectxt)
+{
+    if (!gtk_style_context_has_class (stylectxt, GTK_STYLE_CLASS_BACKGROUND))
+        gtk_style_context_set_state (stylectxt, GTK_STATE_FLAG_INSENSITIVE);
+}
+
+static void
 draw_cell (GnucashSheet *sheet, SheetBlock *block,
            VirtualLocation virt_loc, cairo_t *cr,
            int x, int y, int width, int height)
@@ -409,10 +392,7 @@ draw_cell (GnucashSheet *sheet, SheetBlock *block,
     gnucash_get_style_classes (sheet, stylectxt, color_type, use_neg_class);
 
     if (sheet->read_only)
-    {
-        if (!gtk_style_context_has_class (stylectxt, GTK_STYLE_CLASS_BACKGROUND))
-            gtk_style_context_set_state (stylectxt, GTK_STATE_FLAG_INSENSITIVE);
-    }
+        set_cell_insensitive (stylectxt);
     else
     {
         if (gtk_style_context_has_class (stylectxt, GTK_STYLE_CLASS_BACKGROUND))
@@ -421,11 +401,27 @@ draw_cell (GnucashSheet *sheet, SheetBlock *block,
 
     // Are we in a read-only row? Then make the background color somewhat more grey.
     if ((virt_loc.phys_row_offset < block->style->nrows)
-                && (table->model->dividing_row_upper >= 0)
-                && (virt_loc.vcell_loc.virt_row < table->model->dividing_row_upper))
+         && (table->model->dividing_row_upper >= 0))
     {
-        if (!gtk_style_context_has_class (stylectxt, GTK_STYLE_CLASS_BACKGROUND))
-            gtk_style_context_set_state (stylectxt, GTK_STATE_FLAG_INSENSITIVE);
+        if (table->model->reverse_sort)
+        {
+            if ((table->model->blank_trans_row < table->model->dividing_row_upper)
+                 && (virt_loc.vcell_loc.virt_row >= table->model->dividing_row_upper))
+            {
+                set_cell_insensitive (stylectxt); // future trans after blank
+            }
+
+            if ((virt_loc.vcell_loc.virt_row >= table->model->dividing_row_upper)
+                 && (virt_loc.vcell_loc.virt_row < table->model->blank_trans_row))
+            {
+                set_cell_insensitive (stylectxt);
+            }
+        }
+        else // normal order
+        {
+            if (virt_loc.vcell_loc.virt_row < table->model->dividing_row_upper)
+                set_cell_insensitive (stylectxt);
+        }
     }
 
     gtk_render_background (stylectxt, cr, x, y, width, height);
@@ -513,6 +509,26 @@ draw_cell (GnucashSheet *sheet, SheetBlock *block,
         gtk_style_context_add_class (stylectxt, "gnc-class-lighter-grey-mix");
     }
 #endif
+
+    if ((text != NULL) && (*text != '\0') && g_strcmp0 (PRICE_CELL_TYPE_NAME,
+         gnc_table_get_cell_type_name (table, virt_loc)) == 0)
+    {
+        int text_width;
+        int text_border_padding;
+
+        pango_layout_get_pixel_size (layout, &text_width, NULL);
+
+        text_border_padding = gnc_item_edit_get_margin (item_edit, left_right) +
+                              gnc_item_edit_get_padding_border (item_edit, left_right);
+
+        if (text_width + text_border_padding > width)
+        {
+            int pango_width = (width - text_border_padding) * PANGO_SCALE;
+
+            pango_layout_set_width (layout, pango_width); //pango units
+            pango_layout_set_ellipsize (layout, PANGO_ELLIPSIZE_END);
+        }
+    }
 
     /* If this is the currently open transaction and
        there is no text in this cell */

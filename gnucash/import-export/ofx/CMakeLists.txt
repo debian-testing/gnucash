@@ -15,10 +15,17 @@ set(ofx_noinst_HEADERS
   gnc-plugin-ofx.h
 )
 
-set(ofx_UI gnc-plugin-ofx-ui.xml)
+set(ofx_UI gnc-plugin-ofx.ui)
 
 if (WITH_OFX)
-  add_library(gncmod-ofx ${ofx_SOURCES} ${ofx_noinst_HEADERS})
+
+  gnc_generate_gresources(BASE ofx-gresources RESOURCE_FILES ${ofx_UI})
+
+  add_library(gncmod-ofx
+    ${ofx_SOURCES}
+    ${CMAKE_CURRENT_BINARY_DIR}/ofx-gresources.c
+    ${ofx_noinst_HEADERS}
+  )
 
   target_link_libraries(gncmod-ofx gnc-generic-import gnc-engine gnc-app-utils gnc-core-utils
                     gnc-gnome-utils gnc-gnome gnc-module ${LIBOFX_LDFLAGS})
@@ -27,20 +34,15 @@ if (WITH_OFX)
 
   target_include_directories(gncmod-ofx PRIVATE ${LIBOFX_INCLUDE_DIRS})
 
-if (APPLE)
-  set_target_properties (gncmod-ofx PROPERTIES INSTALL_NAME_DIR "${CMAKE_INSTALL_FULL_LIBDIR}/gnucash")
-endif()
+  if (APPLE)
+    set_target_properties (gncmod-ofx PROPERTIES INSTALL_NAME_DIR "${CMAKE_INSTALL_FULL_LIBDIR}/gnucash")
+  endif()
 
   install(TARGETS gncmod-ofx
   LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}/gnucash
   ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}/gnucash
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 
-  install(FILES ${ofx_UI} DESTINATION  ${CMAKE_INSTALL_DATADIR}/gnucash/ui)
-
-  foreach(ui_file ${ofx_UI})
-      configure_file(${ui_file} ${DATADIR_BUILD}/gnucash/ui/${ui_file} COPYONLY)
-  endforeach()
 endif()
 
 set_local_dist(ofx_DIST_local CMakeLists.txt ${ofx_SOURCES} ${ofx_noinst_HEADERS} ${ofx_UI})

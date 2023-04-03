@@ -23,7 +23,7 @@
   (test-end "test-average-balance"))
 
 (define (set-option! options page tag value)
-  ((gnc:option-setter (gnc:lookup-option options page tag)) value))
+  (gnc-set-option options page tag value))
 
 (define (teardown)
   (gnc-clear-current-session))
@@ -43,6 +43,7 @@
 
 (define (test-average-balance)
   (let* ((env (create-test-env))
+         (book (gnc-get-current-book))
          (account-alist (env-create-account-structure-alist env structure))
          (options (gnc:make-report-options uuid))
          (bank (cdr (assoc "Bank" account-alist)))

@@ -6,6 +6,7 @@ add_subdirectory(test)
 set (aqbanking_SOURCES
   dialog-ab-trans.c
   dialog-ab-daterange.c
+  dialog-ab-select-imexporter.c
   assistant-ab-initial.c
   gnc-ab-getbalance.c
   gnc-ab-gettrans.c
@@ -25,6 +26,7 @@ set_source_files_properties (${aqbanking_SOURCES} PROPERTIES OBJECT_DEPENDS ${CO
 set (aqbanking_noinst_HEADERS
   dialog-ab-trans.h
   dialog-ab-daterange.h
+  dialog-ab-select-imexporter.h
   assistant-ab-initial.h
   gnc-ab-getbalance.h
   gnc-ab-gettrans.h
@@ -39,11 +41,15 @@ set (aqbanking_noinst_HEADERS
 
 set(aqbanking_GLADE assistant-ab-initial.glade dialog-ab.glade dialog-ab-pref.glade)
 
-set(aqbanking_UI gnc-plugin-aqbanking-ui.xml)
+set(aqbanking_UI gnc-plugin-aqbanking.ui)
 
 if(WITH_AQBANKING)
+
+  gnc_generate_gresources(BASE aqb-gresources RESOURCE_FILES ${aqbanking_UI})
+
   add_library (gncmod-aqbanking
     ${aqbanking_SOURCES}
+    ${CMAKE_CURRENT_BINARY_DIR}/aqb-gresources.c
     ${aqbanking_noinst_HEADERS}
   )
 
@@ -61,35 +67,28 @@ if(WITH_AQBANKING)
          gnc-register-gnome gnc-ledger-core gnc-engine gwengui-gtk3
          ${AQB_EXPORT_SYMBOLS} ${AQBANKING_LDFLAGS}
          ${GWENHYWFAR_LDFLAGS} ${GWEN_GTK3_LDFLAGS}
-         ${GNOME_LDFLAGS} ${AQB_LIBSTDCXX})
+         ${AQB_LIBSTDCXX})
 
-  target_compile_definitions(gncmod-aqbanking PRIVATE -DG_LOG_DOMAIN=\"gnc.import.aqbanking\")
-  target_compile_options(gncmod-aqbanking PRIVATE -Wno-deprecated-declarations)
+  target_compile_definitions(gncmod-aqbanking PRIVATE G_LOG_DOMAIN=\"gnc.import.aqbanking\")
+  target_compile_definitions(gncmod-aqbanking PRIVATE AQBANKING_NOWARN_DEPRECATED)
 
   target_include_directories(gncmod-aqbanking PRIVATE
     ${AQBANKING_INCLUDE_DIRS}
     ${GWENHYWFAR_INCLUDE_DIRS}
     ${GWEN_GTK3_INCLUDE_DIRS})
 
-if (APPLE)
-  set_target_properties (gncmod-aqbanking PROPERTIES INSTALL_NAME_DIR "${CMAKE_INSTALL_FULL_LIBDIR}/gnucash")
-endif()
+  if (APPLE)
+    set_target_properties (gncmod-aqbanking PROPERTIES INSTALL_NAME_DIR "${CMAKE_INSTALL_FULL_LIBDIR}/gnucash")
+  endif()
 
   install(TARGETS gncmod-aqbanking
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}/gnucash
     ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}/gnucash
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 
-# No headers to install
-
+  # No headers to install
 
   install(FILES ${aqbanking_GLADE} DESTINATION  ${CMAKE_INSTALL_DATADIR}/gnucash/gtkbuilder)
-
-  install(FILES ${aqbanking_UI} DESTINATION  ${CMAKE_INSTALL_DATADIR}/gnucash/ui)
-
-  foreach(ui_file ${aqbanking_UI})
-      configure_file(${ui_file} ${DATADIR_BUILD}/gnucash/ui/${ui_file} COPYONLY)
-  endforeach()
 
   foreach(glade_file ${aqbanking_GLADE})
       configure_file(${glade_file} ${DATADIR_BUILD}/gnucash/gtkbuilder/${glade_file} COPYONLY)

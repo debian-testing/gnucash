@@ -40,23 +40,11 @@ static GList *book_list = NULL;
  * They should be removed when no longer needed
  */
 
-#ifdef __cplusplus
 extern "C"
 {
-#endif
 
-gboolean get_object_is_initialized( void );
 GList* get_object_modules( void );
 GList* get_book_list( void );
-
-#ifdef __cplusplus
-}
-#endif
-
-gboolean
-get_object_is_initialized( void )
-{
-    return object_is_initialized;
 }
 
 GList*
@@ -282,12 +270,6 @@ const char * qof_object_get_type_label (QofIdTypeConst type_name)
     if (!obj) return NULL;
 
     return (obj->type_label);
-}
-
-static gboolean clear_table (gpointer key, gpointer value, gpointer user_data)
-{
-    g_hash_table_destroy (static_cast<GHashTable*>(value));
-    return TRUE;
 }
 
 /* INITIALIZATION and PRIVATE FUNCTIONS */

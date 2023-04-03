@@ -22,12 +22,9 @@
 \********************************************************************/
 
 #include <guid.hpp>
-extern "C"
-{
 #include <config.h>
 #include <platform.h>
 #include <gnc-locale-utils.h>
-}
 
 #include <string>
 #include <regex>
@@ -46,14 +43,13 @@ const std::string lock_table = "gnclock";
 class GncDbiSqlStatement : public GncSqlStatement
 {
 public:
-    GncDbiSqlStatement(const GncSqlConnection* conn, const std::string& sql) :
-        m_conn{conn}, m_sql {sql} {}
+    GncDbiSqlStatement(const std::string& sql) :
+        m_sql {sql} {}
     ~GncDbiSqlStatement() {}
     const char* to_sql() const override;
     void add_where_cond(QofIdTypeConst, const PairVec&) override;
 
 private:
-    const GncSqlConnection* m_conn = nullptr;
     std::string m_sql;
 };
 
@@ -324,7 +320,7 @@ GncSqlStatementPtr
 GncDbiSqlConnection::create_statement_from_sql (const std::string& sql)
     const noexcept
 {
-    return std::unique_ptr<GncSqlStatement>{new GncDbiSqlStatement (this, sql)};
+    return std::unique_ptr<GncSqlStatement>{new GncDbiSqlStatement (sql)};
 }
 
 bool
@@ -543,7 +539,6 @@ GncDbiSqlConnection::quote_string (const std::string& unquoted_str)
     const noexcept
 {
     char* quoted_str;
-    size_t size;
 
     dbi_conn_quote_string_copy (m_conn, unquoted_str.c_str(),
                                 &quoted_str);
@@ -556,7 +551,7 @@ GncDbiSqlConnection::quote_string (const std::string& unquoted_str)
 
 
 /** Check if the dbi connection is valid. If not attempt to re-establish it
- * Returns TRUE is there is a valid connection in the end or FALSE otherwise
+ * Returns TRUE if there is a valid connection in the end or FALSE otherwise
  */
 bool
 GncDbiSqlConnection::verify () noexcept

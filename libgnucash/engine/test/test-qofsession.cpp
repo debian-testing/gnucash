@@ -34,7 +34,6 @@ static QofBook * exported_book {nullptr};
 static bool safe_sync_called {false};
 static bool sync_called {false};
 static bool load_error {true};
-static bool hook_called {false};
 static bool data_loaded {false};
 
 class QofSessionMockBackend : public QofBackend
@@ -52,18 +51,12 @@ public:
     void export_coa(QofBook*);
 };
 
-static void
-example_hook (QofSession & session)
-{
-    hook_called = true;
-}
-
 void QofSessionMockBackend::load (QofBook *book, QofBackendLoadType)
 {
     if (load_error)
         set_error(ERR_BACKEND_NO_BACKEND);
     else
-        auto root = gnc_account_create_root (book);
+        gnc_account_create_root (book);
     data_loaded = true;
 }
 

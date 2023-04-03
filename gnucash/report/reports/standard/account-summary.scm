@@ -23,9 +23,6 @@
 ;;    This code makes the assumption that you want your account
 ;;    summary to no more than daily resolution.
 ;;    
-;;    The Company Name field does not currently default to the name
-;;    in (gnc-get-current-book).
-;;    
 ;;    The variables in this code could use more consistent naming.
 ;;    
 ;;    See also all the "FIXME"s in the code.
@@ -61,7 +58,7 @@
 (use-modules (gnucash core-utils))
 (use-modules (gnucash app-utils))
 (use-modules (gnucash report))
-
+(use-modules (sw_expressions))
 ;; account summary report prints a table of account information,
 ;; optionally with clickable links to open the corresponding register
 ;; window.
@@ -71,9 +68,6 @@
 
 (define optname-report-title (N_ "Report Title"))
 (define opthelp-report-title (N_ "Title for this report."))
-
-(define optname-party-name (N_ "Company name"))
-(define opthelp-party-name (N_ "Name of company/individual."))
 
 ;; fsts:
 (define optname-from-date (N_ "Start Date"))
@@ -142,24 +136,14 @@
   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (define (accsum-options-generator sx? reportname)
-  (let* ((options (gnc:new-options))
-         (add-option
-          (lambda (new-option)
-            (gnc:register-option options new-option))))
+  (let* ((options (gnc-new-optiondb)))
 
-    (add-option
-     (gnc:make-string-option
+   (gnc-register-string-option options
       gnc:pagename-general optname-report-title
-      "a" opthelp-report-title (G_ reportname)))
-    (add-option
-     (gnc:make-string-option
-      gnc:pagename-general optname-party-name
-      "b" opthelp-party-name ""))
-    ;; this should default to company name in (gnc-get-current-book)
-    ;; does anyone know the function to get the company name??
+      "a" opthelp-report-title (G_ reportname))
 
     ;; date at which to report balance
-    (if sx?
+   (if sx?
         (gnc:options-add-date-interval!
          options gnc:pagename-general
          optname-from-date optname-to-date "c")
@@ -167,98 +151,83 @@
          options gnc:pagename-general optname-date "c"))
 
     ;; accounts to work on
-    (add-option
-     (gnc:make-account-list-option
+   (gnc-register-account-list-option options
       gnc:pagename-accounts optname-accounts
       "a"
       opthelp-accounts
-      (lambda ()
-        (gnc:filter-accountlist-type
-         (list ACCT-TYPE-BANK ACCT-TYPE-CASH ACCT-TYPE-CREDIT
-               ACCT-TYPE-ASSET ACCT-TYPE-LIABILITY
-               ACCT-TYPE-STOCK ACCT-TYPE-MUTUAL ACCT-TYPE-CURRENCY
-               ACCT-TYPE-PAYABLE ACCT-TYPE-RECEIVABLE
-               ACCT-TYPE-EQUITY ACCT-TYPE-INCOME ACCT-TYPE-EXPENSE)
-         (gnc-account-get-descendants-sorted (gnc-get-current-root-account))))
-      #f #t))
+      (gnc:filter-accountlist-type
+        (list ACCT-TYPE-BANK ACCT-TYPE-CASH ACCT-TYPE-CREDIT
+            ACCT-TYPE-ASSET ACCT-TYPE-LIABILITY
+            ACCT-TYPE-STOCK ACCT-TYPE-MUTUAL ACCT-TYPE-CURRENCY
+            ACCT-TYPE-PAYABLE ACCT-TYPE-RECEIVABLE
+            ACCT-TYPE-EQUITY ACCT-TYPE-INCOME ACCT-TYPE-EXPENSE)
+            (gnc-account-get-descendants-sorted (gnc-get-current-root-account))))
 
-    (gnc:options-add-account-levels!
+   (gnc:options-add-account-levels!
      options gnc:pagename-accounts optname-depth-limit
      "b" opthelp-depth-limit 3)
 
-    (add-option
-     (gnc:make-multichoice-option
+   (gnc-register-multichoice-option options
       gnc:pagename-accounts optname-bottom-behavior
-      "c" opthelp-bottom-behavior 'summarize
+      "c" opthelp-bottom-behavior "summarize"
       (list
-       (vector 'summarize (N_ "Recursive Balance"))
-       (vector 'flatten (N_ "Raise Accounts"))
-       (vector 'truncate (N_ "Omit Accounts")))))
+       (vector "summarize" (N_ "Recursive Balance"))
+       (vector "flatten" (N_ "Raise Accounts"))
+       (vector "truncate" (N_ "Omit Accounts"))))
 
     ;; all about currencies
-    (gnc:options-add-currency!
+   (gnc:options-add-currency!
      options pagename-commodities
      optname-report-commodity "a")
 
-    (gnc:options-add-price-source!
+   (gnc:options-add-price-source!
      options pagename-commodities
      optname-price-source "b" 'pricedb-nearest)
 
-    (add-option
-     (gnc:make-simple-boolean-option
+   (gnc-register-simple-boolean-option options
       pagename-commodities optname-show-foreign
-      "c" opthelp-show-foreign #t))
+      "c" opthelp-show-foreign #t)
 
-    (add-option
-     (gnc:make-simple-boolean-option
+   (gnc-register-simple-boolean-option options
       pagename-commodities optname-show-rates
-      "d" opthelp-show-rates #f))
+      "d" opthelp-show-rates #f)
 
     ;; what to show for zero-balance accounts
-    (add-option
-     (gnc:make-simple-boolean-option
+   (gnc-register-simple-boolean-option options
       gnc:pagename-display optname-show-zb-accts
-      "a" opthelp-show-zb-accts #t))
-    (add-option
-     (gnc:make-simple-boolean-option
+      "a" opthelp-show-zb-accts #t)
+   (gnc-register-simple-boolean-option options
       gnc:pagename-display optname-omit-zb-bals
-      "b" opthelp-omit-zb-bals #f))
+      "b" opthelp-omit-zb-bals #f)
     ;; what to show for non-leaf accounts
-    (gnc:options-add-subtotal-view!
+   (gnc:options-add-subtotal-view!
      options gnc:pagename-display
      optname-parent-balance-mode optname-parent-total-mode
      "c")
 
     ;; some detailed formatting options
-    (add-option
-     (gnc:make-simple-boolean-option
+    (gnc-register-simple-boolean-option options
       gnc:pagename-display optname-account-links
-      "e" opthelp-account-links #t))
-    (add-option
-     (gnc:make-simple-boolean-option
+      "e" opthelp-account-links #t)
+    (gnc-register-simple-boolean-option options
       gnc:pagename-display optname-use-rules
-      "f" opthelp-use-rules #f))
+      "f" opthelp-use-rules #f)
 
-    (add-option
-     (gnc:make-simple-boolean-option
+    (gnc-register-simple-boolean-option options
       gnc:pagename-display optname-show-bals
-      "g" opthelp-show-bals #t))
-    (add-option
-     (gnc:make-simple-boolean-option
+      "g" opthelp-show-bals #t)
+    (gnc-register-simple-boolean-option options
       gnc:pagename-display optname-show-code
-      "h" opthelp-show-code #t))
-    (add-option
-     (gnc:make-simple-boolean-option
+      "h" opthelp-show-code #t)
+    (gnc-register-simple-boolean-option options
       gnc:pagename-display optname-show-desc
-      "i" opthelp-show-desc #f))
-    (add-option
-     (gnc:make-simple-boolean-option
+      "i" opthelp-show-desc #f)
+    (gnc-register-simple-boolean-option options
       gnc:pagename-display optname-show-type
-      "j" opthelp-show-type #f))
-    (add-option
-     (gnc:make-simple-boolean-option
+      "j" opthelp-show-type #f)
+    (gnc-register-simple-boolean-option options
       gnc:pagename-display optname-show-notes
-      "k" opthelp-show-notes #f))
+      "k" opthelp-show-notes #f)
 
     ;; Set the general page as default option tab
     (gnc:options-set-default-section options gnc:pagename-display)
@@ -271,14 +240,13 @@
 
 (define (accsum-renderer report-obj sx? reportname)
   (define (get-option pagename optname)
-    (gnc:option-value
-     (gnc:lookup-option
-      (gnc:report-options report-obj) pagename optname)))
+    (gnc-optiondb-lookup-value
+      (gnc:report-options report-obj) pagename optname))
 
   (gnc:report-starting reportname)
 
   (let* ((report-title (get-option gnc:pagename-general optname-report-title))
-         (company-name (get-option gnc:pagename-general optname-party-name))
+         (company-name (or (gnc:company-info (gnc-get-current-book) gnc:*company-name*) ""))
          (from-date (and sx?
                          (gnc:time64-start-day-time
                           (gnc:date-option-absolute-time
@@ -318,14 +286,17 @@
          (exchange-fn (gnc:case-exchange-fn price-source report-commodity to-date)))
 
     (gnc:html-document-set-title!
-     doc (string-append
-          company-name " " report-title " "
-          (if sx?
-              ;; Translators: This is part of the report title, which is capitalzed in English, but not all other languages
-              (format #f (G_ "For Period Covering ~a to ~a")
-                      (qof-print-date from-date)
-                      (qof-print-date to-date))
-              (qof-print-date to-date))))
+     doc
+     (if sx?
+         (gnc:format (G_ "${company-name} ${report-title} For Period Covering ${start} to ${end}")
+                     'company-name company-name
+                     'report-title report-title
+                     'start (qof-print-date from-date)
+                     'end (qof-print-date to-date))
+         (gnc:format "${company-name} ${report-title} ${date}"
+                     'company-name company-name
+                     'report-title report-title
+                     'date (qof-print-date to-date))))
 
     (if (null? accounts)
 

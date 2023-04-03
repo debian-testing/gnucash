@@ -31,11 +31,8 @@
 //We'd prefer to use std::codecvt, but it's not supported by gcc until 5.0.
 #include <boost/locale/encoding_utf.hpp>
 #endif
-extern "C"
-{
 #include "qoflog.h"
 static const QofLogModule log_module = "gnc-timezone";
-}
 
 using namespace gnc::date;
 
@@ -359,8 +356,8 @@ namespace IANAParser
 	std::ifstream ifs;
         auto tzname = name;
         if (tzname.empty())
-            if (auto tzenv = getenv("TZ"))
-                tzname = std::string(std::getenv("TZ"));
+            if (auto tzenv = std::getenv("TZ"))
+                tzname = std::string(tzenv);
         //std::cout << "Testing tzname " << tzname << "\n";
         if (!tzname.empty())
         {
@@ -778,6 +775,6 @@ TimeZoneProvider::get(int year) const noexcept
 void
 TimeZoneProvider::dump() const noexcept
 {
-    for (auto zone : m_zone_vector)
+    for (const auto& zone : m_zone_vector)
 	std::cout << zone.first << ": " << zone.second->to_posix_string() << "\n";
 }

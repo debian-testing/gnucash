@@ -25,7 +25,11 @@
 #include <config.h>
 
 #include <glib/gi18n.h>
+#include <stdbool.h>
+#include <stdio.h>
 
+#include "Account.h"
+#include "Transaction.h"
 #include "account-quickfill.h"
 #include "combocell.h"
 #include "gnc-component-manager.h"
@@ -50,6 +54,7 @@ static QofLogModule log_module = GNC_MOD_LEDGER;
 static void gnc_split_register_load_xfer_cells (SplitRegister* reg,
                                                 Account* base_account);
 
+static void gnc_split_register_load_desc_cells (SplitRegister* reg);
 static void
 gnc_split_register_load_recn_cells (SplitRegister* reg)
 {
@@ -240,10 +245,6 @@ static void add_quickfill_completions (TableLayout* layout, Transaction* trans,
                                        Split* split, gboolean has_last_num)
 {
     gnc_quickfill_cell_add_completion (
-        (QuickFillCell*) gnc_table_layout_get_cell (layout, DESC_CELL),
-        xaccTransGetDescription (trans));
-
-    gnc_quickfill_cell_add_completion (
         (QuickFillCell*) gnc_table_layout_get_cell (layout, NOTES_CELL),
         xaccTransGetNotes (trans));
 
@@ -425,8 +426,12 @@ gnc_split_register_load (SplitRegister* reg, GList* slist,
     ((PriceCell*) gnc_table_layout_get_cell (reg->table->layout, PRIC_CELL),
      gnc_commodity_print_info (account_comm, FALSE));
 
-    gnc_doclink_cell_set_use_glyphs
-    ((Doclinkcell *) gnc_table_layout_get_cell (table->layout, DOCLINK_CELL));
+    /* Only test for linked document glyths once */
+    if (info->first_pass)
+    {
+        gnc_doclink_cell_set_use_glyphs
+        ((Doclinkcell *) gnc_table_layout_get_cell (table->layout, DOCLINK_CELL));
+    }
 
     /* make sure we have a blank split */
     if (blank_split == NULL)
@@ -528,6 +533,7 @@ gnc_split_register_load (SplitRegister* reg, GList* slist,
 
         /* load up account names into the transfer combobox menus */
         gnc_split_register_load_xfer_cells (reg, default_account);
+        gnc_split_register_load_desc_cells (reg);
         gnc_split_register_load_doclink_cells (reg);
         gnc_split_register_load_recn_cells (reg);
         gnc_split_register_load_type_cells (reg);
@@ -605,7 +611,8 @@ gnc_split_register_load (SplitRegister* reg, GList* slist,
             use_autoreadonly &&
             !found_divider_upper)
         {
-            if (xaccTransGetDate (trans) >= autoreadonly_time)
+            if (((table->model->reverse_sort && xaccTransGetDate(trans) < autoreadonly_time) ||
+                 (!table->model->reverse_sort && xaccTransGetDate (trans) >= autoreadonly_time)))
             {
                 table->model->dividing_row_upper = vcell_loc.virt_row;
                 found_divider_upper = TRUE;
@@ -616,9 +623,9 @@ gnc_split_register_load (SplitRegister* reg, GList* slist,
             }
         }
 
-        if (info->show_present_divider &&
-            !found_divider &&
-            (xaccTransGetDate (trans) > present))
+        if (info->show_present_divider && !found_divider &&
+            ((table->model->reverse_sort && xaccTransGetDate (trans) < present) ||
+             (!table->model->reverse_sort && xaccTransGetDate (trans) > present)))
         {
             table->model->dividing_row = vcell_loc.virt_row;
             found_divider = TRUE;
@@ -639,6 +646,9 @@ gnc_split_register_load (SplitRegister* reg, GList* slist,
                     save_loc.phys_col_offset = 0;
                 }
 
+                // used in the setting the rows insensitive
+                table->model->blank_trans_row = vcell_loc.virt_row;
+
                 gnc_split_register_add_transaction (reg,
                                                     blank_trans, blank_split,
                                                     lead_cursor, split_cursor,
@@ -649,7 +659,6 @@ gnc_split_register_load (SplitRegister* reg, GList* slist,
                                                     &vcell_loc);
 
                 table->model->dividing_row_lower = vcell_loc.virt_row;
-
                 if (!multi_line)
                     start_primary_color = !start_primary_color;
 
@@ -661,6 +670,10 @@ gnc_split_register_load (SplitRegister* reg, GList* slist,
          * fill up the quickfill cells. */
         if (info->first_pass)
             add_quickfill_completions (reg->table->layout, trans, split, has_last_num);
+
+        gnc_combo_cell_add_menu_item_unique (
+            (ComboCell*) gnc_table_layout_get_cell (reg->table->layout, DESC_CELL),
+            xaccTransGetDescription (trans));
 
         if (trans == find_trans)
             new_trans_row = vcell_loc.virt_row;
@@ -722,6 +735,9 @@ gnc_split_register_load (SplitRegister* reg, GList* slist,
             save_loc.phys_col_offset = 0;
         }
 
+        // used in the setting the rows insensitive
+        table->model->blank_trans_row = vcell_loc.virt_row;
+
         gnc_split_register_add_transaction (reg, blank_trans, blank_split,
                                             lead_cursor, split_cursor,
                                             multi_line, start_primary_color,
@@ -731,7 +747,9 @@ gnc_split_register_load (SplitRegister* reg, GList* slist,
                                             &vcell_loc);
 
         if (future_after_blank)
+        {
             table->model->dividing_row_lower = vcell_loc.virt_row;
+        }
     }
 
     /* go to blank on first pass */
@@ -851,4 +869,17 @@ gnc_split_register_load_xfer_cells (SplitRegister* reg, Account* base_account)
     gnc_combo_cell_use_list_store_cache (cell, store);
 }
 
+static void
+gnc_split_register_load_desc_cells (SplitRegister* reg)
+{
+    ComboCell* cell;
+    GtkListStore* store = gtk_list_store_new (1, G_TYPE_STRING);
+
+    cell = (ComboCell*)
+           gnc_table_layout_get_cell (reg->table->layout, DESC_CELL);
+
+    gnc_combo_cell_use_type_ahead_only (cell);
+
+    gnc_combo_cell_use_list_store_cache (cell, store);
+}
 /* ====================== END OF FILE ================================== */

@@ -75,7 +75,7 @@ Lastly, for repeated imports the preview page has buttons to Load and Save the s
             <property name="visible">True</property>
             <property name="can-focus">False</property>
             <property name="label" translatable="yes">
-Select location and file name for the Import, then click "OK"...
+Select location and file name for the Import, then click "Next"…
 </property>
             <property name="wrap">True</property>
           </object>
@@ -120,9 +120,6 @@ Select location and file name for the Import, then click "OK"...
                     <property name="can-focus">False</property>
                     <property name="border-width">3</property>
                     <child>
-                      <placeholder/>
-                    </child>
-                    <child>
                       <object class="GtkButton" id="delete_settings">
                         <property name="visible">True</property>
                         <property name="can-focus">True</property>
@@ -147,6 +144,9 @@ There are two reserved names which can never be deleted:
                         <property name="pack-type">end</property>
                         <property name="position">0</property>
                       </packing>
+                    </child>
+                    <child>
+                      <placeholder/>
                     </child>
                     <child>
                       <object class="GtkButton" id="save_settings">
@@ -745,8 +745,8 @@ To know which lines belong to the same transaction, the importer will compare th
                             <property name="receives-default">False</property>
                             <property name="tooltip-text" translatable="yes">Starting from the first line that is actually imported every second line will be skipped. This option will take the leading lines to skip into account as well.
 For example
-* if 'Leading Lines to Skip' is set to 3, the first line to import will be line 4. Lines 5, 7, 9,... will be skipped.
-* if 'Leading Lines to Skip' is set to 4, the first line to import will be line 5. Lines 6, 8, 10,... will be skipped.</property>
+* if 'Leading Lines to Skip' is set to 3, the first line to import will be line 4. Lines 5, 7, 9,… will be skipped.
+* if 'Leading Lines to Skip' is set to 4, the first line to import will be line 5. Lines 6, 8, 10,… will be skipped.</property>
                             <property name="halign">start</property>
                             <property name="draw-indicator">True</property>
                             <signal name="toggled" handler="csv_tximp_preview_skiprows_cb" swapped="no"/>
@@ -957,6 +957,7 @@ For example
               <object class="GtkTreeView" id="account_match_view">
                 <property name="visible">True</property>
                 <property name="can-focus">True</property>
+                <property name="tooltip-text" translatable="yes">To change mapping, double click on a row or select a row and press the button…</property>
                 <property name="model">account_match_store</property>
                 <property name="enable-search">False</property>
                 <property name="enable-tree-lines">True</property>
@@ -1007,6 +1008,7 @@ For example
                 <property name="visible">True</property>
                 <property name="can-focus">False</property>
                 <property name="label" translatable="yes">Error text.</property>
+                <property name="xalign">0</property>
               </object>
               <packing>
                 <property name="expand">True</property>
@@ -1016,7 +1018,7 @@ For example
             </child>
             <child>
               <object class="GtkButton" id="account_match_change">
-                <property name="label" translatable="yes">Change GnuCash _Account...</property>
+                <property name="label" translatable="yes">Change GnuCash _Account…</property>
                 <property name="visible">True</property>
                 <property name="can-focus">True</property>
                 <property name="receives-default">True</property>
@@ -1143,6 +1145,9 @@ More information can be displayed by using the help button.</property>
       <object class="GtkBox">
         <property name="can-focus">False</property>
       </object>
+      <packing>
+        <property name="has-padding">False</property>
+      </packing>
     </child>
   </object>
 </interface>

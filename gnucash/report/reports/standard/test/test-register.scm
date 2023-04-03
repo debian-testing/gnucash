@@ -42,7 +42,7 @@
   (test-end "register"))
 
 (define (set-option options page tag value)
-  ((gnc:option-setter (gnc:lookup-option options page tag)) value))
+  (gnc-set-option (gnc:optiondb options) page tag value))
 
 (define (teardown)
   (gnc-clear-current-session))
@@ -51,8 +51,8 @@
   (gnc:options->sxml uuid options "test-register" test-title))
 
 (define (test-register)
-  (let* ((options (gnc:make-report-options uuid))
-         (account-alist (create-test-data))
+  (let* ((account-alist (create-test-data))
+         (options (gnc:make-report-options uuid))
          (bank (cdr (assoc "Bank" account-alist))))
 
     (gnc-commodity-set-user-symbol

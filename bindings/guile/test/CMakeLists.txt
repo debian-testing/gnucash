@@ -6,15 +6,19 @@ set(ENGINE_TEST_INCLUDE_DIRS
     ${CMAKE_SOURCE_DIR}/libgnucash/engine/test-core
     ${CMAKE_BINARY_DIR}/common # for config.h
     ${CMAKE_SOURCE_DIR}/common/test-core  # for unittest-support.h
+    ${CMAKE_SOURCE_DIR}/libgnucash/app-utils
     ${CMAKE_SOURCE_DIR}/bindings/guile # for gnc-engine-guile.h
-    ${GLIB2_INCLUDE_DIRS}
+    ${GUILE_INCLUDE_DIRS}
 )
 
 set(ENGINE_TEST_LIBS
     gnc-engine
+    gnc-app-utils
     gnc-test-engine
     test-core
     gnucash-guile
+    ${GIO_LDFLAGS}
+    ${GUILE_LDFLAGS}
     ${LIBXML2_LDFLAGS}
     -lm)
 
@@ -31,7 +35,6 @@ set(bindings_test_SCHEME
 #list(APPEND engine_test_SCHEME  test-scm-query-import.scm) Fails
 
 set(GUILE_DEPENDS
-    scm-gnc-module
     scm-app-utils
     scm-core-utils
     scm-engine)
@@ -40,12 +43,6 @@ gnc_add_scheme_test_targets(scm-test-engine-extras
     SOURCES "test-engine-extras.scm"
     OUTPUT_DIR "tests"
     DEPENDS "${GUILE_DEPENDS}")
-
-# Module interfaces deprecated in 4.x, will be removed for 5.x
-gnc_add_scheme_deprecated_module (
-    OLD_MODULE "gnucash engine test test-extras"
-    NEW_MODULE "tests test-engine-extras"
-    DEPENDS "scm-test-engine-extras")
 
 gnc_add_scheme_test_targets(scm-test-engine
     SOURCES "${bindings_test_SCHEME}"
@@ -62,6 +59,7 @@ set (scm_tests_with_srfi64_SOURCES
   test-business-core.scm
   test-scm-engine.scm
   test-scm-kvpvalue.scm
+  test-options.scm
   )
 
 if (HAVE_SRFI64)
@@ -69,12 +67,6 @@ if (HAVE_SRFI64)
         SOURCES "srfi64-extras.scm"
         OUTPUT_DIR "tests"
         DEPENDS "${GUILE_DEPENDS};scm-test-engine-extras;scm-srfi64-extras")
-
-    # Module interfaces deprecated in 4.x, will be removed for 5.x
-    gnc_add_scheme_deprecated_module (
-        OLD_MODULE "gnucash engine test srfi64-extras"
-        NEW_MODULE "tests srfi64-extras"
-        DEPENDS "scm-srfi64-extras")
 
     gnc_add_scheme_test_targets (scm-test-with-srfi64
         SOURCES "${scm_tests_with_srfi64_SOURCES}"
@@ -92,7 +84,6 @@ set(test_scm_SCHEME
 )
 
 set(GUILE_DEPENDS
-    scm-gnc-module
     scm-app-utils
     scm-engine
     scm-srfi64-extras
@@ -119,11 +110,59 @@ set(test_engine_SCHEME_DIST
     test-business-core.scm
 )
 
+set(test_app_utils_scheme_SOURCES
+        test-c-interface.scm
+        test-load-app-utils-module.scm
+        )
+
+set (test_app_utils_scheme_SRFI64_SOURCES
+        test-date-utilities.scm
+        )
+
+gnc_add_scheme_test_targets(scm-test-load-app-utils-module
+        SOURCES "test-load-app-utils-module.scm"
+        OUTPUT_DIR "tests"
+        DEPENDS "${GUILE_DEPENDS}")
+
+gnc_add_scheme_test_targets(scm-test-c-interface
+        SOURCES "test-c-interface.scm"
+        OUTPUT_DIR "tests"
+        DEPENDS "${GUILE_DEPENDS}")
+
+gnc_add_scheme_tests("${test_app_utils_scheme_SOURCES}")
+
+if (HAVE_SRFI64)
+    gnc_add_scheme_test_targets(scm-test-app-utils-srfi64
+            SOURCES "${test_app_utils_scheme_SRFI64_SOURCES}"
+            OUTPUT_DIR "tests"
+            DEPENDS "${GUILE_DEPENDS};scm-srfi64-extras")
+
+    gnc_add_scheme_test_targets(scm-test-gnc-optiondb
+            SOURCES "test-gnc-optiondb.scm" "test-gnc-option-scheme-output.scm"
+            OUTPUT_DIR "tests"
+            DEPENDS "swig-apputils-guile-cpp;scm-srfi64-extras")
+    gnc_add_scheme_tests("test-gnc-optiondb.scm")
+    gnc_add_scheme_tests("test-gnc-option-scheme-output.scm")
+    gnc_add_scheme_tests("${test_app_utils_scheme_SRFI64_SOURCES}")
+endif()
+
+gnc_add_test_with_guile(test-print-queries test-print-queries.cpp ENGINE_TEST_INCLUDE_DIRS ENGINE_TEST_LIBS)
+gnc_add_test_with_guile(test-scm-query-string test-scm-query-string.cpp
+        ENGINE_TEST_INCLUDE_DIRS ENGINE_TEST_LIBS
+        )
+
 set_local_dist(test_guile_DIST_local
     CMakeLists.txt
+    test-print-queries.cpp
     test-scm-query.cpp
+    test-scm-query-string.cpp
+    test-options.scm
+    test-gnc-optiondb.scm
+    test-gnc-option-scheme-output.scm
     ${test_engine_SCHEME_DIST}
     ${test_scm_SCHEME}
+    ${test_app_utils_scheme_SOURCES}
+    ${test_app_utils_scheme_SRFI64_SOURCES}
 )
 set(test_guile_DIST
     ${test_guile_DIST_local}
@@ -131,6 +170,7 @@ set(test_guile_DIST
 )
 
 # Define two imaginary deprecated guile modules to test the compat file generation code
+# See commit bbcffa3ec for old code using this function.
 gnc_add_scheme_deprecated_module (OLD_MODULE "gnucash deprecated-module")
 gnc_add_scheme_deprecated_module (
     OLD_MODULE "gnucash superseded-module"

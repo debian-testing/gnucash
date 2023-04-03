@@ -27,8 +27,6 @@
 #include <glib.h>
 #include <glib/gstdio.h>
 
-extern "C"
-{
 #include <config.h>
 
 #include <platform.h>
@@ -47,8 +45,6 @@ extern "C"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
-
-}
 
 #undef G_LOG_DOMAIN
 #define G_LOG_DOMAIN "qof.log"
@@ -237,7 +233,7 @@ qof_log_init_filename(const gchar* log_filename)
             g_assert(g_strcmp0(log_filename, "/dev/null") != 0);
 
             /* Windows prevents renaming of open files, so the next command silently fails there
-             * No problem, the filename on Winows will simply have the random characters */
+             * No problem, the filename on Windows will simply have the random characters */
             g_rename(fname, log_filename);
             fout = fdopen(fd, "w");
 #endif
@@ -342,7 +338,7 @@ qof_log_check(QofLogModule domain, QofLogLevel level)
 
     auto domain_vec = split_domain(domain);
 
-    for (auto part : domain_vec)
+    for (const auto& part : domain_vec)
     {
         auto iter = std::find_if(module->m_children.begin(),
                                module->m_children.end(),

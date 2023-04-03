@@ -177,23 +177,22 @@ sxftd_get_end_info(SXFromTransInfo *sxfti)
 
     if (gtk_toggle_button_get_active( GTK_TOGGLE_BUTTON(sxfti->oc_but) ))
     {
-        gchar *text, *endptr;
         guint n_occs;
 
-        text = gtk_editable_get_chars(GTK_EDITABLE(sxfti->n_occurences), 0, -1);
-        if (text == NULL || strlen(text) == 0)
+        const gchar *text = gtk_entry_get_text (GTK_ENTRY(sxfti->n_occurences));
+        if (!text || !text[0])
         {
             n_occs = 0;
         }
         else
         {
+            gchar *endptr;
             n_occs = strtoul(text, &endptr, 10);
             if ( !endptr )
             {
                 n_occs = -1;
             }
         }
-        g_free(text);
 
         retval.type = END_AFTER_N_OCCS;
         retval.n_occurrences = n_occs;
@@ -380,7 +379,8 @@ sxftd_init( SXFromTransInfo *sxfti )
 
         w = GTK_WIDGET(gtk_builder_get_object(sxfti->builder, "ex_cal_frame" ));
         sxfti->dense_cal_model = gnc_dense_cal_store_new(num_marks);
-        sxfti->example_cal = GNC_DENSE_CAL(gnc_dense_cal_new_with_model(GNC_DENSE_CAL_MODEL(sxfti->dense_cal_model)));
+        sxfti->example_cal = GNC_DENSE_CAL(gnc_dense_cal_new_with_model (GTK_WINDOW(sxfti->dialog),
+                                                                         GNC_DENSE_CAL_MODEL(sxfti->dense_cal_model)));
         g_object_ref_sink(sxfti->example_cal);
 
         g_assert(sxfti->example_cal);
@@ -446,7 +446,6 @@ sxftd_init( SXFromTransInfo *sxfti )
 static guint
 sxftd_compute_sx(SXFromTransInfo *sxfti)
 {
-    gchar *name;
     GDate date;
     GList *schedule = NULL;
     getEndTuple end_info;
@@ -455,10 +454,7 @@ sxftd_compute_sx(SXFromTransInfo *sxfti)
     SchedXaction *sx = sxfti->sx;
 
     /* get the name */
-    name = gtk_editable_get_chars(GTK_EDITABLE(sxfti->name), 0, -1);
-
-    xaccSchedXactionSetName(sx, name);
-    g_free(name);
+    xaccSchedXactionSetName(sx, gtk_entry_get_text (sxfti->name));
 
     gnc_gdate_set_time64( &date, gnc_date_edit_get_date( sxfti->startDateGDE ) );
 
@@ -694,14 +690,8 @@ sxftd_update_example_cal( SXFromTransInfo *sxfti )
     g_date_clear(&nextDate, 1);
     recurrenceListNextInstance(schedule, &date, &nextDate);
 
-    {
-        gchar *name;
-        /* get the name */
-        name = NULL;
-        name = gtk_editable_get_chars(GTK_EDITABLE(sxfti->name), 0, -1);
-        gnc_dense_cal_store_update_name(sxfti->dense_cal_model, name);
-        g_free(name);
-    }
+    gnc_dense_cal_store_update_name (sxfti->dense_cal_model,
+                                     gtk_entry_get_text (sxfti->name));
 
     {
         gchar *schedule_desc;
@@ -755,9 +745,7 @@ sxftd_update_excal_adapt( GObject *o, gpointer ud )
 void
 gnc_sx_create_from_trans( GtkWindow *parent, Transaction *trans )
 {
-#ifndef __MINGW32__
-    int errno;
-#endif
+    int sx_error;
     SXFromTransInfo *sxfti = g_new0( SXFromTransInfo, 1);
     GtkBuilder *builder;
     GtkWidget *dialog;
@@ -781,9 +769,9 @@ gnc_sx_create_from_trans( GtkWindow *parent, Transaction *trans )
 
     sxfti->sx = xaccSchedXactionMalloc(gnc_get_current_book ());
 
-    if ( (errno = sxftd_init( sxfti )) < 0 )
+    if ( (sx_error = sxftd_init( sxfti )) < 0 )
     {
-        if ( errno == SXFTD_ERRNO_OPEN_XACTION )
+        if ( sx_error == SXFTD_ERRNO_OPEN_XACTION )
         {
             gnc_error_dialog (NULL, "%s",
                               _( "Cannot create a Scheduled Transaction "
@@ -795,7 +783,7 @@ gnc_sx_create_from_trans( GtkWindow *parent, Transaction *trans )
         }
         else
         {
-            g_error("sxftd_init: %d", errno);
+            g_error("sxftd_init: %d", sx_error);
         }
     }
 

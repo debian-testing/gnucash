@@ -208,7 +208,7 @@ void
 gnc_job_window_help_cb (GtkWidget *widget, gpointer data)
 {
     JobWindow *jw = data;
-    gnc_gnome_help (GTK_WINDOW(jw->dialog), HF_HELP, HL_USAGE_JOB);
+    gnc_gnome_help (GTK_WINDOW(jw->dialog), DF_MANUAL, DL_USAGE_JOB);
 }
 
 
@@ -237,28 +237,26 @@ void
 gnc_job_name_changed_cb (GtkWidget *widget, gpointer data)
 {
     JobWindow *jw = data;
-    char *fullname, *title;
-    const char *name, *id;
+    char *title;
 
     if (!jw)
         return;
 
-    name = gtk_entry_get_text (GTK_ENTRY (jw->name_entry));
+    const char *header = (jw->dialog_type == EDIT_JOB) ?
+        _("Edit Job") : _("New Job");
+
+    const char *name = gtk_entry_get_text (GTK_ENTRY (jw->name_entry));
     if (!name || *name == '\0')
         name = _("<No name>");
 
-    id = gtk_entry_get_text (GTK_ENTRY (jw->id_entry));
-
-    fullname = g_strconcat (name, " (", id, ")", (char *)NULL);
-
-    if (jw->dialog_type == EDIT_JOB)
-        title = g_strconcat (_("Edit Job"), " - ", fullname, (char *)NULL);
+    const char *id = gtk_entry_get_text (GTK_ENTRY (jw->id_entry));
+    if (id && *id)
+        title = g_strdup_printf ("%s - %s (%s)", header, name, id);
     else
-        title = g_strconcat (_("New Job"), " - ", fullname, (char *)NULL);
+        title = g_strdup_printf ("%s - %s", header, name);
 
     gtk_window_set_title (GTK_WINDOW (jw->dialog), title);
 
-    g_free (fullname);
     g_free (title);
 }
 

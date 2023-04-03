@@ -23,8 +23,6 @@
  ********************************************************************/
 #include <glib.h>
 
-extern "C"
-{
 #include <config.h>
 #include <string.h>
 #include <unittest-support.h>
@@ -42,8 +40,7 @@ extern "C"
 #endif
 
 static const gchar *suitename = "/engine/Split";
-void test_suite_split ( void );
-}
+extern "C" void test_suite_split ( void );
 
 #include <qofinstance-p.h>
 #include <kvp-frame.hpp>
@@ -564,7 +561,6 @@ test_xaccSplitCommitEdit (Fixture *fixture, gconstpointer pData)
     gchar *msg2 = "[xaccSplitCommitEdit()] Account grabbed split prematurely.";
     gchar *logdomain = "gnc.engine";
     GLogLevelFlags loglevel = static_cast<GLogLevelFlags>(G_LOG_LEVEL_CRITICAL | G_LOG_FLAG_FATAL);
-    guint infolevel = G_LOG_LEVEL_INFO;
     guint hdlr;
     TestErrorStruct checkA = { loglevel, logdomain, msg1, 0 };
     TestErrorStruct checkB = { loglevel, logdomain, msg2, 0 };
@@ -760,10 +756,10 @@ test_get_currency_denom (Fixture *fixture, gconstpointer pData)
     const gint denom = gnc_commodity_get_fraction (fixture->curr);
     g_assert_cmpint (fixture->func->get_currency_denom (NULL), ==, 0);
     fixture->split->parent = NULL;
-    g_assert_cmpint (fixture->func->get_currency_denom (fixture->split), ==, GNC_COMMODITY_MAX_FRACTION);
+    g_assert_cmpint (fixture->func->get_currency_denom (fixture->split), ==, GNC_DENOM_AUTO);
     fixture->split->parent = txn;
     txn->common_currency = NULL;
-    g_assert_cmpint (fixture->func->get_currency_denom (fixture->split), ==, GNC_COMMODITY_MAX_FRACTION);
+    g_assert_cmpint (fixture->func->get_currency_denom (fixture->split), ==, GNC_DENOM_AUTO);
     txn->common_currency = fixture->curr;
     g_assert_cmpint (fixture->func->get_currency_denom (fixture->split), ==, denom);
 }
@@ -778,7 +774,7 @@ test_get_commodity_denom (Fixture *fixture, gconstpointer pData)
     const gint denom = gnc_commodity_get_fraction (fixture->comm);
     g_assert_cmpint (fixture->func->get_commodity_denom (NULL), ==, 0);
     fixture->split->acc = NULL;
-    g_assert_cmpint (fixture->func->get_commodity_denom (fixture->split), ==, GNC_COMMODITY_MAX_FRACTION);
+    g_assert_cmpint (fixture->func->get_commodity_denom (fixture->split), ==, GNC_DENOM_AUTO);
     fixture->split->acc = acc;
     g_assert_cmpint (fixture->func->get_commodity_denom (fixture->split), ==, denom);
 }
@@ -1107,7 +1103,6 @@ xaccSplitOrder (const Split *sa, const Split *sb)// C: 5 in 3
 static void
 test_xaccSplitOrder (Fixture *fixture, gconstpointer pData)
 {
-    const char *slot_path;
     Split *split = fixture->split;
     QofBook *book = xaccSplitGetBook (split);
     Split *o_split = xaccMallocSplit (book);

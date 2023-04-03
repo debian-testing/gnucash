@@ -38,6 +38,8 @@
 #include "gnc-commodity.h"
 #include "gnc-locale-utils.h"
 #include "gnc-prefs.h"
+#include "guid.h"
+#include "qofinstance.h"
 
 static QofLogModule log_module = GNC_MOD_COMMODITY;
 
@@ -89,9 +91,6 @@ typedef struct gnc_commodityPrivate
     /* the default display_symbol, set in iso-4217-currencies at start-up */
     const char *default_symbol;
 } gnc_commodityPrivate;
-
-static const char*
-is_unset = "unset";
 
 #define GET_PRIVATE(o) \
     ((gnc_commodityPrivate*)gnc_commodity_get_instance_private((gnc_commodity*)o))
@@ -654,7 +653,7 @@ reset_unique_name(gnc_commodityPrivate *priv)
 }
 
 /* GObject Initialization */
-G_DEFINE_TYPE_WITH_PRIVATE(gnc_commodity, gnc_commodity, QOF_TYPE_INSTANCE);
+G_DEFINE_TYPE_WITH_PRIVATE(gnc_commodity, gnc_commodity, QOF_TYPE_INSTANCE)
 
 static void
 gnc_commodity_init(gnc_commodity* com)
@@ -671,7 +670,6 @@ gnc_commodity_init(gnc_commodity* com)
     priv->quote_flag = 0;
     priv->quote_source = NULL;
     priv->quote_tz = CACHE_INSERT("");
-    priv->user_symbol = (char*) is_unset;
 
     reset_printname(priv);
     reset_unique_name(priv);
@@ -956,10 +954,6 @@ commodity_free(gnc_commodity * cm)
     g_free(priv->unique_name);
     priv->unique_name = NULL;
 
-    if (priv->user_symbol != is_unset)
-        g_free (priv->user_symbol);
-    priv->user_symbol = NULL;
-
 #ifdef ACCOUNTS_CLEANED_UP
     /* Account objects are not actually cleaned up when a book is closed (in fact
      * a memory leak), but commodities are, so in currently this warning gets hit
@@ -1191,17 +1185,13 @@ gnc_commodity_get_quote_tz(const gnc_commodity *cm)
 const char*
 gnc_commodity_get_user_symbol(const gnc_commodity *cm)
 {
-    gnc_commodityPrivate* priv;
     g_return_val_if_fail (GNC_IS_COMMODITY (cm), NULL);
-    priv = GET_PRIVATE(cm);
-    if (priv->user_symbol == is_unset)
-    {
-        GValue v = G_VALUE_INIT;
-        qof_instance_get_kvp (QOF_INSTANCE(cm), &v, 1, "user_symbol");
-        priv->user_symbol = G_VALUE_HOLDS_STRING (&v) ? g_value_dup_string (&v) : NULL;
-        g_value_unset (&v);
-    }
-    return priv->user_symbol;
+
+    GValue v = G_VALUE_INIT;
+    qof_instance_get_kvp (QOF_INSTANCE(cm), &v, 1, "user_symbol");
+    const char *rv = G_VALUE_HOLDS_STRING (&v) ? g_value_get_string (&v) : NULL;
+    g_value_unset (&v);
+    return rv;
 }
 
 /********************************************************************
@@ -1489,10 +1479,8 @@ void
 gnc_commodity_set_user_symbol(gnc_commodity * cm, const char * user_symbol)
 {
     struct lconv *lc;
-    gnc_commodityPrivate* priv;
 
     if (!cm) return;
-    priv = GET_PRIVATE(cm);
 
     ENTER ("(cm=%p, symbol=%s)", cm, user_symbol ? user_symbol : "(null)");
 
@@ -1507,31 +1495,19 @@ gnc_commodity_set_user_symbol(gnc_commodity * cm, const char * user_symbol)
     else if (!g_strcmp0(user_symbol, gnc_commodity_get_default_symbol(cm)))
 	user_symbol = NULL;
 
-    if (priv->user_symbol != is_unset)
-    {
-        if (!g_strcmp0 (user_symbol, priv->user_symbol))
-        {
-            LEAVE ("gnc_commodity_set_user_symbol: no change");
-            return;
-        }
-        g_free (priv->user_symbol);
-    }
-
     gnc_commodity_begin_edit (cm);
 
     if (user_symbol)
     {
         GValue v = G_VALUE_INIT;
         g_value_init (&v, G_TYPE_STRING);
-        g_value_set_string (&v, user_symbol);
+        g_value_set_static_string (&v, user_symbol);
         qof_instance_set_kvp (QOF_INSTANCE(cm), &v, 1, "user_symbol");
-        priv->user_symbol = g_strdup (user_symbol);
         g_value_unset (&v);
     }
     else
     {
         qof_instance_set_kvp (QOF_INSTANCE(cm), NULL, 1, "user_symbol");
-        priv->user_symbol = NULL;
     }
 
     mark_commodity_dirty(cm);
@@ -1647,77 +1623,28 @@ gnc_commodity_equiv(const gnc_commodity * a, const gnc_commodity * b)
     priv_b = GET_PRIVATE(b);
     if (priv_a->name_space != priv_b->name_space) return FALSE;
     if (g_strcmp0(priv_a->mnemonic, priv_b->mnemonic) != 0) return FALSE;
+
     return TRUE;
 }
 
 gboolean
 gnc_commodity_equal(const gnc_commodity * a, const gnc_commodity * b)
 {
-    gnc_commodityPrivate* priv_a;
-    gnc_commodityPrivate* priv_b;
-    gboolean same_book;
-
-    if (a == b) return TRUE;
-
-    if (!a || !b)
-    {
-        DEBUG ("one is NULL");
-        return FALSE;
-    }
-
-    priv_a = GET_PRIVATE(a);
-    priv_b = GET_PRIVATE(b);
-    same_book = qof_instance_get_book(QOF_INSTANCE(a)) == qof_instance_get_book(QOF_INSTANCE(b));
-
-    if ((same_book && priv_a->name_space != priv_b->name_space)
-            || (!same_book && g_strcmp0( gnc_commodity_namespace_get_name(priv_a->name_space),
-                                           gnc_commodity_namespace_get_name(priv_b->name_space)) != 0))
-    {
-        DEBUG ("namespaces differ: %p(%s) vs %p(%s)",
-               priv_a->name_space, gnc_commodity_namespace_get_name(priv_a->name_space),
-               priv_b->name_space, gnc_commodity_namespace_get_name(priv_b->name_space));
-        return FALSE;
-    }
-
-    if (g_strcmp0(priv_a->mnemonic, priv_b->mnemonic) != 0)
-    {
-        DEBUG ("mnemonics differ: %s vs %s", priv_a->mnemonic, priv_b->mnemonic);
-        return FALSE;
-    }
-
-    if (g_strcmp0(priv_a->fullname, priv_b->fullname) != 0)
-    {
-        DEBUG ("fullnames differ: %s vs %s", priv_a->fullname, priv_b->fullname);
-        return FALSE;
-    }
-
-    if (g_strcmp0(priv_a->cusip, priv_b->cusip) != 0)
-    {
-        DEBUG ("cusips differ: %s vs %s", priv_a->cusip, priv_b->cusip);
-        return FALSE;
-    }
-
-    if (priv_a->fraction != priv_b->fraction)
-    {
-        DEBUG ("fractions differ: %d vs %d", priv_a->fraction, priv_b->fraction);
-        return FALSE;
-    }
-
-    return TRUE;
+    return gnc_commodity_compare(a, b) == 0;
 }
 
+// Used as a sorting callback for deleting old prices, so it needs to be
+// stable but doesn't need to be in any particular order sensible to humans.
 int gnc_commodity_compare(const gnc_commodity * a, const gnc_commodity * b)
 {
-    if (gnc_commodity_equal(a, b))
-    {
-        return 0;
-    }
-    else
-    {
-        return 1;
-    }
+    if (a == b) return 0;
+    if (a && !b) return 1;
+    if (b && !a) return -1;
+    return qof_instance_guid_compare(a, b);
 }
 
+// Used as a callback to g_list_find_custom, it should return 0
+// when the commodities match.
 int gnc_commodity_compare_void(const void * a, const void * b)
 {
     return gnc_commodity_compare(a, b);
@@ -2306,7 +2233,7 @@ gnc_commodity_table_get_quotable_commodities(const gnc_commodity_table * table)
  ********************************************************************/
 
 /* GObject Initialization */
-QOF_GOBJECT_IMPL(gnc_commodity_namespace, gnc_commodity_namespace, QOF_TYPE_INSTANCE);
+QOF_GOBJECT_IMPL(gnc_commodity_namespace, gnc_commodity_namespace, QOF_TYPE_INSTANCE)
 
 static void
 gnc_commodity_namespace_init(gnc_commodity_namespace* ns)

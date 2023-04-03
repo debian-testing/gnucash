@@ -25,8 +25,6 @@
 #ifndef GNCINT128_H
 #define GNCINT128_H
 
-extern "C"
-{
 #ifndef __STDC_LIMIT_MACROS
 #define  __STDC_LIMIT_MACROS 1
 #endif
@@ -37,7 +35,6 @@ extern "C"
 #define  __STDC_FORMAT_MACROS 1
 #endif
 #include <inttypes.h>
-}
 
 #include <stdexcept>
 #include <string>
@@ -90,38 +87,25 @@ enum // Values for m_flags
  */
 /** Default constructor. Makes 0. */
     GncInt128();
-    template <typename T>
+    template <typename T,
+              std::enable_if_t<std::is_integral<T>::value, bool> = true>
     GncInt128(T lower) : GncInt128(INT64_C(0), static_cast<int64_t>(lower))
-    {
-        static_assert (std::is_integral<T>(),
-                       "GncInt128 can be constructed only with "
-                       "integral arguments.");
-    }
+    {}
     GncInt128(uint64_t lower) : GncInt128 {UINT64_C(0), lower} {}
 /** Double-integer constructor template.
  */
-    template <typename T, typename U>
+    template <typename T, typename U,
+              std::enable_if_t<(std::is_integral<T>::value &&
+              std::is_integral<U>::value), bool> = true>
     GncInt128(T upper, U lower, unsigned char flags = '\0') :
         GncInt128 {static_cast<int64_t>(upper),
-                   static_cast<int64_t>(lower), flags}
-    {
-        static_assert (std::is_integral<T>(),
-                       "GncInt128 can be constructed only with "
-                       "integral arguments.");
-        static_assert (std::is_integral<U>(),
-                       "GncInt128 can be constructed only with "
-                       "integral arguments.");
-    }
+                   static_cast<int64_t>(lower), flags} {}
 
     GncInt128 (int64_t upper, int64_t lower, unsigned char flags = '\0');
-    template <typename T>
+    template <typename T,
+              std::enable_if_t<std::is_integral<T>::value, bool> = true>
     GncInt128(T upper, uint64_t lower) :
-        GncInt128 {static_cast<int64_t>(upper), lower}
-        {
-            static_assert (std::is_integral<T>(),
-                           "GncInt128 can be constructed only with "
-                           "integral arguments.");
-        }
+        GncInt128 {static_cast<int64_t>(upper), lower} {}
 
     GncInt128 (int64_t upper, uint64_t lower, unsigned char flags = '\0');
     GncInt128 (uint64_t upper, uint64_t lower, unsigned char flags = '\0');
@@ -231,7 +215,7 @@ enum // Values for m_flags
  * @param buf char[41], 39 digits plus sign and trailing 0.
  * @return pointer to the buffer for convenience
  */
-    char* asCharBufR(char* buf) const noexcept;
+    char* asCharBufR(char* buf, uint32_t size) const noexcept;
 
     GncInt128 abs() const noexcept;
 

@@ -21,16 +21,12 @@
  * Boston, MA  02110-1301,  USA       gnu@gnu.org                   *
  *                                                                  *
  ********************************************************************/
-
-extern "C"
-{
 #include <config.h>
 #include "qof.h"
 #include <glib.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
-}
 
 #include "kvp-value.hpp"
 #include "kvp-frame.hpp"
@@ -42,8 +38,6 @@ extern "C"
 
 /* This static indicates the debugging module that this .o belongs to.  */
 static QofLogModule log_module = "qof.kvp";
-
-static const char delim = '/';
 
 KvpFrameImpl::KvpFrameImpl(const KvpFrameImpl & rhs) noexcept
 {
@@ -172,7 +166,7 @@ KvpFrameImpl::to_string(std::string const & prefix) const noexcept
         return prefix;
     std::ostringstream ret;
     std::for_each(m_valuemap.begin(), m_valuemap.end(),
-        [this,&ret,&prefix](const map_type::value_type &a)
+        [&ret,&prefix](const map_type::value_type &a)
         {
             std::string new_prefix {prefix};
             if (a.first)
@@ -238,17 +232,6 @@ int compare(const KvpFrameImpl & one, const KvpFrameImpl & two) noexcept
     return 0;
 }
 
-
-static void
-gvalue_list_from_kvp_value (KvpValue *kval, gpointer pList)
-{
-    GList **gvlist = NULL;
-    GValue *gval = gvalue_from_kvp_value (kval);
-    gvlist =  (GList**)pList;
-    if (G_VALUE_TYPE (gval))
-        *gvlist = g_list_prepend (*gvlist, gval);
-}
-
 static void
 kvp_value_list_from_gvalue (GValue *gval, gpointer pList)
 {
@@ -261,15 +244,13 @@ kvp_value_list_from_gvalue (GValue *gval, gpointer pList)
 }
 
 GValue*
-gvalue_from_kvp_value (const KvpValue *kval)
+gvalue_from_kvp_value (const KvpValue *kval, GValue* val)
 {
-    GValue *val;
-    gnc_numeric num;
-    Time64 tm;
-    GDate gdate;
-
     if (kval == NULL) return NULL;
-    val = g_slice_new0 (GValue);
+    if (!val)
+        val = g_slice_new0 (GValue);
+    else
+        g_value_unset(val);
 
     switch (kval->get_type())
     {
@@ -283,36 +264,28 @@ gvalue_from_kvp_value (const KvpValue *kval)
             break;
         case KvpValue::Type::NUMERIC:
             g_value_init (val, GNC_TYPE_NUMERIC);
-            num = kval->get<gnc_numeric>();
-            g_value_set_boxed (val, &num);
+            g_value_set_static_boxed (val, kval->get_ptr<gnc_numeric>());
             break;
         case KvpValue::Type::STRING:
             g_value_init (val, G_TYPE_STRING);
-            g_value_set_string (val, kval->get<const char*>());
+            g_value_set_static_string (val, kval->get<const char*>());
             break;
         case KvpValue::Type::GUID:
             g_value_init (val, GNC_TYPE_GUID);
-            g_value_set_boxed (val, kval->get<GncGUID*>());
+            g_value_set_static_boxed (val, kval->get<GncGUID*>());
             break;
         case KvpValue::Type::TIME64:
             g_value_init (val, GNC_TYPE_TIME64);
-            tm = kval->get<Time64>();
-            g_value_set_boxed (val, &tm);
+            g_value_set_boxed (val, kval->get_ptr<Time64>());
             break;
         case KvpValue::Type::GDATE:
             g_value_init (val, G_TYPE_DATE);
-            gdate = kval->get<GDate>();
-            g_value_set_boxed (val, &gdate);
+            g_value_set_static_boxed (val, kval->get_ptr<GDate>());
             break;
         case KvpValue::Type::GLIST:
         {
-            GList *gvalue_list = NULL;
-            GList *kvp_list = kval->get<GList*>();
-            g_list_foreach (kvp_list, (GFunc)gvalue_list_from_kvp_value,
-                            &gvalue_list);
             g_value_init (val, GNC_TYPE_VALUE_LIST);
-            gvalue_list = g_list_reverse (gvalue_list);
-            g_value_set_boxed (val, gvalue_list);
+            g_value_set_static_boxed (val, kval->get<GList*>());
             break;
         }
 /* No transfer of KVP frames outside of QofInstance-derived classes! */

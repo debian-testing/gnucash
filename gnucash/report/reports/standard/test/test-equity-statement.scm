@@ -42,7 +42,7 @@
   (test-end "equity-statement"))
 
 (define (set-option options page tag value)
-  ((gnc:option-setter (gnc:lookup-option options page tag)) value))
+  (gnc-set-option (gnc:optiondb options) page tag value))
 
 (define (teardown)
   (gnc-clear-current-session))
@@ -51,8 +51,8 @@
   (gnc:options->sxml uuid options "test-equity-statement" test-title))
 
 (define (test-equity-statement)
-  (let* ((options (gnc:make-report-options uuid))
-         (account-alist (create-test-data))
+  (let* ((account-alist (create-test-data))
+         (options (gnc:make-report-options uuid))
          (gbp-bank (assoc-ref account-alist "GBP Bank"))
          (usd-bank (assoc-ref account-alist "Bank"))
          (expense (assoc-ref account-alist "Expenses"))

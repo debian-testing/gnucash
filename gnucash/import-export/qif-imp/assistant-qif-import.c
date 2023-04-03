@@ -2119,7 +2119,7 @@ gnc_ui_qif_import_account_prepare (GtkAssistant  *assistant, gpointer user_data)
     if (wind->ask_date_format && wind->date_format)
         qif_import_reparse_dates (wind);
 
-    /* make sure there is a file selected, may of come back */
+    /* make sure there is a file selected, may have come back */
     if (wind->selected_file == SCM_BOOL_F)
     {
         GtkAssistant *assistant = GTK_ASSISTANT(wind->window);
@@ -2714,7 +2714,6 @@ gnc_ui_qif_import_commodity_notebook_update_combos (QIFImportWindow * wind, gboo
     GList               *pageptr;
     GtkWidget           *notebook_page;
     QIFCommNotebookPage *comm_nb_page;
-    gboolean             pages_complete = TRUE;
 
     for (pageptr = wind->commodity_notebook_pages; pageptr; pageptr = pageptr->next)
     {

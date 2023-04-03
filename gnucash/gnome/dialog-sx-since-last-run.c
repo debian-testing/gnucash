@@ -48,10 +48,6 @@
 #include "qof.h"
 #include "gnc-ledger-display.h"
 #include "gnc-plugin-page-register.h"
-/*################## Added for Reg2 #################*/
-#include "gnc-ledger-display2.h"
-#include "gnc-plugin-page-register2.h"
-/*################## Added for Reg2 #################*/
 #include "gnc-main-window.h"
 #include "gnc-component-manager.h"
 #include "gnc-gui-query.h"
@@ -1080,11 +1076,7 @@ gnc_ui_sx_since_last_run_dialog (GtkWindow *parent, GncSxInstanceModel *sx_insta
 static void
 _show_created_transactions (GncSxSinceLastRunDialog *app_dialog, GList *created_txn_guids)
 {
-#ifdef REGISTER2_ENABLED
-    GNCLedgerDisplay2 *ledger;
-#else
     GNCLedgerDisplay *ledger;
-#endif
     GncPluginPage *page;
     Query *book_query, *guid_query, *query;
     GList *guid_iter;
@@ -1097,19 +1089,10 @@ _show_created_transactions (GncSxSinceLastRunDialog *app_dialog, GList *created_
         xaccQueryAddGUIDMatch (guid_query, (GncGUID*)guid_iter->data, GNC_ID_TRANS, QOF_QUERY_OR);
     }
     query = qof_query_merge (book_query, guid_query, QOF_QUERY_AND);
-#ifdef REGISTER2_ENABLED
-    /*################## Added for Reg2 #################*/
-    // inspired by dialog-find-transactions:do_find_cb:
-    ledger = gnc_ledger_display2_query (query, SEARCH_LEDGER2, REG2_STYLE_JOURNAL);
-    gnc_ledger_display2_refresh (ledger);
-    page = gnc_plugin_page_register2_new_ledger (ledger);
-    /*################## Added for Reg2 #################*/
-#else
     // inspired by dialog-find-transactions:do_find_cb:
     ledger = gnc_ledger_display_query (query, SEARCH_LEDGER, REG_STYLE_JOURNAL);
     gnc_ledger_display_refresh (ledger);
     page = gnc_plugin_page_register_new_ledger (ledger);
-#endif
     g_object_set (G_OBJECT(page), "page-name", _("Created Transactions"), NULL);
     gnc_main_window_open_page (NULL, page);
 
@@ -1144,7 +1127,7 @@ dialog_response_cb (GtkDialog *dialog, gint response_id, GncSxSinceLastRunDialog
     switch (response_id)
     {
     case GTK_RESPONSE_HELP:
-        gnc_gnome_help (GTK_WINDOW(dialog), HF_HELP, HL_SX_SLR);
+        gnc_gnome_help (GTK_WINDOW(dialog), DF_MANUAL, DL_SX_SLR);
         break;
 
     case GTK_RESPONSE_OK:

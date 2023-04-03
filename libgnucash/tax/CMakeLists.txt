@@ -7,15 +7,17 @@ set_source_files_properties (${locale_tax_SOURCES} PROPERTIES OBJECT_DEPENDS ${C
 
 add_library(gnc-locale-tax ${locale_tax_SOURCES})
 target_link_libraries(gnc-locale-tax
-    ${GLIB2_LDFLAGS}
+    gnc-engine
+    gnc-app-utils
+    gnucash-guile
+    PkgConfig::GLIB2
     ${GUILE_LDFLAGS})
 
 target_include_directories(gnc-locale-tax
     PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}
     PRIVATE
         ${CMAKE_BINARY_DIR}/common
-        ${GUILE_INCLUDE_DIRS}
-        ${GLIB2_INCLUDE_DIRS})
+        ${GUILE_INCLUDE_DIRS})
 
 if (APPLE)
   set_target_properties (gnc-locale-tax PROPERTIES INSTALL_NAME_DIR "${CMAKE_INSTALL_FULL_LIBDIR}")
@@ -54,7 +56,8 @@ gnc_add_scheme_targets(scm-tax-us-2
 gnc_add_scheme_targets(scm-tax-us-3
     SOURCES "${gncmod_tax_us_SCHEME_3}"
     OUTPUT_DIR "gnucash/locale/us"
-    DEPENDS "scm-tax-us-2;${GUILE_DEPENDS}")
+    DEPENDS "scm-tax-us-2;${GUILE_DEPENDS}"
+    MAKE_LINKS)
 
 gnc_add_scheme_targets(scm-tax-de_DE-1
     SOURCES "${gncmod_tax_de_DE_SCHEME_1}"
@@ -65,23 +68,13 @@ gnc_add_scheme_targets(scm-tax-de_DE-1
 gnc_add_scheme_targets(scm-tax-de_DE-2
     SOURCES "${gncmod_tax_de_DE_SCHEME_2}"
     OUTPUT_DIR "gnucash/locale/de_DE/tax"
-    DEPENDS "${GUILE_DEPENDS}"
+    DEPENDS "scm-tax-de_DE-1;${GUILE_DEPENDS}"
     MAKE_LINKS)
 
 gnc_add_scheme_targets(scm-tax-de_DE-3
     SOURCES "${gncmod_tax_de_DE_SCHEME_3}"
     OUTPUT_DIR "gnucash/locale/de_DE"
     DEPENDS "scm-tax-de_DE-2;${GUILE_DEPENDS}")
-
-# Module interfaces deprecated in 4.x, will be removed for 5.x
-gnc_add_scheme_deprecated_module (
-    OLD_MODULE "gnucash tax de_DE"
-    NEW_MODULE "gnucash locale de_DE tax"
-    DEPENDS "scm-tax-de_DE-3")
-gnc_add_scheme_deprecated_module (
-    OLD_MODULE "gnucash tax us"
-    NEW_MODULE "gnucash locale us tax"
-    DEPENDS "scm-tax-us-3")
 
 add_custom_target(scm-locale-tax ALL DEPENDS scm-tax-us-1 scm-tax-us-2 scm-tax-us-3 scm-tax-de_DE-1 scm-tax-de_DE-2 scm-tax-de_DE-3)
 

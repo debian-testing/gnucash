@@ -26,8 +26,6 @@
 
 #include <kvp-frame.hpp>
 
-extern "C"
-{
 #include <config.h>
 
 #include <sys/types.h>
@@ -50,15 +48,11 @@ extern "C"
 #include "gncInvoice.h"
     /* For version_control */
 #include <gnc-prefs.h>
-}
 /* For test_conn_index_functions */
 #include "../gnc-backend-dbi.hpp"
 #include "../gnc-backend-dbi.h"
-extern "C"
-{
 #include <unittest-support.h>
 #include <test-stuff.h>
-}
 
 #include <string>
 #include <vector>
@@ -233,7 +227,7 @@ setup_business (Fixture* fixture, gconstpointer pData)
 
     emp = gncEmployeeCreate (book);
     gncEmployeeSetID (emp, "0001");
-    gncEmployeeSetUsername (emp, "gnucash");
+    gncEmployeeSetUsername (emp, PROJECT_NAME);
     gncEmployeeSetLanguage (emp, "english");
     gncEmployeeSetCurrency (emp, currency);
 
@@ -252,12 +246,10 @@ destroy_database (gchar* url)
     gchar* dbname = NULL;
     gchar* username = NULL;
     gchar* password = NULL;
-    gchar* basename = NULL;
     gint portnum = 0;
     gchar* port = NULL;
     auto pgsql = "pgsql";
     dbi_conn conn = NULL;
-    auto errfmt = "Unable to delete tables in %s: %s";
     gint fail = 0;
     dbi_result tables;
     StrVec tblnames;
@@ -279,7 +271,7 @@ destroy_database (gchar* url)
     port = g_strdup_printf ("%d", portnum);
     if (conn == NULL)
     {
-        g_printf (errfmt, url, "failed to create connection");
+        g_printf ("delete tables in %s: failed to create connection", url);
         return;
     }
     fail = dbi_conn_set_option (conn, "host", host);
@@ -296,7 +288,7 @@ destroy_database (gchar* url)
     g_free (port);
     if (fail != 0)
     {
-        g_printf (errfmt, url, "failed to set an option");
+        g_printf ("delete tables in %s: failed to set an option", url);
         dbi_conn_close (conn);
         return;
     }
@@ -305,7 +297,7 @@ destroy_database (gchar* url)
     {
         const gchar* error;
         gint errnum = dbi_conn_error (conn, &error);
-        g_printf (errfmt, url, error);
+        g_printf ("delete tables in %s: failed to connect (error %d): %s", url, errnum, error);
         dbi_conn_close (conn);
         return;
     }
@@ -321,6 +313,7 @@ destroy_database (gchar* url)
                      std::string query{"DROP TABLE "};
                      query += table;
                      dbi_result rslt = dbi_conn_query (conn, query.c_str());
+                     dbi_result_free(rslt);
                   });
 }
 
@@ -649,7 +642,7 @@ create_dbi_test_suite (const char* dbm_name, const char* url)
     GNC_TEST_ADD (subsuite, "version_control", Fixture, url, setup_memory,
                   test_dbi_version_control, teardown);
     GNC_TEST_ADD (subsuite, "business_store_and_reload", Fixture, url,
-                  setup_business, test_dbi_version_control, teardown);
+                  setup_business, test_dbi_business_store_and_reload, teardown);
     g_free (subsuite);
 
 }

@@ -29,36 +29,21 @@
 #ifndef GNC_TX_IMPORT_HPP
 #define GNC_TX_IMPORT_HPP
 
-extern "C" {
 #include <config.h>
 
 #include "Account.h"
 #include "Transaction.h"
-}
 
 #include <vector>
 #include <set>
 #include <map>
 #include <memory>
+#include <optional>
 
 #include "gnc-tokenizer.hpp"
 #include "gnc-imp-props-tx.hpp"
 #include "gnc-imp-settings-csv-tx.hpp"
-#include <boost/optional.hpp>
 
-
-/** This struct stores a possibly incomplete transaction
- *  optionally together with its intended balance in case
- *  the user had selected a balance column. */
-struct DraftTransaction
-{
-    DraftTransaction (Transaction* tx) : trans(tx), balance(gnc_numeric_zero()), balance_set(false) {}
-    ~DraftTransaction () { if (trans) { xaccTransDestroy (trans); trans = nullptr; } }
-    Transaction* trans;
-    gnc_numeric balance;  /**< The expected balance after this transaction takes place */
-    bool balance_set;     /**< true if balance has been set from user data, false otherwise */
-    boost::optional<std::string> void_reason;
-};
 
 /* A set of currency formats that the user sees. */
 extern const int num_currency_formats;
@@ -73,21 +58,33 @@ extern const gchar* currency_format_user[];
 enum parse_line_cols {
     PL_INPUT,
     PL_ERROR,
-    PL_PRETRANS,
     PL_PRESPLIT,
     PL_SKIP
 };
+
+using StrVec = std::vector<std::string>;
 
 /** Tuple to hold all internal state for one parsed line. The contents of each
  * column is described by the parse_line_cols enum. This enum should be used
  * with std::get to access the columns. */
 using parse_line_t = std::tuple<StrVec,
-                                std::string,
-                                std::shared_ptr<GncPreTrans>,
+                                ErrMap,
                                 std::shared_ptr<GncPreSplit>,
                                 bool>;
 
 struct ErrorList;
+
+/** Exception that will be thrown whenever a parsing error is encountered.
+ *  To get a full list of current errors, call member function parse_errors().
+ */
+struct GncCsvImpParseError : public std::runtime_error
+{
+    GncCsvImpParseError(const std::string& err, ErrMap err_vec) : std::runtime_error(err), m_errors{err_vec} {}
+    ErrMap errors() const {return m_errors;}
+
+private:
+    ErrMap m_errors;
+};
 
 /** The actual TxImport class
  * It's intended to use in the following sequence of actions:
@@ -124,14 +121,12 @@ public:
     void encoding (const std::string& encoding);
     std::string encoding ();
 
-    void update_skipped_lines (boost::optional<uint32_t> start, boost::optional<uint32_t> end,
-                               boost::optional<bool> alt, boost::optional<bool> errors);
+    void update_skipped_lines (std::optional<uint32_t> start, std::optional<uint32_t> end,
+                               std::optional<bool> alt, std::optional<bool> errors);
     uint32_t skip_start_lines ();
     uint32_t skip_end_lines ();
     bool skip_alt_lines ();
     bool skip_err_lines ();
-
-    void req_mapped_accts (bool val) {m_req_mapped_accts = val; }
 
     void separators (std::string separators);
     std::string separators ();
@@ -147,7 +142,7 @@ public:
 
     void tokenize (bool guessColTypes);
 
-    std::string verify();
+    std::string verify(bool with_acct_errors);
 
     /** This function will attempt to convert all tokenized lines into
      *  transactions using the column types the user has set.
@@ -183,16 +178,15 @@ private:
      */
     std::shared_ptr<DraftTransaction> trans_properties_to_trans (std::vector<parse_line_t>::iterator& parsed_line);
 
-    /* Two internal helper functions that should only be called from within
+    /* Internal helper function that should only be called from within
      * set_column_type for consistency (otherwise error messages may not be (re)set)
      */
-    void update_pre_trans_props (uint32_t row, uint32_t col, GncTransPropType prop_type);
-    void update_pre_split_props (uint32_t row, uint32_t col, GncTransPropType prop_type);
+    void update_pre_trans_split_props (uint32_t row, uint32_t col, GncTransPropType old_type, GncTransPropType new_type);
 
-    struct CsvTranImpSettings; //FIXME do we need this line
     CsvTransImpSettings m_settings;
     bool m_skip_errors;
-    bool m_req_mapped_accts;
+    /* Field used internally to track whether some transactions are multi-currency */
+    bool m_multi_currency;
 
     /* The parameters below are only used while creating
      * transactions. They keep state information while processing multi-split

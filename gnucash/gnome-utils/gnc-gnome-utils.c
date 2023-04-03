@@ -41,7 +41,6 @@
 #include "gnc-window.h"
 #include "gnc-icons.h"
 #include "dialog-doclink-utils.h"
-#include "dialog-options.h"
 #include "dialog-commodity.h"
 #include "dialog-totd.h"
 #include "gnc-ui-util.h"
@@ -73,76 +72,16 @@ const gchar *msg_no_help_reason =
     /* Translators: URI of missing help files */
 const gchar *msg_no_help_location = N_("Expected location");
 
-static void gnc_book_options_help_cb (GNCOptionWin *win, gpointer dat);
-
 void
 gnc_gnome_utils_init (void)
 {
     gnc_component_manager_init ();
-    gnc_options_ui_initialize ();
 
     scm_init_sw_gnome_utils_module();
     scm_c_use_module ("sw_gnome_utils");
     scm_c_use_module("gnucash gnome-utils");
 }
 
-
-static void
-gnc_global_options_help_cb (GNCOptionWin *win, gpointer dat)
-{
-    gnc_gnome_help (GTK_WINDOW(gnc_options_dialog_widget (win)), HF_HELP, HL_GLOBPREFS);
-}
-
-static void
-gnc_book_options_help_cb (GNCOptionWin *win, gpointer dat)
-{
-    gnc_gnome_help (GTK_WINDOW(gnc_options_dialog_widget (win)), HF_HELP, HL_BOOK_OPTIONS);
-}
-
-void
-gnc_options_dialog_set_book_options_help_cb (GNCOptionWin *win)
-{
-    gnc_options_dialog_set_help_cb(win,
-                                (GNCOptionWinCallback)gnc_book_options_help_cb,
-                                NULL);
-}
-
-void
-gnc_options_dialog_set_new_book_option_values (GNCOptionDB *odb)
-{
-    GNCOption *num_source_option;
-    GtkWidget *num_source_is_split_action_button;
-    gboolean num_source_is_split_action;
-
-    if (!odb) return;
-    num_source_is_split_action = gnc_prefs_get_bool(GNC_PREFS_GROUP_GENERAL,
-                                                    GNC_PREF_NUM_SOURCE);
-    if (num_source_is_split_action)
-    {
-        num_source_option = gnc_option_db_get_option_by_name(odb,
-                                                 OPTION_SECTION_ACCOUNTS,
-                                                 OPTION_NAME_NUM_FIELD_SOURCE);
-        num_source_is_split_action_button =
-                                gnc_option_get_gtk_widget (num_source_option);
-        gtk_toggle_button_set_active
-                    (GTK_TOGGLE_BUTTON (num_source_is_split_action_button),
-                        num_source_is_split_action);
-    }
-}
-
-static void
-gnc_style_sheet_options_help_cb (GNCOptionWin *win, gpointer dat)
-{
-    gnc_gnome_help (GTK_WINDOW(gnc_options_dialog_widget (win)), HF_HELP, HL_STYLE_SHEET);
-}
-
-void
-gnc_options_dialog_set_style_sheet_options_help_cb (GNCOptionWin *win)
-{
-    gnc_options_dialog_set_help_cb (win,
-                                   (GNCOptionWinCallback)gnc_style_sheet_options_help_cb,
-                                    NULL);
-}
 
 /* gnc_configure_date_format
  *    sets dateFormat to the current value on the scheme side
@@ -214,8 +153,8 @@ gnc_add_css_file (void)
     gtk_style_context_add_provider_for_screen (screen, GTK_STYLE_PROVIDER (provider_app), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
     gtk_style_context_add_provider_for_screen (screen, GTK_STYLE_PROVIDER (provider_user), GTK_STYLE_PROVIDER_PRIORITY_USER);
 
-    gtk_css_provider_load_from_resource (provider_app, "/org/gnucash/gnucash.css");
-    gtk_css_provider_load_from_resource (provider_fallback,  "/org/gnucash/gnucash-fallback.css");
+    gtk_css_provider_load_from_resource (provider_app, GNUCASH_RESOURCE_PREFIX "/gnucash.css");
+    gtk_css_provider_load_from_resource (provider_fallback,  GNUCASH_RESOURCE_PREFIX "/gnucash-fallback.css");
 
     var = gnc_userconfig_dir ();
     if (var)
@@ -230,64 +169,6 @@ gnc_add_css_file (void)
     g_object_unref (provider_fallback);
 }
 
-/* This function fixes an issue with yelp that it does not work with the
- * ?anchor variant, see https://gitlab.gnome.org/GNOME/yelp/issues/116
- */
-static gchar *
-gnc_gnome_help_yelp_anchor_fix (GtkWindow *parent, const char *file_name, const char *anchor)
-{
-    const gchar * const *sdatadirs = g_get_system_data_dirs ();
-    const gchar * const *langs = g_get_language_names ();
-    gchar *lookfor = g_strconcat ("gnome/help/", file_name, NULL);
-    gchar *help_path = NULL;
-    gchar *help_file = NULL;
-    gchar *full_path = NULL;
-    gchar *uri = NULL;
-
-    for (; *sdatadirs; sdatadirs++)
-    {
-        gchar *filepath = g_build_filename (*sdatadirs, lookfor, NULL);
-        if (g_file_test (filepath, G_FILE_TEST_EXISTS))
-            help_path = g_strdup (filepath);
-        g_free (filepath);
-    }
-    g_free (lookfor);
-
-    if (!help_path)
-    {
-        gnc_error_dialog (parent, "%s\n%s", _(msg_no_help_found), _(msg_no_help_reason));
-        PERR("Unable to find 'gnome/help' directory");
-        return NULL;
-    }
-
-    // add the file extension, currently .xml
-    help_file = g_strconcat (file_name, ".xml", NULL);
-
-    for (; *langs; langs++)
-    {
-        gchar *filename = g_build_filename (help_path, *langs, help_file, NULL);
-        if (g_file_test (filename, G_FILE_TEST_EXISTS))
-        {
-            full_path = filename;
-            break;
-        }
-        g_free (filename);
-    }
-    g_free (help_path);
-    g_free (help_file);
-
-    if (full_path)
-        uri = g_strconcat ("ghelp:", full_path, "?", anchor, NULL);
-    else
-    {
-        gnc_error_dialog (parent, "%s\n%s", _(msg_no_help_found), _(msg_no_help_reason));
-        PERR("Unable to find valid help language directory");
-        return NULL;
-    }
-    g_free (full_path);
-    return uri;
-}
-
 #ifdef MAC_INTEGRATION
 
 /* Don't be alarmed if this function looks strange to you: It's
@@ -299,20 +180,13 @@ gnc_gnome_help (GtkWindow *parent, const char *dir, const char *detail)
 {
     NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
     NSString *subdir = [NSString stringWithUTF8String: dir];
-    NSString *tag, *subdirectory;
+    NSString *tag;
     NSURL *url = NULL;
 
     if (detail)
         tag  = [NSString stringWithUTF8String: detail];
-    else if ([subdir compare: @HF_HELP] == NSOrderedSame)
-        tag = @"help";
-    else if ([subdir compare: @HF_GUIDE] == NSOrderedSame)
-        tag = @"index";
     else
-    {
-        PWARN("gnc_gnome_help called with unknown subdirectory %s", dir);
-        return;
-    }
+        tag = @"index";
 
     if (![[NSBundle mainBundle] bundleIdentifier])
     {
@@ -473,9 +347,9 @@ gnc_gnome_help (GtkWindow *parent, const char *file_name, const char *anchor)
     gboolean success = TRUE;
 
     if (anchor)
-        uri = gnc_gnome_help_yelp_anchor_fix (parent, file_name, anchor);
+        uri = g_strconcat ("help:", file_name, "/", anchor, NULL);
     else
-        uri = g_strconcat ("ghelp:", file_name, NULL);
+        uri = g_strconcat ("help:", file_name, NULL);
 
     DEBUG ("Attempting to opening help uri %s", uri);
 
@@ -726,9 +600,6 @@ gnc_gui_init(void)
 {
     static GncMainWindow *main_window;
     gchar *map;
-#ifdef MAC_INTEGRATION
-    gchar *data_dir;
-#endif
 
     ENTER ("");
 
@@ -772,25 +643,35 @@ gnc_gui_init(void)
 
     gnc_file_set_shutdown_callback (gnc_shutdown);
 
-    gnc_options_dialog_set_global_help_cb (gnc_global_options_help_cb, NULL);
-
     main_window = gnc_main_window_new ();
     // Bug#350993:
     // gtk_widget_show (GTK_WIDGET (main_window));
     gnc_window_set_progressbar_window (GNC_WINDOW(main_window));
 
-#ifdef MAC_INTEGRATION
+
     map = gnc_build_userdata_path(ACCEL_MAP_NAME);
     if (!g_file_test (map, G_FILE_TEST_EXISTS))
     {
-        g_free (map);
-        data_dir = gnc_path_get_pkgdatadir();
-        map = g_build_filename(data_dir, "ui", "osx_accel_map", NULL);
+        gchar *text = NULL;
+        gsize length;
+        gchar *map_source;
+        gchar *data_dir = gnc_path_get_pkgdatadir();
+#ifdef MAC_INTEGRATION
+        map_source = g_build_filename (data_dir, "ui", "accelerator-map-osx", NULL);
+#else
+        map_source = g_build_filename (data_dir, "ui", "accelerator-map", NULL);
+#endif /* MAC_INTEGRATION */
+
+        if (map_source && g_file_get_contents (map_source, &text, &length, NULL))
+        {
+            if (length)
+                g_file_set_contents (map, text, length, NULL);
+            g_free (text);
+        }
+        g_free (map_source);
         g_free(data_dir);
     }
-#else
-    map = gnc_build_userdata_path(ACCEL_MAP_NAME);
-#endif /* MAC_INTEGRATION */
+
     gtk_accel_map_load(map);
     g_free(map);
 
@@ -846,14 +727,14 @@ gnc_gui_destroy (void)
 static void
 gnc_gui_shutdown (void)
 {
-    gchar *map;
+//    gchar *map;
 
     if (gnome_is_running && !gnome_is_terminating)
     {
         gnome_is_terminating = TRUE;
-        map = gnc_build_userdata_path(ACCEL_MAP_NAME);
-        gtk_accel_map_save(map);
-        g_free(map);
+//        map = gnc_build_userdata_path(ACCEL_MAP_NAME);
+//        gtk_accel_map_save(map);
+//        g_free(map);
         gnc_component_manager_shutdown ();
         gtk_main_quit();
     }

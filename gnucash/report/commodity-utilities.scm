@@ -229,6 +229,12 @@
           (gnc-account-get-descendants-sorted (gnc-get-current-root-account)))
          (all-splits (get-all-splits currency-accounts end-date))
          (interesting-splits (sort (filter interesting-split? all-splits) date<?))
+         (commodity-list (sort-and-delete-duplicates
+                          commodity-list
+                          (lambda (a b)
+                            (gnc:string-locale<? (gnc-commodity-get-unique-name a)
+                                                 (gnc-commodity-get-unique-name b)))
+                          gnc-commodity-equal))
          (work-to-do (length commodity-list)))
     (map
      (lambda (c work-done)
@@ -694,7 +700,8 @@
                (gnc:make-gnc-monetary
                 domestic
                 (if pair
-                    (* (gnc:gnc-monetary-amount foreign) (cadr pair))
+                    (gnc-numeric-mul (gnc:gnc-monetary-amount foreign) (cadr pair)
+                                     GNC-DENOM-AUTO GNC-RND-ROUND)
                     0)))))))
 
 ;; This is another ready-to-use function for calculation of exchange
@@ -739,7 +746,7 @@
              (gnc-pricedb-get-db (gnc-get-current-book))
              (gnc:gnc-monetary-amount foreign)
              (gnc:gnc-monetary-commodity foreign)
-             domestic (time64CanonicalDayTime date))))))
+             domestic date)))))
 
 (define (gnc:exchange-by-pricedb-nearest-before foreign domestic date)
   (and (gnc:gnc-monetary? foreign) date
@@ -751,7 +758,7 @@
              (gnc-pricedb-get-db (gnc-get-current-book))
              (gnc:gnc-monetary-amount foreign)
              (gnc:gnc-monetary-commodity foreign)
-             domestic (time64CanonicalDayTime date))))))
+             domestic date)))))
 
 ;; Exchange by the nearest price from pricelist. This function takes
 ;; the <gnc-monetary> 'foreign' amount, the <gnc:commodity*>
@@ -774,7 +781,9 @@
                   (plist (assoc-ref pricealist foreign-comm))
                   (price (and plist
                               (gnc:pricelist-price-find-nearest plist date))))
-             (gnc:make-gnc-monetary domestic (* foreign-amt (or price 0)))))))
+             (gnc:make-gnc-monetary domestic
+                              (gnc-numeric-mul foreign-amt (or price 0)
+                              GNC-DENOM-AUTO GNC-RND-ROUND))))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -817,9 +826,9 @@
   (define pdb (gnc-pricedb-get-db (gnc-get-current-book)))
   (case source
     ((pricedb-nearest) (cut gnc-pricedb-get-nearest-price pdb <> target-curr
-                            (time64CanonicalDayTime date)))
+                            date))
     ((pricedb-before) (cut gnc-pricedb-get-nearest-before-price pdb <> target-curr
-                           (time64CanonicalDayTime date)))
+                           date))
     ((pricedb-latest)  (cut gnc-pricedb-get-latest-price pdb <> target-curr))
     (else
      (lambda (commodity)

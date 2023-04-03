@@ -77,10 +77,7 @@ commissions in cumulative average cost and gain/loss after commission")
 the split action field to detect capitalized fees on stock activity")
 
 (define (options-generator)
-  (let ((options (gnc:new-options)))
-
-    (define (add-option new-option)
-      (gnc:register-option options new-option))
+  (let ((options (gnc-new-optiondb)))
 
     (gnc:options-add-date-interval!
      options gnc:pagename-general optname-startdate optname-enddate " ")
@@ -88,46 +85,37 @@ the split action field to detect capitalized fees on stock activity")
     (gnc:options-add-currency!
      options gnc:pagename-general optname-report-currency "a")
 
-    (add-option
-     (gnc:make-account-sel-limited-option
+    (gnc-register-account-sel-limited-option options
       gnc:pagename-general optname-stock-acct "b" "Stock Account"
-      #f #f (list ACCT-TYPE-STOCK ACCT-TYPE-MUTUAL)))
+      '() (list ACCT-TYPE-STOCK ACCT-TYPE-MUTUAL))
 
-    (add-option
-     (gnc:make-account-sel-limited-option
+    (gnc-register-account-sel-limited-option options
       gnc:pagename-general optname-proceeds-acct "c" "Proceeds Account"
-      #f #f (list ACCT-TYPE-ASSET ACCT-TYPE-BANK)))
+      '() (list ACCT-TYPE-ASSET ACCT-TYPE-BANK))
 
-    (add-option
-     (gnc:make-account-sel-limited-option
+    (gnc-register-account-sel-limited-option options
       gnc:pagename-general optname-dividend-acct "c" "Dividend Account"
-      #f #f (list ACCT-TYPE-INCOME)))
+      '() (list ACCT-TYPE-INCOME))
 
-    (add-option
-     (gnc:make-account-sel-limited-option
+    (gnc-register-account-sel-limited-option options
       gnc:pagename-general optname-capgains-acct "d" "Cap Gains Account"
-      #f #f (list ACCT-TYPE-INCOME)))
+      '() (list ACCT-TYPE-INCOME))
 
-    (add-option
-     (gnc:make-account-sel-limited-option
+    (gnc-register-account-sel-limited-option options
       gnc:pagename-general optname-fees-acct "c5" "Fees Account"
-      #f #f (list ACCT-TYPE-EXPENSE)))
+      '() (list ACCT-TYPE-EXPENSE))
 
-    (add-option
-     (gnc:make-string-option
-      gnc:pagename-general optname-cap-fee-action "d5" opthelp-cap-fee-action "Fee"))
+    (gnc-register-string-option options
+      gnc:pagename-general optname-cap-fee-action "d5" opthelp-cap-fee-action "Fee")
 
-    (add-option
-     (gnc:make-simple-boolean-option
-      gnc:pagename-general optname-format-cells "e" opthelp-format-cells #t))
+    (gnc-register-simple-boolean-option options
+      gnc:pagename-general optname-format-cells "e" opthelp-format-cells #t)
 
-    (add-option
-     (gnc:make-simple-boolean-option
-      gnc:pagename-general optname-format-short "f" opthelp-format-short #t))
+    (gnc-register-simple-boolean-option options
+      gnc:pagename-general optname-format-short "f" opthelp-format-short #t)
 
-    (add-option
-     (gnc:make-simple-boolean-option
-      gnc:pagename-general optname-cap-purch-costs "g" opthelp-cap-purch-costs #t))
+    (gnc-register-simple-boolean-option options
+      gnc:pagename-general optname-cap-purch-costs "g" opthelp-cap-purch-costs #t)
 
     options))
 
@@ -182,39 +170,39 @@ the split action field to detect capitalized fees on stock activity")
 ;; N000 should be (not x) however we can accept a zero-amount split too
 (define (N000 x) (if (number? x) (=  x 0) #t))
 
-;;       --stock-- cash cap  exp  divi capg
+;;       <-- bitfield masks to identify ->  purchase?
+;;       <---- the transaction type ----->  |  sale?
+;;       --stock-- cash cap  exp  divi capg |  |  narrative
 ;;       amt  val       fees fees
 
 (define open-types
   (list
-   (list N001 N001 N100 N011 N000 N000 N000 "Open Long")
-   (list N100 N100 N001 N011 N000 N000 N000 "Open Short")))
+   (list N001 N001 N100 N011 N000 N000 N000 #t #f "Open Long")
+   (list N100 N100 N001 N011 N000 N000 N000 #t #f "Open Short")))
 
 (define long-types
   (list
-   (list N001 N001 N100 N011 N000 N000 N000 "Buy")
-   (list N100 N100 N011 N000 N011 N000 N111 "Sell")
-   (list N000 N000 N001 N000 N011 N100 N000 "Dividend")
-   (list N001 N001 N001 N011 N000 N100 N000 "Dividend reinvestment (w/ remainder)")
-   (list N001 N001 N000 N011 N000 N100 N000 "Dividend reinvestment (w/o remainder)")
-   (list N000 N100 N001 N011 N000 N000 N000 "Return of Capital")
-   (list N000 N001 N000 N000 N011 N100 N000 "Notional distribution")
-   (list N001 N000 N000 N011 N000 N000 N000 "Stock split")
-   (list N100 N000 N000 N011 N000 N000 N000 "Reverse split")
-   (list N100 N100 N001 N000 N011 N000 N111 "Reverse split w/ cash in lieu for fractionals")))
+   (list N001 N001 N100 N011 N000 N000 N000 #t #f "Buy")
+   (list N100 N100 N011 N000 N011 N000 N111 #f #t "Sell")
+   (list N000 N000 N001 N000 N011 N100 N000 #f #f "Dividend")
+   (list N001 N001 N001 N011 N000 N100 N000 #t #f "Dividend reinvestment (w/ remainder)")
+   (list N001 N001 N110 N011 N000 N100 N000 #t #f "Dividend reinvestment (w/o remainder)")
+   (list N000 N100 N001 N011 N000 N000 N000 #t #f "Return of Capital")
+   (list N000 N001 N000 N000 N011 N100 N000 #t #f "Notional distribution")
+   (list N001 N000 N110 N011 N000 N000 N000 #f #f "Stock split")
+   (list N100 N000 N110 N011 N000 N000 N000 #f #f "Reverse split")
+   (list N100 N100 N001 N000 N011 N000 N111 #f #t "Reverse split w/ cash in lieu for fractionals")))
 
 (define short-types
   (list
-   (list N100 N100 N001 N011 N000 N000 N000 "Short Sell")
-   (list N001 N001 N110 N000 N011 N000 N111 "Cover Buy")
-   (list N000 N000 N100 N000 N011 N001 N000 "Compensatory dividend")
-   (list N000 N000 N000 N011 N000 N000 N000 "Dividend reinvestment (w remainder)")
-   (list N000 N000 N000 N011 N000 N000 N000 "Dividend reinvestment (w/o remainder)")
-   (list N000 N001 N100 N011 N000 N000 N000 "Compensatory return of capital")
-   (list N000 N100 N000 N000 N011 N001 N000 "Compensatory notional distribution")
-   (list N100 N000 N000 N011 N000 N000 N000 "Stock split")
-   (list N001 N000 N000 N011 N000 N000 N000 "Reverse split")
-   (list N001 N001 N100 N000 N011 N000 N111 "Reverse split w/ cash in lieu for fractionals")))
+   (list N100 N100 N001 N011 N000 N000 N000 #t #f "Short Sell")
+   (list N001 N001 N110 N000 N011 N000 N111 #f #t "Cover Buy")
+   (list N000 N000 N100 N000 N011 N001 N000 #f #f "Compensatory dividend")
+   (list N000 N001 N100 N011 N000 N000 N000 #t #f "Compensatory return of capital")
+   (list N000 N100 N000 N000 N011 N001 N000 #t #f "Compensatory notional distribution")
+   (list N100 N000 N110 N011 N000 N000 N000 #f #f "Stock split")
+   (list N001 N000 N110 N011 N000 N000 N000 #f #f "Reverse split")
+   (list N001 N001 N100 N000 N011 N000 N111 #f #t "Reverse split w/ cash in lieu for fractionals")))
 
 (define (cmp amt neg zero pos)
   (cond ((< amt 0) neg)
@@ -227,8 +215,8 @@ the split action field to detect capitalized fees on stock activity")
     (match types
       (()
        ;; (gnc:pk (qof-print-date (xaccTransGetDate trans)) txn-info)
-       "Unknown")
-      (((amt-fn val-fn proc-fn fee-cap-fn fee-exp-fn div-fn capg-fn res) . tail)
+       (list #f #f "Unknown"))
+      (((amt-fn val-fn proc-fn fee-cap-fn fee-exp-fn div-fn capg-fn . res) . tail)
        (if (and (amt-fn (get-stock-amt txn-info))
                 (val-fn (get-stock-val txn-info))
                 (proc-fn (get-proceeds-val txn-info))
@@ -297,8 +285,8 @@ the split action field to detect capitalized fees on stock activity")
 
 (define (ifrs-cost-basis-renderer report-obj)
   (define (opt-val section name)
-    (gnc:option-value
-     (gnc:lookup-option (gnc:report-options report-obj) section name)))
+    (gnc-optiondb-lookup-value
+     (gnc:report-options report-obj) section name))
 
   (define opt-startdate (opt-val gnc:pagename-general optname-startdate))
   (define opt-enddate   (opt-val gnc:pagename-general optname-enddate))
@@ -380,7 +368,8 @@ the split action field to detect capitalized fees on stock activity")
                    "conv-proceeds-val" "conv-proceeds-cost"
                    "cumulative-average-cost-basis"
                    "average-cost-basis/unit-for-sale" "average-cost-basis-of-sale"
-                   "net-proceeds" "gain-post-commission" "gain-pre-commission"
+                   "net-proceeds" "gain-post-commission" "gain-pre-commission (calc)"
+                   "gain-pre-commission (register)" "gain-pre-commission variance"
                    "cumul-gross-profit" "cumul-net-profit" "cumul-tot-return"))
 
       (let lp ((splits splits)
@@ -407,19 +396,17 @@ the split action field to detect capitalized fees on stock activity")
                   (trans-value (M+ (get-stock-val txn-info)
                                    (get-fees-cap-val txn-info)))
                   (new-units (M+ cumul-units trans-units))
+                  (identified
+                   (cond
+                    ((< new-units 0 cumul-units) (list #f #f "ERROR: long→short"))
+                    ((< cumul-units 0 new-units) (list #f #f "ERROR: short→long"))
+                    (else (txn-identify trans txn-info cumul-units))))
 
                   (sale?
-                   (cond
-                    ((< trans-units 0) (<= 0 new-units))
-                    ((> trans-units 0) (<= new-units 0))
-                    (else #f)))
+                   (cadr identified))
 
                   (purchase?
-                   (cond
-                    ((= trans-value 0) dividends-val)        ;dividends
-                    ((= trans-units 0) cash-value)           ;return of capital
-                    ((> trans-units 0) (< 0 new-units))      ;regular buy
-                    ((< trans-units 0) (< new-units 0))))    ;buy during short
+                   (car identified))
 
                   (shorting? (or (< new-units 0)
                                  (and (= new-units 0) (< 0 trans-units))))
@@ -458,6 +445,11 @@ the split action field to detect capitalized fees on stock activity")
                   (gain-pre-commission (M+ conv-proceeds-value
                                            average-cost-basis-of-sale))
 
+                  ;; difference between calculated (assuming acb) and
+                  ;; actual capgain. should be <1/SCU if all capgains
+                  ;; are recorded correctly.
+                  (gain-variance (M+ gain-pre-commission capgains-val))
+
                   (new-gross-profit (M+ cumul-gross-profit gain-pre-commission))
                   (new-net-profit (M+ cumul-net-profit gain-post-commission))
                   (new-tot-return (M+ cumul-tot-return gain-post-commission
@@ -486,10 +478,7 @@ the split action field to detect capitalized fees on stock activity")
                       (gnc:html-string-sanitize (xaccTransGetDescription trans))
                       (to-cell (gnc:html-split-anchor split (to-commodity trans-units)))
                       (to-cell (to-commodity new-units))
-                      (cond
-                       ((< new-units 0 cumul-units) "ERROR: long→short")
-                       ((< cumul-units 0 new-units) "ERROR: short→long")
-                       (else (txn-identify trans txn-info cumul-units)))
+                      (caddr identified)
                       (gnc-commodity-get-mnemonic currency)
                       (to-cell (gnc:default-price-renderer report-currency fx))
                       (to-cell (to-orig-currency purchase-val))
@@ -508,6 +497,8 @@ the split action field to detect capitalized fees on stock activity")
                       (to-cell (to-report-currency net-proceeds))
                       (to-cell (to-report-currency gain-post-commission))
                       (to-cell (to-report-currency gain-pre-commission))
+                      (to-cell (to-report-currency capgains-val))
+                      (to-cell (to-report-currency gain-variance))
                       (to-cell (to-report-currency new-gross-profit))
                       (to-cell (to-report-currency new-net-profit))
                       (to-cell (to-report-currency new-tot-return))))
@@ -522,6 +513,10 @@ the split action field to detect capitalized fees on stock activity")
 
   ;; (gnc:dump-all-transactions)
   (gnc:html-document-add-object! document disclaimer)
+
+  (gnc:html-document-add-object!
+   document (gnc:html-render-options-changed (gnc:report-options report-obj)))
+
   document)
 
 

@@ -49,9 +49,6 @@
 (define optname-report-title (N_ "Report Title"))
 (define opthelp-report-title (N_ "Title for this report."))
 
-(define optname-party-name (N_ "Company name"))
-(define opthelp-party-name (N_ "Name of company/individual."))
-
 (define optname-start-date (N_ "Start Date"))
 (define optname-end-date (N_ "End Date"))
 
@@ -145,24 +142,21 @@
      optname-start-date optname-end-date "c")
     
     ;; accounts to work on
-    (add-option
-     (gnc:make-account-list-option
+    (gnc-register-account-list-option options
       gnc:pagename-accounts optname-accounts
       "a"
       opthelp-accounts
-      (lambda ()
 	(gnc:filter-accountlist-type
 	 ;; select, by default, only income and expense accounts
 	 (list ACCT-TYPE-INCOME ACCT-TYPE-EXPENSE)
 	 (gnc-account-get-descendants-sorted (gnc-get-current-root-account))))
-      #f #t))
+
     (gnc:options-add-account-levels!
      options gnc:pagename-accounts optname-depth-limit
      "b" opthelp-depth-limit 3)
-    (add-option
-     (gnc:make-simple-boolean-option
+    (gnc-register-simple-boolean-option options
       gnc:pagename-accounts optname-bottom-behavior
-      "c" opthelp-bottom-behavior #f))
+      "c" opthelp-bottom-behavior #f)
     
     ;; all about currencies
     (gnc:options-add-currency!
@@ -172,26 +166,22 @@
     (gnc:options-add-price-source! 
      options pagename-commodities
      optname-price-source "b" 'pricedb-nearest)
-    
-    (add-option 
-     (gnc:make-simple-boolean-option
+
+    (gnc-register-simple-boolean-option options
       pagename-commodities optname-show-foreign 
-      "c" opthelp-show-foreign #t))
+      "c" opthelp-show-foreign #t)
     
-    (add-option 
-     (gnc:make-simple-boolean-option
+    (gnc-register-simple-boolean-option options
       pagename-commodities optname-show-rates
-      "d" opthelp-show-rates #f))
-    
+      "d" opthelp-show-rates #f)
+
     ;; what to show for zero-balance accounts
-    (add-option 
-     (gnc:make-simple-boolean-option
+    (gnc-register-simple-boolean-option options
       gnc:pagename-display optname-show-zb-accts
-      "a" opthelp-show-zb-accts #t))
-    (add-option 
-     (gnc:make-simple-boolean-option
+      "a" opthelp-show-zb-accts #t)
+    (gnc-register-simple-boolean-option options
       gnc:pagename-display optname-omit-zb-bals
-      "b" opthelp-omit-zb-bals #f))
+      "b" opthelp-omit-zb-bals #f)
     ;; what to show for non-leaf accounts
     (gnc:options-add-subtotal-view!
      options gnc:pagename-display
@@ -199,68 +189,55 @@
      "c")
 
     ;; some detailed formatting options
-    (add-option 
-     (gnc:make-simple-boolean-option
+    (gnc-register-simple-boolean-option options
       gnc:pagename-display optname-account-links
-      "e" opthelp-account-links #t))
-    (add-option 
-     (gnc:make-simple-boolean-option
+      "e" opthelp-account-links #t)
+    (gnc-register-simple-boolean-option options
       gnc:pagename-display optname-use-rules
-      "f" opthelp-use-rules #f))
+      "f" opthelp-use-rules #f)
     
-    (add-option 
-     (gnc:make-simple-boolean-option
+    (gnc-register-simple-boolean-option options
       gnc:pagename-display optname-label-revenue
-      "g" opthelp-label-revenue #t))
-    (add-option 
-     (gnc:make-simple-boolean-option
+      "g" opthelp-label-revenue #t)
+    (gnc-register-simple-boolean-option options
       gnc:pagename-display optname-total-revenue
-      "h" opthelp-total-revenue #t))
+      "h" opthelp-total-revenue #t)
     
-    (add-option 
-     (gnc:make-simple-boolean-option
+    (gnc-register-simple-boolean-option options
       gnc:pagename-display optname-label-trading
-      "h1" opthelp-label-trading #t))
-    (add-option 
-     (gnc:make-simple-boolean-option
+      "h1" opthelp-label-trading #t)
+    (gnc-register-simple-boolean-option options
       gnc:pagename-display optname-total-trading
-      "h2" opthelp-total-trading #t))
+      "h2" opthelp-total-trading #t)
     
-    (add-option 
-     (gnc:make-simple-boolean-option
+    (gnc-register-simple-boolean-option options
       gnc:pagename-display optname-label-expense
-      "i" opthelp-label-expense #t))
-    (add-option 
-     (gnc:make-simple-boolean-option
+      "i" opthelp-label-expense #t)
+    (gnc-register-simple-boolean-option options
       gnc:pagename-display optname-total-expense
-      "j" opthelp-total-expense #t))
+      "j" opthelp-total-expense #t)
 
-    (add-option
-     (gnc:make-simple-boolean-option
+    (gnc-register-simple-boolean-option options
       gnc:pagename-display optname-two-column
-      "k" opthelp-two-column #f))
+      "k" opthelp-two-column #f)
 
-    (add-option
-     (gnc:make-simple-boolean-option
+    (gnc-register-simple-boolean-option options
       gnc:pagename-display optname-standard-order
-      "l" opthelp-standard-order #t))
+      "l" opthelp-standard-order #t)
     
     ;; closing entry match criteria
     ;; 
     ;; N.B.: transactions really should have a field where we can put
     ;; transaction types like "Adjusting/Closing/Correcting Entries"
-    (add-option
-      (gnc:make-string-option
+    (gnc-register-string-option options
       pagename-entries optname-closing-pattern
-      "a" opthelp-closing-pattern (G_ "Closing Entries")))
-    (add-option
-     (gnc:make-simple-boolean-option
+      "a" opthelp-closing-pattern (G_ "Closing Entries"))
+    (gnc-register-simple-boolean-option options
       pagename-entries optname-closing-casing
-      "b" opthelp-closing-casing #f))
-    (add-option
-     (gnc:make-simple-boolean-option
+      "b" opthelp-closing-casing #f)
+    (gnc-register-simple-boolean-option options
       pagename-entries optname-closing-regexp
-      "c" opthelp-closing-regexp #f))
+      "c" opthelp-closing-regexp #f)
     
     ;; Set the accounts page as default option tab
     (gnc:options-set-default-section options gnc:pagename-accounts)
@@ -274,9 +251,8 @@
 
 (define (income-statement-renderer-internal report-obj reportname)
   (define (get-option pagename optname)
-    (gnc:option-value
-     (gnc:lookup-option 
-      (gnc:report-options report-obj) pagename optname)))
+    (gnc-optiondb-lookup-value
+      (gnc:report-options report-obj) pagename optname))
 
   (gnc:report-starting reportname)
   
@@ -391,10 +367,11 @@
       (gnc:html-table-append-ruler! table (* 2 tree-depth)))
 
     (gnc:html-document-set-title!
-     doc (format #f (string-append "~a ~a " (G_ "For Period Covering ~a to ~a"))
-                  company-name report-title
-                  (qof-print-date start-date-printable)
-                  (qof-print-date end-date)))
+     doc (gnc:format (G_ "${company-name} ${report-title} For Period Covering ${start} to ${end}")
+                     'company-name company-name
+                     'report-title report-title
+                     'start (qof-print-date start-date-printable)
+                     'end (qof-print-date end-date)))
 
     (if (null? accounts)
 

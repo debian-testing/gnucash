@@ -763,7 +763,7 @@ gnc_tree_view_account_new_with_root (Account *root, gboolean show_root)
     GtkTreePath *virtual_root_path = NULL;
     const gchar *sample_type, *sample_commodity;
     GncTreeViewAccountPrivate *priv;
-    GtkTreeViewColumn *tax_info_column, *acc_color_column;
+    GtkTreeViewColumn *tax_info_column, *acc_color_column, *acc_balance_limit_column;
     GtkCellRenderer *renderer;
     GList *col_list = NULL, *node = NULL;
 
@@ -956,6 +956,22 @@ gnc_tree_view_account_new_with_root (Account *root, gboolean show_root)
 
     /* Also add the full title to the column header as a tooltip */
     gtk_widget_set_tooltip_text (gtk_tree_view_column_get_button (acc_color_column), _("Account Color"));
+
+    acc_balance_limit_column
+        = gnc_tree_view_add_pix_column (view,
+                                        C_("Column header for 'Balance Limit'", "L"),
+                                        "account-balance-limit",
+                                        "xx",
+                                        GNC_TREE_MODEL_ACCOUNT_COL_BALANCE_LIMIT,
+                                        GNC_TREE_VIEW_COLUMN_VISIBLE_ALWAYS,
+                                        NULL);
+
+    /* Add the full title to the object for menu creation */
+    g_object_set_data_full(G_OBJECT(acc_balance_limit_column), REAL_TITLE,
+                           g_strdup(_("Balance Limit")), g_free);
+
+    /* Also add the full title to the column header as a tooltip */
+    gtk_widget_set_tooltip_text (gtk_tree_view_column_get_button (acc_balance_limit_column), _("Balance Limit"));
 
     priv->notes_column
         = gnc_tree_view_add_text_view_column(view, _("Notes"), "notes", NULL,
@@ -1205,24 +1221,12 @@ gnc_tree_view_account_get_view_info (GncTreeViewAccount *account_view,
 /*
  * Set the account view info data in use by the specified tree to
  * match the callers request.
- *
- * DRH - COMPATIBILITY WARNING
- *
- * This function does not do anything with the 'include_type' field.
- * Should there be a automatic filter for backward compatibility
- * that uses these flags, or should all uses of this be converted to
- * a GtkTreeModelFilter?
- *
- * CAS - For now, I'll try the automatic filter approach by making
- * this function use GtkTreeModelFilter.
  */
 void
 gnc_tree_view_account_set_view_info (GncTreeViewAccount *account_view,
                                      AccountViewInfo *avi)
 {
     GncTreeViewAccountPrivate *priv;
-    gint i;
-    guint sel_bits = 0;
 
     ENTER("%p", account_view);
     g_return_if_fail(GNC_IS_TREE_VIEW_ACCOUNT(account_view));
@@ -1230,11 +1234,6 @@ gnc_tree_view_account_set_view_info (GncTreeViewAccount *account_view,
 
     priv = GNC_TREE_VIEW_ACCOUNT_GET_PRIVATE(account_view);
     priv->avi = *avi;
-
-    for (i = 0; i < NUM_ACCOUNT_TYPES; i++)
-    {
-        sel_bits |= avi->include_type[i] ? (1 << i) : 0;
-    }
 
     gnc_tree_view_account_set_filter(
         account_view, gnc_tree_view_account_filter_by_view_info,
@@ -2328,7 +2327,7 @@ account_filter_dialog_create(AccountFilterDialog *fd, GncPluginPage *page)
                                  GTK_WINDOW(GNC_PLUGIN_PAGE(page)->window));
     /* Translators: The %s is the name of the plugin page */
     title = g_strdup_printf(_("Filter %s by..."),
-                            gnc_plugin_page_get_page_name(GNC_PLUGIN_PAGE(page)));
+                            _(gnc_plugin_page_get_page_name(GNC_PLUGIN_PAGE(page))));
     gtk_window_set_title(GTK_WINDOW(dialog), title);
     g_free(title);
 
@@ -2828,7 +2827,7 @@ gboolean gnc_tree_view_search_compare (GtkTreeModel *model, gint column,
     gchar *case_normalized_key = NULL;
     gboolean match = FALSE;
 
-    normalized_key = g_utf8_normalize (key, -1, G_NORMALIZE_ALL);
+    normalized_key = g_utf8_normalize (key, -1, G_NORMALIZE_NFC);
     if (normalized_key)
         case_normalized_key = g_utf8_casefold (normalized_key, -1);
     if (case_normalized_key)
@@ -2857,7 +2856,7 @@ gboolean gnc_tree_view_search_compare (GtkTreeModel *model, gint column,
             if (!str)
                 continue;
 
-            normalized_string = g_utf8_normalize (str, -1, G_NORMALIZE_ALL);
+            normalized_string = g_utf8_normalize (str, -1, G_NORMALIZE_NFC);
             if (normalized_string)
                 case_normalized_string = g_utf8_casefold (normalized_string, -1);
             if (case_normalized_string&&NULL!=strstr(case_normalized_string,case_normalized_key))

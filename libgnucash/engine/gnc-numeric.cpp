@@ -33,11 +33,9 @@
 #include <boost/regex.hpp>
 #include <boost/locale/encoding_utf.hpp>
 
-extern "C"
-{
 #include <config.h>
+#include <stdint.h>
 #include "qof.h"
-}
 
 #include "gnc-numeric.hpp"
 #include "gnc-rational.hpp"
@@ -658,8 +656,6 @@ gnc_numeric_positive_p(gnc_numeric a)
 int
 gnc_numeric_compare(gnc_numeric a, gnc_numeric b)
 {
-    gint64 aa, bb;
-
     if (gnc_numeric_check(a) || gnc_numeric_check(b))
     {
         return 0;
@@ -805,7 +801,6 @@ gnc_numeric
 gnc_numeric_sub(gnc_numeric a, gnc_numeric b,
                 gint64 denom, gint how)
 {
-    gnc_numeric nb;
     if (gnc_numeric_check(a) || gnc_numeric_check(b))
     {
         return gnc_numeric_error(GNC_ERROR_ARG);
@@ -1200,11 +1195,11 @@ gnc_numeric_error(GNCNumericErrorCode error_code)
 gchar *
 gnc_numeric_to_string(gnc_numeric n)
 {
-    gchar *result;
-    gint64 tmpnum = n.num;
-    gint64 tmpdenom = n.denom;
+    char *result;
+    int64_t tmpnum = n.num;
+    int64_t tmpdenom = n.denom;
 
-    result = g_strdup_printf("%" G_GINT64_FORMAT "/%" G_GINT64_FORMAT, tmpnum, tmpdenom);
+    result = g_strdup_printf("%" PRId64 "/%" PRId64, tmpnum, tmpdenom);
 
     return result;
 }
@@ -1214,13 +1209,14 @@ gnc_num_dbg_to_string(gnc_numeric n)
 {
     static char buff[1000];
     static char *p = buff;
-    gint64 tmpnum = n.num;
-    gint64 tmpdenom = n.denom;
+    static const uint64_t size = 50;
+    int64_t tmpnum = n.num;
+    int64_t tmpdenom = n.denom;
 
-    p += 100;
+    p += size;
     if (p - buff >= 1000) p = buff;
 
-    sprintf(p, "%" G_GINT64_FORMAT "/%" G_GINT64_FORMAT, tmpnum, tmpdenom);
+    snprintf(p, size, "%" PRId64 "/%" PRId64, tmpnum, tmpdenom);
 
     return p;
 }

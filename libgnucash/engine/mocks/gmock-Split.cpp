@@ -13,7 +13,7 @@ struct _MockSplitClass
 };
 typedef struct _MockSplitClass MockSplitClass;
 
-G_DEFINE_TYPE(MockSplit, gnc_mocksplit, QOF_TYPE_INSTANCE);
+G_DEFINE_TYPE(MockSplit, gnc_mocksplit, QOF_TYPE_INSTANCE)
 
 static void
 gnc_mocksplit_init (MockSplit *inst)
@@ -101,6 +101,13 @@ xaccSplitGetMemo (const Split *split)
     SCOPED_TRACE("");
     auto mocksplit = gnc_mocksplit(split);
     return mocksplit ? mocksplit->get_memo() : "";
+}
+
+void
+xaccSplitSetMemo (Split *split, const char *memo)
+{
+    ASSERT_TRUE(GNC_IS_MOCKSPLIT(split));
+    gnc_mocksplit(split)->set_memo(memo);
 }
 
 char

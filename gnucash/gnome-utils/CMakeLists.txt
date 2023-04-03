@@ -8,6 +8,7 @@ gnc_add_swig_guile_command (swig-gnome-utils-c
     ${CMAKE_CURRENT_SOURCE_DIR}/gnome-utils.i ""
 )
 
+add_dependencies(swig-gnome-utils-c gnc-gnome-utils)
 set (WARNINGS_SCHEMA ${DATADIR_BUILD}/glib-2.0/schemas/org.gnucash.GnuCash.warnings.gschema.xml)
 set (GNC_WARNINGS_C ${CMAKE_CURRENT_BINARY_DIR}/gnc-warnings.c)
 set (GNC_WARNINGS_H ${CMAKE_CURRENT_BINARY_DIR}/gnc-warnings.h)
@@ -36,13 +37,13 @@ set (gnome_utils_SOURCES
   dialog-dup-trans.c
   dialog-file-access.c
   dialog-object-references.c
-  dialog-options.c
+  dialog-options.cpp
   dialog-preferences.c
   dialog-query-view.c
   dialog-reset-warnings.c
   dialog-tax-table.c
   dialog-totd.c
-  dialog-transfer.c
+  dialog-transfer.cpp
   dialog-userpass.c
   dialog-utils.c
   gnc-account-sel.c
@@ -60,7 +61,7 @@ set (gnome_utils_SOURCES
   gnc-currency-edit.c
   gnc-date-delta.c
   gnc-date-edit.c
-  gnc-date-format.c 
+  gnc-date-format.c
   gnc-dense-cal.c
   gnc-dense-cal-model.c
   gnc-dense-cal-store.c
@@ -75,8 +76,9 @@ set (gnome_utils_SOURCES
   gnc-gui-query.c
   gnc-icons.c
   gnc-keyring.c
-  gnc-main-window.c
+  gnc-main-window.cpp
   gnc-menu-extensions.c
+  gnc-option-gtk-ui.cpp
   gnc-plugin-file-history.c
   gnc-plugin-manager.c
   gnc-plugin-menu-additions.c
@@ -84,10 +86,10 @@ set (gnome_utils_SOURCES
   gnc-plugin.c
   gnc-period-select.c
   gnc-query-view.c
+  gnc-report-combo.c
   gnc-splash.c
   gnc-sx-instance-dense-cal-adapter.c
   gnc-sx-list-tree-model-adapter.c
-  gnc-tree-control-split-reg.c
   gnc-tree-model.c
   gnc-tree-model-account-types.c
   gnc-tree-model-account.c
@@ -95,13 +97,10 @@ set (gnome_utils_SOURCES
   gnc-tree-model-owner.c
   gnc-tree-model-commodity.c
   gnc-tree-model-price.c
-  gnc-tree-model-split-reg.c
-  gnc-tree-util-split-reg.c
   gnc-tree-view-account.c
   gnc-tree-view-commodity.c
   gnc-tree-view-owner.c
   gnc-tree-view-price.c
-  gnc-tree-view-split-reg.c
   gnc-tree-view-sx-list.c
   gnc-tree-view.c
   gnc-window.c
@@ -114,9 +113,11 @@ set (gnome_utils_SOURCES
 
 set(gnome_utils_noinst_HEADERS
   dialog-tax-table.h
+  dialog-options.hpp
   gnc-autosave.h
   gnc-gobject-utils.h
   gnc-gtk-utils.h
+  gnc-option-gtk-ui.hpp
   search-param.h
 )
 
@@ -131,7 +132,6 @@ set (gnome_utils_HEADERS
   dialog-file-access.h
   dialog-preferences.h
   dialog-object-references.h
-  dialog-options.h
   dialog-query-view.h
   dialog-reset-warnings.h
   dialog-totd.h
@@ -173,10 +173,10 @@ set (gnome_utils_HEADERS
   gnc-plugin.h
   gnc-period-select.h
   gnc-query-view.h
+  gnc-report-combo.h
   gnc-splash.h
   gnc-sx-instance-dense-cal-adapter.h
   gnc-sx-list-tree-model-adapter.h
-  gnc-tree-control-split-reg.h
   gnc-tree-model.h
   gnc-tree-model-account-types.h
   gnc-tree-model-account.h
@@ -184,13 +184,10 @@ set (gnome_utils_HEADERS
   gnc-tree-model-owner.h
   gnc-tree-model-commodity.h
   gnc-tree-model-price.h
-  gnc-tree-model-split-reg.h
-  gnc-tree-util-split-reg.h
   gnc-tree-view-account.h
   gnc-tree-view-commodity.h
   gnc-tree-view-owner.h
   gnc-tree-view-price.h
-  gnc-tree-view-split-reg.h
   gnc-tree-view-sx-list.h
   gnc-tree-view.h
   gnc-ui.h
@@ -199,7 +196,7 @@ set (gnome_utils_HEADERS
   tree-view-utils.h
   print-session.h
   window-main-summarybar.h
-)
+  )
 
 
 
@@ -214,6 +211,8 @@ add_library (gnc-gnome-utils
 target_link_libraries(gnc-gnome-utils
     gnc-app-utils
     gnc-engine
+    gnc-expressions
+    gnc-locale-tax
     gnc-backend-xml-utils
     gnucash-guile
     PkgConfig::GTK3
@@ -221,7 +220,6 @@ target_link_libraries(gnc-gnome-utils
     ${LIBSECRET_LDFLAGS}
     ${GTK_MAC_LDFLAGS})
 
-target_compile_options(gnc-gnome-utils PRIVATE -Wno-deprecated-declarations)
 target_compile_definitions(gnc-gnome-utils PUBLIC ${GTK_MAC_CFLAGS_OTHER}
   PRIVATE -DG_LOG_DOMAIN=\"gnc.gui\")
 
@@ -269,7 +267,8 @@ gnc_add_scheme_targets(scm-gnome-utils-1
 gnc_add_scheme_targets(scm-gnome-utils-2
     SOURCES gnome-utils.scm
     OUTPUT_DIR gnucash
-    DEPENDS "scm-gnome-utils-1")
+    DEPENDS "scm-gnome-utils-1"
+    MAKE_LINKS)
 
 add_custom_target(scm-gnome-utils ALL DEPENDS scm-gnome-utils-2 scm-gnome-utils-1)
 

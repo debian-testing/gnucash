@@ -28,15 +28,13 @@
 #ifndef GNC_CSV_IMPORT_SETTINGS_H
 #define GNC_CSV_IMPORT_SETTINGS_H
 
-extern "C" {
 #include <config.h>
 #include "Account.h"
 #include "gnc-commodity.h"
-}
 
 #include <string>
 #include <vector>
-#include <boost/optional.hpp>
+#include <optional>
 #include <gnc-datetime.hpp>
 #include "gnc-tokenizer.hpp"
 
@@ -92,6 +90,7 @@ protected:
 
 std::string get_no_settings (void);
 std::string get_gnc_exp (void);
+std::string get_gnc_exp_4 (void);
 
 /** Check whether name can be used as a preset name.
  *  The names of the internal presets are considered reserved.

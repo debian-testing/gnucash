@@ -64,11 +64,6 @@
 #ifndef __GNC_BUDGET_H__
 #define __GNC_BUDGET_H__
 
-#ifdef __cplusplus
-extern "C"
-{
-#endif
-
 #include <glib.h>
 
 /** The budget data.*/
@@ -78,6 +73,11 @@ typedef struct _GncBudgetClass GncBudgetClass;
 #include "qof.h"
 #include "Account.h"
 #include "Recurrence.h"
+
+#ifdef __cplusplus
+extern "C"
+{
+#endif
 
 /* --- type macros --- */
 #define GNC_TYPE_BUDGET            (gnc_budget_get_type ())
@@ -161,11 +161,10 @@ gnc_numeric gnc_budget_get_account_period_value(
 gnc_numeric gnc_budget_get_account_period_actual_value(
     const GncBudget *budget, Account *account, guint period_num);
 
-/* get/set the budget account period's note, beware when retrieving
-   the period note, the latter must be g_freed by the caller */
+/* get/set the budget account period's note */
 void gnc_budget_set_account_period_note(GncBudget *budget,
     const Account *account, guint period_num, const gchar *note);
-gchar *gnc_budget_get_account_period_note (const GncBudget *budget,
+const gchar *gnc_budget_get_account_period_note (const GncBudget *budget,
     const Account *account, guint period_num);
 
 /* Returns some budget in the book, or NULL. */

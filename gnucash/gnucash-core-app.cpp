@@ -31,7 +31,6 @@
 
 #include "gnucash-core-app.hpp"
 
-extern "C" {
 #include <glib/gi18n.h>
 #include <binreloc.h>
 #include <gnc-engine.h>
@@ -42,17 +41,16 @@ extern "C" {
 #include <gnc-path.h>
 #include <gnc-prefs.h>
 #include <gnc-gsettings.h>
-#include <gnc-report.h>
 #include <gnc-splash.h>
 #include <gnc-version.h>
 #include "gnucash-locale-platform.h"
-}
 
 #include <boost/algorithm/string.hpp>
 #include <boost/locale.hpp>
 #include <iostream>
 #include <string>
 #include <vector>
+#include <gnc-report.h>
 
 namespace bl = boost::locale;
 
@@ -65,9 +63,9 @@ static QofLogModule log_module = GNC_MOD_GUI;
 
 /* GNC_VCS is defined whenever we're building from an svn/svk/git/bzr tree */
 #ifdef GNC_VCS
-static int is_development_version = TRUE;
+constexpr int is_development_version = TRUE;
 #else
-static int is_development_version = FALSE;
+constexpr int is_development_version = FALSE;
 #define GNC_VCS ""
 #endif
 
@@ -78,12 +76,12 @@ gnc_print_unstable_message(void)
 {
     if (!is_development_version) return;
 
-    std::cerr << bl::translate ("This is a development version. It may or may not work.") << "\n"
-              << bl::translate ("Report bugs and other problems to gnucash-devel@gnucash.org") << "\n"
+    std::cerr << _("This is a development version. It may or may not work.") << "\n"
+              << _("Report bugs and other problems to gnucash-devel@gnucash.org") << "\n"
               /* Translators: {1} will be replaced with an URL*/
-              << bl::format (bl::translate ("You can also lookup and file bug reports at {1}")) % PACKAGE_BUGREPORT << "\n"
+              << bl::format (std::string{_("You can also lookup and file bug reports at {1}")}) % PACKAGE_BUGREPORT << "\n"
               /* Translators: {1} will be replaced with an URL*/
-              << bl::format (bl::translate ("To find the last stable version, please refer to {1}")) % PACKAGE_URL << "\n";
+              << bl::format (std::string{_("To find the last stable version, please refer to {1}")}) % PACKAGE_URL << "\n";
 }
 
 static void
@@ -100,8 +98,8 @@ Gnucash::gnc_load_scm_config (void)
     if (!is_system_config_loaded)
     {
         /* Translators: Guile is the programming language of the reports */
-        auto msg = bl::translate ("Loading system wide Guile extensions…").str (gnc_get_boost_locale());
-        update_message (msg.c_str());
+        auto msg = _("Loading system wide Guile extensions…");
+        update_message (msg);
         auto system_config_dir = gnc_path_get_pkgsysconfdir ();
         auto system_config = g_build_filename (system_config_dir, "config", nullptr);
         is_system_config_loaded = gfec_try_load (system_config);
@@ -112,8 +110,8 @@ Gnucash::gnc_load_scm_config (void)
     static auto is_user_config_loaded = false;
     if (!is_user_config_loaded)
     {
-        auto msg = bl::translate ("Loading user specific Guile extensions…").str (gnc_get_boost_locale());
-        update_message (msg.c_str());
+        auto msg = _("Loading user specific Guile extensions…");
+        update_message (msg);
         auto config_filename = g_build_filename (gnc_userconfig_dir (), "config-user.scm", nullptr);
         is_user_config_loaded = gfec_try_load (config_filename);
         g_free (config_filename);
@@ -169,7 +167,7 @@ gnc_log_init (const std::vector <std::string> log_flags,
     }
 }
 
-Gnucash::CoreApp::CoreApp ()
+Gnucash::CoreApp::CoreApp (const char* app_name) : m_app_name {app_name}
 {
     #ifdef ENABLE_BINRELOC
     {
@@ -210,20 +208,13 @@ Gnucash::CoreApp::CoreApp ()
 
     gnc_init_boost_locale (localedir);
     std::cerr.imbue (gnc_get_boost_locale());
+    std::cout.imbue (gnc_get_boost_locale());
     g_free(localedir);
-}
-
-Gnucash::CoreApp::CoreApp (const char* app_name)
-{
-
-    CoreApp();
-
-    m_app_name = std::string(app_name);
 
     // Now that gettext is properly initialized, set our help tagline.
-    m_tagline = bl::translate("- GnuCash, accounting for personal and small business finance").str(gnc_get_boost_locale());
+    m_tagline = _("- GnuCash, accounting for personal and small business finance");
     m_opt_desc_display = std::make_unique<bpo::options_description>
-        ((bl::format (bl::gettext ("{1} [options] [datafile]")) % m_app_name).str() + std::string(" ") + m_tagline);
+        ((bl::format (std::string{_("{1} [options] [datafile]")}) % m_app_name).str() + std::string(" ") + m_tagline);
     add_common_program_options();
 }
 
@@ -244,7 +235,7 @@ Gnucash::CoreApp::parse_command_line (int argc, char **argv)
     catch (std::exception &e)
     {
         std::cerr << e.what() << "\n\n";
-        std::cerr << *m_opt_desc_display.get() << "\n";
+        std::cerr << *m_opt_desc_display.get() << std::endl;
 
         exit(1);
     }
@@ -267,21 +258,21 @@ Gnucash::CoreApp::parse_command_line (int argc, char **argv)
 
     if (m_show_version)
     {
-        bl::format rel_fmt (bl::translate ("GnuCash {1}"));
-        bl::format dev_fmt (bl::translate ("GnuCash {1} development version"));
+        bl::format rel_fmt (std::string{_("GnuCash {1}")});
+        bl::format dev_fmt (std::string{_("GnuCash {1} development version")});
 
         if (is_development_version)
             std::cout << dev_fmt % gnc_version () << "\n";
         else
             std::cout << rel_fmt % gnc_version () << "\n";
 
-        std::cout << bl::translate ("Build ID") << ": " << gnc_build_id () << "\n";
+        std::cout << _("Build ID") << ": " << gnc_build_id () << "\n";
         exit(0);
     }
 
     if (m_show_help)
     {
-        std::cout << *m_opt_desc_display.get() << "\n";
+        std::cout << *m_opt_desc_display.get() << std::endl;
         exit(0);
     }
 

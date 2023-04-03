@@ -32,13 +32,15 @@
 #include "gnucash-commands.hpp"
 #include "gnucash-core-app.hpp"
 
-extern "C" {
+#include <glib/gi18n.h>
 #include <dialog-new-user.h>
 #include <gfec.h>
+#include <gnc-engine.h> // For define GNC_MOD_GUI
 #include <gnc-file.h>
 #include <gnc-filepath-utils.h>
 #include <gnc-gnome-utils.h>
 #include <gnc-gsettings.h>
+#include <gnc-hooks.h>
 #include <gnc-module.h>
 #include <gnc-path.h>
 #include <gnc-plugin-bi-import.h>
@@ -51,13 +53,11 @@ extern "C" {
 #include <gnc-plugin-report-system.h>
 #include <gnc-prefs.h>
 #include <gnc-prefs-utils.h>
-#include <gnc-report.h>
 #include <gnc-session.h>
 #include <gnc-splash.h>
 #include <gnucash-register.h>
 #include <search-core-type.h>
 #include <top-level.h>
-}
 
 #include <boost/locale.hpp>
 #include <boost/optional.hpp>
@@ -65,7 +65,9 @@ extern "C" {
 #include <boost/nowide/args.hpp>
 #endif
 #include <iostream>
+#include <gnc-report.h>
 #include <gnc-locale-utils.hpp>
+#include <gnc-quotes.hpp>
 
 namespace bl = boost::locale;
 
@@ -87,7 +89,6 @@ load_gnucash_plugins()
 static void
 load_gnucash_modules()
 {
-    int i, len;
     struct
     {
         const gchar * name;
@@ -101,8 +102,8 @@ load_gnucash_modules()
     };
 
     /* module initializations go here */
-    len = sizeof(modules) / sizeof(*modules);
-    for (i = 0; i < len; i++)
+    int len = sizeof(modules) / sizeof(*modules);
+    for (int i = 0; i < len; i++)
     {
         DEBUG("Loading module %s started", modules[i].name);
         gnc_update_splash_screen(modules[i].name, GNC_SPLASH_PERCENTAGE_UNKNOWN);
@@ -135,13 +136,10 @@ static void
 scm_run_gnucash (void *data, [[maybe_unused]] int argc, [[maybe_unused]] char **argv)
 {
     auto user_file_spec = static_cast<t_file_spec*>(data);
-    SCM main_mod;
-    char* fn = NULL;
-
 
     scm_c_eval_string("(debug-set! stack 200000)");
 
-    main_mod = scm_c_resolve_module("gnucash utilities");
+    auto main_mod = scm_c_resolve_module("gnucash utilities");
     scm_set_current_module(main_mod);
     scm_c_use_module("gnucash app-utils");
 
@@ -170,17 +168,33 @@ scm_run_gnucash (void *data, [[maybe_unused]] int argc, [[maybe_unused]] char **
     gnc_hook_add_dangler(HOOK_UI_SHUTDOWN, (GFunc)gnc_file_quit, NULL, NULL);
 
     /* Install Price Quote Sources */
-    auto msg = bl::translate ("Checking Finance::Quote...").str(gnc_get_boost_locale());
-    gnc_update_splash_screen (msg.c_str(), GNC_SPLASH_PERCENTAGE_UNKNOWN);
-    scm_c_use_module("gnucash price-quotes");
-    scm_c_eval_string("(gnc:price-quotes-install-sources)");
+
+    try
+    {
+        const auto checking = _("Checking Finance::Quote…");
+        gnc_update_splash_screen (checking, GNC_SPLASH_PERCENTAGE_UNKNOWN);
+        GncQuotes quotes;
+        auto found = (bl::format (std::string{_("Found Finance::Quote version {1}.")}) % quotes.version()).str();
+        auto quote_sources = quotes.sources_as_glist();
+        gnc_quote_source_set_fq_installed (quotes.version().c_str(), quote_sources);
+        g_list_free_full (quote_sources, g_free);
+        gnc_update_splash_screen (found.c_str(), GNC_SPLASH_PERCENTAGE_UNKNOWN);
+    }
+    catch (const GncQuoteException& err)
+    {
+        auto msg = _("Unable to load Finance::Quote.");
+        PINFO ("Attempt to load Finance::Quote returned this error message:\n");
+        PINFO ("%s", err.what());
+        gnc_update_splash_screen (msg, GNC_SPLASH_PERCENTAGE_UNKNOWN);
+    }
 
     gnc_hook_run(HOOK_STARTUP, NULL);
 
+    char* fn = nullptr;
     if (!user_file_spec->nofile && (fn = get_file_to_load (user_file_spec->file_to_load)) && *fn )
     {
-        auto msg = bl::translate ("Loading data...").str(gnc_get_boost_locale());
-        gnc_update_splash_screen (msg.c_str(), GNC_SPLASH_PERCENTAGE_UNKNOWN);
+        auto msg = _("Loading data…");
+        gnc_update_splash_screen (msg, GNC_SPLASH_PERCENTAGE_UNKNOWN);
         gnc_file_open_file(gnc_get_splash_screen(), fn, /*open_readonly*/ FALSE);
         g_free(fn);
     }
@@ -230,11 +244,6 @@ namespace Gnucash {
         void configure_program_options (void);
 
         bool m_nofile = false;
-        bool m_show_help_gtk = false;
-        bool m_add_quotes; // Deprecated will be removed in gnucash 5.0
-        boost::optional <std::string> m_namespace; // Deprecated will be removed in gnucash 5.0
-
-        std::string m_gtk_help_msg;
     };
 
 }
@@ -249,55 +258,20 @@ void
 Gnucash::Gnucash::parse_command_line (int argc, char **argv)
 {
     Gnucash::CoreApp::parse_command_line (argc, argv);
-
-    if (m_show_help_gtk)
-    {
-        std::cout << m_gtk_help_msg;
-        exit(0);
-    }
-
-    if (m_namespace)
-        gnc_prefs_set_namespace_regexp (m_namespace->c_str());
 }
 
 // Define command line options specific to gnucash.
 void
 Gnucash::Gnucash::configure_program_options (void)
 {
-    // The g_option context dance below is done to be able to show a help message
-    // for gtk's options. The options themselves are already parsed out by
-    // gtk_init_check by the time this function is called though. So it really only
-    // serves to be able to display a help message.
-    g_set_prgname ("gnucash");
-    auto context = g_option_context_new (m_tagline.c_str());
-    auto gtk_options = gtk_get_option_group(FALSE);
-    g_option_context_add_group (context, gtk_options);
-
-    auto help_cstr = g_option_context_get_help (context, FALSE, gtk_options);
-    m_gtk_help_msg = help_cstr;
-    g_free (help_cstr);
-    g_option_context_free (context);
 
     bpo::options_description app_options(_("Application Options"));
     app_options.add_options()
     ("nofile", bpo::bool_switch (&m_nofile),
-     _("Do not load the last file opened"))
-    ("help-gtk",  bpo::bool_switch (&m_show_help_gtk),
-     _("Show help for gtk options"));
+     _("Do not load the last file opened"));
 
-    bpo::options_description depr_options(_("Deprecated Options"));
-    depr_options.add_options()
-    ("add-price-quotes", bpo::bool_switch (&m_add_quotes),
-     _("Add price quotes to given GnuCash datafile.\n"
-        "Note this option has been deprecated and will be removed in GnuCash 5.0.\n"
-        "Please use 'gnucash-cli --quotes get <datafile>' instead."))
-    ("namespace", bpo::value (&m_namespace),
-     _("Regular expression determining which namespace commodities will be retrieved.\n"
-       "Note this option has been deprecated and will be removed in GnuCash 5.0.\n"
-       "Please use 'gnucash-cli --quotes get --namespace <namespace> <datafile>' instead."));
-
-    m_opt_desc_display->add (app_options).add (depr_options);
-    m_opt_desc_all.add (app_options).add (depr_options);
+    m_opt_desc_display->add (app_options);
+    m_opt_desc_all.add (app_options);
 }
 
 int
@@ -305,24 +279,8 @@ Gnucash::Gnucash::start ([[maybe_unused]] int argc, [[maybe_unused]] char **argv
 {
     Gnucash::CoreApp::start();
 
-    // Test for the deprecated add-price-quotes option and run it
-    // Will be removed in 5.0
-    if (m_add_quotes)
-    {
-        std::cerr << bl::translate ("The '--add-price-quotes' option to gnucash has been deprecated and will be removed in GnuCash 5.0. "
-                                    "Please use 'gnucash-cli --quotes get <datafile>' instead.") << "\n";
-        if (!m_file_to_load || m_file_to_load->empty())
-        {
-            std::cerr << bl::translate("Missing data file parameter") << "\n\n"
-            << *m_opt_desc_display.get();
-            return 1;
-        }
-        else
-            return add_quotes (m_file_to_load);
-    }
-
     /* Now the module files are looked up, which might cause some library
-     initialization to be run, hence gtk must be initialized b*eforehand. */
+     initialization to be run, hence gtk must be initialized beforehand. */
     gnc_module_system_init();
 
     gnc_gui_init();
@@ -338,17 +296,17 @@ Gnucash::Gnucash::start ([[maybe_unused]] int argc, [[maybe_unused]] char **argv
 int
 main(int argc, char ** argv)
 {
-    Gnucash::Gnucash application (argv[0]);
+    Gnucash::Gnucash application (PROJECT_NAME);
 #ifdef __MINGW32__
     boost::nowide::args a(argc, argv); // Fix arguments - make them UTF-8
 #endif
     /* We need to initialize gtk before looking up all modules */
     if(!gtk_init_check (&argc, &argv))
     {
-        std::cerr << bl::format (bl::translate ("Run '{1} --help' to see a full list of available command line options.")) % *argv[0]
+        std::cerr << bl::format (std::string{("Run '{1} --help' to see a full list of available command line options.")}) % *argv[0]
         << "\n"
         // Translators: Do not translate $DISPLAY! It is an environment variable for X11
-        << bl::translate ("Error: could not initialize graphical user interface and option add-price-quotes was not set.\n"
+        << _("Error: could not initialize graphical user interface and option add-price-quotes was not set.\n"
         "Perhaps you need to set the $DISPLAY environment variable?");
         return 1;
     }

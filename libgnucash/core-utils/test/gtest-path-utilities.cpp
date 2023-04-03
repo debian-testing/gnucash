@@ -1,13 +1,10 @@
 #include <glib.h>
 
-extern "C"
-{
 #include <config.h>
 #include <gncla-dir.h>
 #include <gnc-path.h>
 #include <binreloc.h>
 #include <gnc-filepath-utils.h>
-}
 
 #include <gtest/gtest.h>
 
@@ -107,7 +104,7 @@ TEST_F(PathTest, gnc_path_get_datadir)
 TEST_F(PathTest, gnc_path_get_sysconfdir)
 {
     gchar *dirname = gnc_file_path_relative_part(PREFIX, SYSCONFDIR);
-    gchar *sysconfpath = g_build_filename(m_prefix, dirname, "gnucash", NULL);
+    gchar *sysconfpath = g_build_filename(m_prefix, dirname, PROJECT_NAME, NULL);
     g_free(dirname);
 #ifdef ENABLE_BINRELOC
     EXPECT_STREQ(gnc_path_get_pkgsysconfdir(), sysconfpath);
@@ -119,8 +116,19 @@ TEST_F(PathTest, gnc_path_get_sysconfdir)
     g_free(sysconfpath);
     g_unsetenv("GNC_UNINSTALLED");
     g_unsetenv("GNC_BUILDDIR");
-    sysconfpath = g_build_filename(SYSCONFDIR, "gnucash", NULL);
+    sysconfpath = g_build_filename(SYSCONFDIR, PROJECT_NAME, NULL);
     EXPECT_STREQ(gnc_path_get_pkgsysconfdir(), sysconfpath);
     g_free(sysconfpath);
 #endif
+}
+
+TEST_F (PathTest, gnc_filename_is_backup)
+{
+    EXPECT_EQ (gnc_filename_is_backup (""), false);
+    EXPECT_EQ (gnc_filename_is_backup ("a.gnucash"), false);
+    EXPECT_EQ (gnc_filename_is_backup ("a.gnucash.20201131010203.gnucash"), true);
+
+    EXPECT_EQ (gnc_filename_is_datafile (""), false);
+    EXPECT_EQ (gnc_filename_is_datafile ("a.gnucash"), true);
+    EXPECT_EQ (gnc_filename_is_datafile ("a.gnucash.20201131010203.gnucash"), false);
 }

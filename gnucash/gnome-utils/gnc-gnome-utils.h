@@ -36,7 +36,10 @@
 #define GNC_GNOME_UTILS_H
 
 #include <gnc-main-window.h>
-#include "dialog-options.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /** Initialize the gnome-utils library
  *  Should be run once before using any gnome-utils features.
@@ -64,21 +67,6 @@ void gnc_gnome_help (GtkWindow *parent, const char *file_name,
 /** Launch the default browser and open the provided URI.
  */
 void gnc_launch_doclink (GtkWindow *parent, const char *uri);
-
-/** Set the help callback to 'gnc_book_options_help_cb' to open a help browser
- *  and point it to the Book Options link in the Help file.
- */
-void gnc_options_dialog_set_book_options_help_cb (GNCOptionWin *win);
-
-/** Set the initial values of new book options to values specified in user
- *  preferences.
- */
-void gnc_options_dialog_set_new_book_option_values (GNCOptionDB *odb);
-
-/** Set the help callback to 'gnc_style_sheet_options_help_cb' to open a help browser
- *  and point it to the Style Sheet link in the Help file.
- */
-void gnc_options_dialog_set_style_sheet_options_help_cb (GNCOptionWin *win);
 
 /** Given a file name, find and load the requested pixmap.  This
  *  routine will display an error message if it can't find the file or
@@ -116,6 +104,10 @@ void gnc_shutdown (int exit_status);
 GncMainWindow *gnc_gui_init (void);
 int gnc_ui_start_event_loop (void);
 gboolean gnucash_ui_is_running (void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
 /** @} */

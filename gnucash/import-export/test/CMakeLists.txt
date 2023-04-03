@@ -6,7 +6,6 @@ set(GENERIC_IMPORT_TEST_INCLUDE_DIRS
   ${CMAKE_SOURCE_DIR}/common/test-core
   ${CMAKE_SOURCE_DIR}/libgnucash/engine
   ${CMAKE_SOURCE_DIR}/libgnucash/engine/test-core
-  ${GLIB2_INCLUDE_DIRS}
   ${GUILE_INCLUDE_DIRS}
 )
 
@@ -25,8 +24,6 @@ set(IMPORT_ACCOUNT_MATCHER_TEST_INCLUDE_DIRS
   ${CMAKE_SOURCE_DIR}/libgnucash/engine
   ${CMAKE_SOURCE_DIR}/libgnucash/app-utils
   ${CMAKE_SOURCE_DIR}/gnucash/gnome-utils
-  ${GLIB2_INCLUDE_DIRS}
-  ${GTK3_INCLUDE_DIRS}
   ${GTEST_INCLUDE_DIR}
   )
 
@@ -59,7 +56,7 @@ set(gtest_import_backend_LIBS
 
 set(gtest_import_backend_SOURCES
   gtest-import-backend.cpp
-  ${CMAKE_SOURCE_DIR}/gnucash/import-export/import-backend.c
+  ${CMAKE_SOURCE_DIR}/gnucash/import-export/import-backend.cpp
   ${CMAKE_SOURCE_DIR}/gnucash/import-export/import-settings.c
   ${CMAKE_SOURCE_DIR}/gnucash/import-export/import-utilities.c
   ${CMAKE_SOURCE_DIR}/libgnucash/engine/mocks/gmock-qofinstance.cpp

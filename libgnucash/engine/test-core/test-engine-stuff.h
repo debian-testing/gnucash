@@ -24,11 +24,8 @@
 
 #ifndef TEST_ENGINE_STUFF_H
 #define TEST_ENGINE_STUFF_H
+
 #include <glib.h>
-#ifdef __cplusplus
-extern "C"
-{
-#endif
 #include <stdlib.h>
 #include <stdint.h>
 
@@ -46,6 +43,10 @@ typedef struct KvpFrameImpl KvpFrame;
 #define __KVP_FRAME
 #endif
 
+#ifdef __cplusplus
+extern "C"
+{
+#endif
 time64 get_random_time(void);
 
 KvpValue* get_random_kvp_value(int type);
@@ -62,7 +63,6 @@ KvpFrame* get_random_kvp_frame(void);
 gnc_numeric get_random_gnc_numeric(int64_t);
 GncGUID* get_random_guid(void);
 
-//void kvp_exclude_type (KvpValueType kvp_type);
 void set_max_kvp_depth (gint max_kvp_depth);
 void set_max_kvp_frame_elements (gint max_kvp_frame_elements);
 void set_max_account_tree_depth (gint max_tree_depth);

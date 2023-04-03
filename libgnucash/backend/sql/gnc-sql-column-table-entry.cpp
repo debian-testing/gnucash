@@ -21,11 +21,8 @@
  * Boston, MA  02110-1301,  USA       gnu@gnu.org                   *
 \********************************************************************/
 
-extern "C"
-{
 #include <config.h>
 #include <qof.h>
-}
 #include <sstream>
 #include <iomanip>
 #include <gnc-datetime.hpp>
@@ -326,7 +323,6 @@ GncSqlColumnTableEntryImpl<CT_GUID>::load (const GncSqlBackend* sql_be,
 {
 
     GncGUID guid;
-    const GncGUID* pGuid;
 
     g_return_if_fail (pObject != NULL);
     g_return_if_fail (m_gobj_param_name != nullptr || get_setter(obj_name) != nullptr);
@@ -677,8 +673,6 @@ gnc_sql_load_object (const GncSqlBackend* sql_be, GncSqlRow& row,
                      QofIdTypeConst obj_name, gpointer pObject,
                      const EntryVec& table)
 {
-    QofSetterFunc setter;
-
     g_return_if_fail (sql_be != NULL);
     g_return_if_fail (pObject != NULL);
 

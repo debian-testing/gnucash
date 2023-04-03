@@ -37,7 +37,10 @@
 #include <gtk/gtk.h>
 #include "gnc-plugin.h"
 
-G_BEGIN_DECLS
+#ifdef __cplusplus
+extern "C"
+{
+#endif
 
 /* type macros */
 #define GNC_TYPE_PLUGIN_PAGE_REPORT            (gnc_plugin_page_report_get_type ())
@@ -84,7 +87,9 @@ void       gnc_main_window_open_report (int report_id, GncMainWindow *window);
 // directly called through from above
 void       gnc_main_window_open_report_url (const char * url, GncMainWindow *window);
 
-G_END_DECLS
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __GNC_PLUGIN_PAGE_REPORT_H */
 /** @} */

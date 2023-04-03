@@ -24,9 +24,8 @@
 
 #include <boost/uuid/uuid.hpp>
 #include <stdexcept>
-extern "C" {
+
 #include "guid.h"
-}
 
 namespace gnc {
 struct guid_syntax_exception : public std::invalid_argument
@@ -63,5 +62,7 @@ bool operator != (GUID const &, GUID const &) noexcept;
 bool operator == (GUID const &, GncGUID const &) noexcept;
 
 
-}
+} // namespace gnc
+
+bool operator== (const GncGUID&, const GncGUID&);
 #endif

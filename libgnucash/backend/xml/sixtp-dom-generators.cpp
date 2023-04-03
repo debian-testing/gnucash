@@ -22,14 +22,11 @@
  ********************************************************************/
 #include <glib.h>
 
-extern "C"
-{
 #define __EXTENSIONS__
 
 #include <config.h>
 
 #include <gnc-date.h>
-}
 
 #include "gnc-xml-helper.h"
 #include "sixtp-dom-generators.h"
@@ -327,8 +324,6 @@ xmlNodePtr
 qof_instance_slots_to_dom_tree (const char* tag, const QofInstance* inst)
 {
     xmlNodePtr ret;
-    const char** keys;
-    unsigned int i;
     KvpFrame* frame = qof_instance_get_slots (inst);
     if (!frame || frame->empty())
         return nullptr;

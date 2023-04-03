@@ -26,8 +26,6 @@
  * restoring data to/from an SQL db
  */
 #include <guid.hpp>
-extern "C"
-{
 #include <config.h>
 
 #include <glib.h>
@@ -38,7 +36,6 @@ extern "C"
 #ifdef S_SPLINT_S
 #include "splint-defs.h"
 #endif
-}
 
 #include <string>
 #include <sstream>
@@ -185,18 +182,6 @@ GncSqlSlotsBackend::GncSqlSlotsBackend() :
                         TABLE_NAME, col_table) {}
 
 /* ================================================================= */
-
-inline static std::string::size_type
-get_final_delim(std::string& path)
-{
-    auto idx = path.rfind('/');
-    while (idx == path.length())
-    {
-        path.erase(idx);
-        idx = path.rfind('/');
-    }
-    return idx;
-}
 
 static std::string
 get_key (slot_info_t* pInfo)
@@ -517,7 +502,6 @@ static void
 set_numeric_val (gpointer pObject, gnc_numeric value)
 {
     slot_info_t* pInfo = (slot_info_t*)pObject;
-    KvpValue* pValue = NULL;
 
     g_return_if_fail (pObject != NULL);
 
@@ -548,7 +532,6 @@ static void
 set_gdate_val (gpointer pObject, GDate* value)
 {
     slot_info_t* pInfo = (slot_info_t*)pObject;
-    KvpValue* pValue = NULL;
 
     g_return_if_fail (pObject != NULL);
 
@@ -793,31 +776,6 @@ load_obj_guid (const GncSqlBackend* sql_be, GncSqlRow& row)
     gnc_sql_load_object (sql_be, row, NULL, &guid, obj_guid_col_table);
 
     return &guid;
-}
-
-static void
-load_slot_for_list_item (GncSqlBackend* sql_be, GncSqlRow& row,
-                         QofCollection* coll)
-{
-    slot_info_t slot_info = { NULL, NULL, TRUE, NULL, KvpValue::Type::INVALID,
-                              NULL, FRAME, NULL, "" };
-    const GncGUID* guid;
-    QofInstance* inst;
-
-    g_return_if_fail (sql_be != NULL);
-    g_return_if_fail (coll != NULL);
-
-    guid = load_obj_guid (sql_be, row);
-    g_assert (guid != NULL);
-    inst = qof_collection_lookup_entity (coll, guid);
-
-    slot_info.be = sql_be;
-    slot_info.pKvpFrame = qof_instance_get_slots (inst);
-    slot_info.context = NONE;
-
-    gnc_sql_load_object (sql_be, row, TABLE_NAME, &slot_info, col_table);
-
-
 }
 
 static void

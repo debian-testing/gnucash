@@ -1,4 +1,6 @@
 
+add_subdirectory(test)
+
 set (gnc_gnome_noinst_HEADERS
   assistant-acct-period.h
   assistant-hierarchy.h
@@ -18,7 +20,6 @@ set (gnc_gnome_noinst_HEADERS
   dialog-fincalc.h
   dialog-find-account.h
   dialog-find-transactions.h
-  dialog-find-transactions2.h
   dialog-imap-editor.h
   dialog-invoice.h
   dialog-job.h
@@ -28,10 +29,9 @@ set (gnc_gnome_noinst_HEADERS
   dialog-payment.h
   dialog-print-check.h
   dialog-progress.h
-  dialog-report-column-view.h
+  dialog-report-column-view.hpp
   dialog-report-style-sheet.h
   dialog-sx-editor.h
-  dialog-sx-editor2.h
   dialog-sx-from-trans.h
   dialog-sx-since-last-run.h
   dialog-vendor.h
@@ -41,23 +41,19 @@ set (gnc_gnome_noinst_HEADERS
   gnc-plugin-budget.h
   gnc-plugin-business.h
   gnc-plugin-register.h
-  gnc-plugin-register2.h
   gnc-plugin-report-system.h
   gnc-plugin-page-account-tree.h
   gnc-plugin-page-budget.h
   gnc-plugin-page-invoice.h
   gnc-plugin-page-owner-tree.h
   gnc-plugin-page-register.h
-  gnc-plugin-page-register2.h
   gnc-plugin-page-report.h
   gnc-plugin-page-sx-list.h
   gnc-split-reg.h
-  gnc-split-reg2.h
   reconcile-view.h
   search-owner.h
   top-level.h
   window-reconcile.h
-  window-reconcile2.h
   window-report.h
   window-autoclear.h
 )
@@ -70,11 +66,11 @@ gnc_add_swig_guile_command (swig-gnome-c
 
 set (gnc_gnome_SOURCES
   assistant-acct-period.c
-  assistant-hierarchy.c
+  assistant-hierarchy.cpp
   assistant-loan.cpp
   assistant-stock-split.c
   assistant-stock-transaction.cpp
-  business-options-gnome.c
+  business-options-gnome.cpp
   business-urls.c
   business-gnome-utils.c
   dialog-doclink.c
@@ -88,7 +84,6 @@ set (gnc_gnome_SOURCES
   dialog-fincalc.c
   dialog-find-account.c
   dialog-find-transactions.c
-  dialog-find-transactions2.c
   dialog-imap-editor.c
   dialog-invoice.c
   dialog-job.c
@@ -97,13 +92,12 @@ set (gnc_gnome_SOURCES
   dialog-order.c
   dialog-payment.c
   dialog-price-editor.c
-  dialog-price-edit-db.c
+  dialog-price-edit-db.cpp
   dialog-print-check.c
   dialog-progress.c
-  dialog-report-column-view.c
-  dialog-report-style-sheet.c
+  dialog-report-column-view.cpp
+  dialog-report-style-sheet.cpp
   dialog-sx-editor.c
-  dialog-sx-editor2.c
   dialog-sx-from-trans.c
   dialog-sx-since-last-run.c
   dialog-tax-info.c
@@ -114,24 +108,20 @@ set (gnc_gnome_SOURCES
   gnc-plugin-budget.c
   gnc-plugin-business.c
   gnc-plugin-register.c
-  gnc-plugin-register2.c
   gnc-plugin-report-system.c
   gnc-plugin-page-account-tree.c
   gnc-plugin-page-budget.c
   gnc-plugin-page-invoice.c
   gnc-plugin-page-owner-tree.c
   gnc-plugin-page-register.c
-  gnc-plugin-page-register2.c
-  gnc-plugin-page-report.c
+  gnc-plugin-page-report.cpp
   gnc-plugin-page-sx-list.c
   gnc-split-reg.c
-  gnc-split-reg2.c
   reconcile-view.c
   search-owner.c
   top-level.c
   window-reconcile.c
-  window-reconcile2.c
-  window-report.c
+  window-report.cpp
   window-autoclear.c
 )
 
@@ -145,7 +135,9 @@ target_link_libraries(gnc-gnome
     gnc-register-gnome
     gnc-register-core
     gnc-gnome-utils
+    gnc-app-utils
     gnc-engine
+    gnc-expressions
     gnc-html
     gnc-locale-tax
     gnucash-guile
@@ -154,17 +146,17 @@ target_link_libraries(gnc-gnome
     ${GTK_MAC_LDFLAGS})
 
 target_compile_definitions (gnc-gnome PRIVATE -DG_LOG_DOMAIN=\"gnc.gui\" ${GTK_MAC_CFLAGS_OTHER})
-target_compile_options(gnc-gnome PRIVATE -Wno-deprecated-declarations)
 
 target_include_directories(gnc-gnome
   PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}
   PRIVATE
+    ${CMAKE_SOURCE_DIR}/libgnucash/app-utils
     ${CMAKE_SOURCE_DIR}/libgnucash/app-utils/calculation
     ${CMAKE_SOURCE_DIR}/gnucash/html
     ${CMAKE_BINARY_DIR}/gnucash/gnome-utils # for gnc-warnings.h
 )
 
-add_dependencies (gnc-gnome swig-runtime-h)
+add_dependencies (gnc-gnome swig-runtime-h swig-gnome-c)
 
 if (MAC_INTEGRATION)
   target_compile_options(gnc-gnome PRIVATE ${OSX_EXTRA_COMPILE_FLAGS})
@@ -188,8 +180,7 @@ if (NOT BUILDING_FROM_VCS)
 else()
     add_custom_command (
         OUTPUT ${GNC_APPDATA_IN}
-        COMMAND ${CMAKE_COMMAND} -E env
-            ${GETTEXT_MSGFMT_EXECUTABLE}
+        COMMAND ${GETTEXT_MSGFMT_EXECUTABLE}
                 --xml --template ${CMAKE_CURRENT_SOURCE_DIR}/gnucash.appdata.xml.in.in
                 -d ${CMAKE_SOURCE_DIR}/po
                 -o ${GNC_APPDATA_IN}
@@ -257,13 +248,11 @@ gnc_add_scheme_targets(scm-gnome
     OUTPUT_DIR gnucash
     DEPENDS "${GUILE_DEPENDS}")
 
-# Module interfaces deprecated in 4.x, will be removed for 5.x
-gnc_add_scheme_deprecated_module (
-    OLD_MODULE "gnucash report report-gnome"
-    NEW_MODULE"gnucash report-menus"
-    DEPENDS "scm-gnome")
-
-set_dist_list(gnome_DIST
+set_local_dist(gnome_DIST_local
         CMakeLists.txt gnome.i gnucash.appdata.xml.in.in gnucash.desktop.in.in
         gnucash.releases.xml ${gnc_gnome_noinst_HEADERS} ${gnc_gnome_SOURCES} ${gnome_SCHEME})
+
 dist_add_generated(${BUILDING_FROM_VCS} gnucash.appdata.xml.in)
+add_dependencies(gnucash-appdata dist-gnucash-gnome-gnucash-appdata-xml-in)
+
+set(gnome_DIST ${gnome_DIST_local} ${test_gnome_DIST} PARENT_SCOPE)

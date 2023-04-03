@@ -190,10 +190,10 @@ fcb_clicked_cb (GtkButton *button, GtkWidget *ok_button)
             DEBUG("Native file uri is '%s'", uri);
 
             g_object_set_data_full (G_OBJECT(button), "uri", g_strdup (uri), g_free);
-            g_free (uri);
             g_free (filename);
             g_free (unescape_filename);
         }
+        g_free (uri);
         file_ok_cb (button, ok_button);
     }
     g_object_unref (native);
@@ -238,11 +238,16 @@ setup_location_dialog (GtkBuilder *builder, GtkWidget *button_loc, const gchar *
     // update label and set entry text if required
     if (uri)
     {
-        gtk_label_set_text (location_label, _("Amend URL:"));
+        gtk_label_set_text (location_label, _("Amend the URL"));
         gtk_entry_set_text (entry, uri);
     }
     else
-        gtk_label_set_text (location_label, _("Enter URL like http://www.gnucash.org:"));
+        {
+            gchar *enter_uri = g_strdup_printf (_("Enter an URL like \"%s\""),
+                                                PACKAGE_URL);
+            gtk_label_set_text (location_label, enter_uri);
+            g_free (enter_uri);
+        }
 }
 
 static void
@@ -256,7 +261,7 @@ setup_file_dialog (GtkBuilder *builder, const gchar *path_head, const gchar *uri
         GtkWidget *existing_hbox = GTK_WIDGET(gtk_builder_get_object (builder, "existing_hbox"));
         GtkWidget *image = gtk_image_new_from_icon_name ("dialog-warning", GTK_ICON_SIZE_SMALL_TOOLBAR);
         gchar     *use_uri = gnc_doclink_get_use_uri (path_head, uri, scheme);
-        gchar     *uri_label = g_strdup_printf ("%s '%s'", _("Existing Document Link is"), display_uri);
+        gchar     *uri_label = g_strdup_printf ("%s \"%s\"", _("Existing Document Link is"), display_uri);
         GtkWidget *label = gtk_label_new (uri_label);
 
         if (g_file_test (display_uri, G_FILE_TEST_EXISTS))
@@ -635,7 +640,6 @@ row_selected_bus_cb (GtkTreeView *view, GtkTreePath *path,
     if (gtk_tree_view_get_column (GTK_TREE_VIEW (doclink_dialog->view),
                                   DESC_ID - 1) == col)
     {
-        GncPluginPage *page;
         InvoiceWindow *iw;
 
         iw =  gnc_ui_invoice_edit (GTK_WINDOW (doclink_dialog->window),

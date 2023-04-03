@@ -32,6 +32,7 @@
 
 #include "Account.h"
 #include "SX-book.h"
+#include "SX-book-p.h"
 #include "SX-ttinfo.h"
 #include "SchedXaction.h"
 #include "Transaction.h"
@@ -61,7 +62,7 @@ enum
 };
 
 /* GObject initialization */
-G_DEFINE_TYPE(SchedXaction, gnc_schedxaction, QOF_TYPE_INSTANCE);
+G_DEFINE_TYPE(SchedXaction, gnc_schedxaction, QOF_TYPE_INSTANCE)
 
 static void
 gnc_schedxaction_init(SchedXaction* sx)
@@ -497,17 +498,8 @@ xaccSchedXactionFree( SchedXaction *sx )
 
     delete_template_trans( sx );
 
-    /*
-     * xaccAccountDestroy removes the account from
-     * its group for us AFAICT.  If shutting down,
-     * the account is being deleted separately.
-     */
-
-    if (!qof_book_shutting_down(qof_instance_get_book(sx)))
-    {
-        xaccAccountBeginEdit(sx->template_acct);
-        xaccAccountDestroy(sx->template_acct);
-    }
+    xaccAccountBeginEdit( sx->template_acct );
+    xaccAccountDestroy( sx->template_acct );
 
     for ( l = sx->deferredList; l; l = l->next )
     {
@@ -1220,6 +1212,9 @@ gnc_sx_book_end(QofBook* book)
 
     col = qof_book_get_collection(book, GNC_ID_SCHEDXACTION);
     qof_collection_foreach(col, destroy_sx_on_book_close, NULL);
+
+    // Now destroy the template root account
+    gnc_book_set_template_root (book, NULL);
 }
 
 #ifdef _MSC_VER

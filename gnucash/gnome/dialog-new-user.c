@@ -122,8 +122,7 @@ gnc_ui_new_user_ok_cb (GtkWidget * widget, gpointer data)
     }
     else if (gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (new_user->tutorial_button)))
     {
-        gnc_gnome_help (GTK_WINDOW(new_user->window), HF_GUIDE, NULL);
-        gncp_new_user_finish ();
+        gnc_gnome_help (GTK_WINDOW(new_user->window), DF_GUIDE, NULL);
     }
     gtk_widget_destroy (new_user->window);
 }
@@ -138,10 +137,8 @@ gnc_ui_new_user_window_present (GtkWindow *window)
 static void
 gnc_ui_new_user_dialog_create (GNCNewUserDialog *new_user)
 {
-    GtkWidget  *window;
     GtkBuilder *builder;
     GtkWidget  *button;
-    gint result;
 
     ENTER(" ");
     builder = gtk_builder_new();
@@ -198,7 +195,6 @@ gnc_ui_new_user_cancel_dialog (GtkWindow *parent)
     keepshowing = (result == GTK_RESPONSE_YES);
 
     gnc_set_first_startup (keepshowing);
-    gncp_new_user_finish ();
 
     g_object_unref(G_OBJECT(builder));
     gtk_widget_destroy(dialog);

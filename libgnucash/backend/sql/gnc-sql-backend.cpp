@@ -20,8 +20,6 @@
  * 51 Franklin Street, Fifth Floor    Fax:    +1-617-542-2652       *
  * Boston, MA  02110-1301,  USA       gnu@gnu.org                   *
 \********************************************************************/
-extern "C"
-{
 #include <config.h>
 #include <gnc-prefs.h>
 #include <gnc-engine.h>
@@ -32,7 +30,6 @@ extern "C"
 #include <gncTaxTable.h>
 #include <gncInvoice.h>
 #include <gnc-pricedb.h>
-}
 
 #include <algorithm>
 #include <cassert>
@@ -235,7 +232,7 @@ GncSqlBackend::ObjectBackendRegistry::load_remaining(GncSqlBackend* sql_be)
     auto num_types = m_registry.size();
     auto num_done = fixed_load_order.size() + business_fixed_load_order.size();
 
-    for (auto entry : m_registry)
+    for (const auto& entry : m_registry)
     {
         std::string type;
         GncSqlObjectBackendPtr obe = nullptr;
@@ -295,7 +292,7 @@ GncSqlBackend::load (QofBook* book, QofBackendLoadType loadType)
         auto num_done = 0;
 
         /* Load any initial stuff. Some of this needs to happen in a certain order */
-        for (auto type : fixed_load_order)
+        for (const auto& type : fixed_load_order)
         {
             num_done++;
             auto obe = m_backend_registry.get_object_backend(type);
@@ -305,7 +302,7 @@ GncSqlBackend::load (QofBook* book, QofBackendLoadType loadType)
                 obe->load_all(this);
             }
         }
-        for (auto type : business_fixed_load_order)
+        for (const auto& type : business_fixed_load_order)
         {
             num_done++;
             auto obe = m_backend_registry.get_object_backend(type);
@@ -568,7 +565,6 @@ GncSqlBackend::get_object_backend(const std::string& type) const noexcept
 void
 GncSqlBackend::commit (QofInstance* inst)
 {
-    sql_backend be_data;
     gboolean is_dirty;
     gboolean is_destroying;
     gboolean is_infant;
@@ -824,7 +820,6 @@ bool
 GncSqlBackend::object_in_db (const char* table_name, QofIdTypeConst obj_name,
                              const gpointer pObject, const EntryVec& table) const noexcept
 {
-    guint count;
     g_return_val_if_fail (table_name != nullptr, false);
     g_return_val_if_fail (obj_name != nullptr, false);
     g_return_val_if_fail (pObject != nullptr, false);
@@ -906,7 +901,7 @@ GncSqlBackend::build_insert_statement (const char* table_name,
     }
 
     sql << ") VALUES(";
-    for (auto col_value : values)
+    for (const auto& col_value : values)
     {
         if (col_value != *values.begin())
             sql << ",";

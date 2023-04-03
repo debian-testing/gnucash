@@ -62,6 +62,10 @@ typedef struct _gncCustomerClass GncCustomerClass;
 #include "gncTaxTable.h"
 #include "gncJob.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define GNC_ID_CUSTOMER       "gncCustomer"
 
 /* --- type macros --- */
@@ -112,8 +116,6 @@ void gncCustomerRemoveJob (GncCustomer *customer, GncJob *job);
 /** Return a pointer to the instance gncCustomer that is identified
  *  by the guid, and is residing in the book. Returns NULL if the
  *  instance can't be found.
- *  Equivalent function prototype is
- *  GncCustomer * gncCustomerLookup (QofBook *book, const GncGUID *guid);
  */
 static inline GncCustomer * gncCustomerLookup (const QofBook *book, const GncGUID *guid)
 {
@@ -163,6 +165,11 @@ gboolean gncCustomerEqual(const GncCustomer *a, const GncCustomer *b);
 
 GList * gncCustomerGetJoblist (const GncCustomer *customer, gboolean show_all);
 gboolean gncCustomerIsDirty (GncCustomer *customer);
+
+#ifdef __cplusplus
+}
+#endif
+
 
 #endif /* GNC_CUSTOMER_H_ */
 /** @} */

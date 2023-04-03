@@ -30,8 +30,6 @@
 
 #include <guid.hpp>
 
-extern "C"
-{
 #include <config.h>
 
 #include <gtk/gtk.h>
@@ -52,12 +50,11 @@ extern "C"
 
 #include "import-account-matcher.h"
 #include "import-main-matcher.h"
-#include "gnc-csv-account-map.h"
+#include "import-backend.h"
 #include "gnc-account-sel.h"
 
 #include "gnc-csv-gnumeric-popup.h"
 #include "go-charmap-sel.h"
-}
 
 #include "gnc-imp-settings-csv-tx.hpp"
 #include "gnc-import-tx.hpp"
@@ -68,6 +65,7 @@ extern "C"
 #include <exception>
 #include <iostream>
 #include <memory>
+#include <numeric>
 #include <string>
 #include <tuple>
 
@@ -83,6 +81,11 @@ namespace bl = boost::locale;
 /* This static indicates the debugging module that this .o belongs to.  */
 static QofLogModule log_module = GNC_MOD_ASSISTANT;
 
+enum GncImportColumn {
+    MAPPING_STRING,
+    MAPPING_FULLPATH,
+    MAPPING_ACCOUNT
+};
 
 /* A note on memory management
  *
@@ -206,7 +209,7 @@ private:
     void fixed_context_menu (GdkEventButton *event, int col, int dx);
     /* helper function to calculate row colors for the preview table (to visualize status) */
     void preview_row_fill_state_cells (GtkListStore *store, GtkTreeIter *iter,
-            std::string& err_msg, bool skip);
+            ErrMap& err_msg, bool skip);
     /* helper function to create preview header cell combo boxes listing available column types */
     GtkWidget* preview_cbox_factory (GtkTreeModel* model, uint32_t colnum);
     /* helper function to set rendering parameters for preview data columns */
@@ -218,7 +221,8 @@ private:
 
     GtkWidget       *file_page;                     /**< Assistant file page widget */
     GtkWidget       *file_chooser;                  /**< The widget for the file chooser */
-    std::string      m_file_name;                     /**< The import file name */
+    std::string      m_fc_file_name;                /**< The file name currently selected in the file chooser */
+    std::string      m_final_file_name;             /**< The name of the import file effectively to use */
 
     GtkWidget       *preview_page;                  /**< Assistant preview page widget */
     GtkComboBox     *settings_combo;                /**< The Settings Combo */
@@ -268,6 +272,8 @@ private:
 
     bool                  new_book;                 /**< Are we importing into a new book?; if yes, call book options */
     std::unique_ptr<GncTxImport> tx_imp;            /**< The actual data we are previewing */
+
+    bool                  m_req_mapped_accts;
 };
 
 
@@ -572,7 +578,6 @@ CsvImpTransAssist::CsvImpTransAssist ()
         acct_selector = gnc_account_sel_new();
         auto account_hbox = GTK_WIDGET(gtk_builder_get_object (builder, "account_hbox"));
         gtk_box_pack_start (GTK_BOX(account_hbox), acct_selector, TRUE, TRUE, 6);
-        gnc_account_sel_set_hexpand (GNC_ACCOUNT_SEL(acct_selector), true);
         gtk_widget_show (acct_selector);
 
         g_signal_connect(G_OBJECT(acct_selector), "account_sel_changed",
@@ -702,15 +707,18 @@ CsvImpTransAssist::check_for_valid_filename ()
 {
     auto file_name = gtk_file_chooser_get_filename (GTK_FILE_CHOOSER(file_chooser));
     if (!file_name || g_file_test (file_name, G_FILE_TEST_IS_DIR))
+    {
+        g_free (file_name);
         return false;
+    }
 
     auto filepath = gnc_uri_get_path (file_name);
     auto starting_dir = g_path_get_dirname (filepath);
 
-    m_file_name = file_name;
+    m_fc_file_name = file_name;
     gnc_set_default_directory (GNC_PREFS_GROUP, starting_dir);
 
-    DEBUG("file_name selected is %s", m_file_name.c_str());
+    DEBUG("file_name selected is %s", m_fc_file_name.c_str());
     DEBUG("starting directory is %s", starting_dir);
 
     g_free (filepath);
@@ -1402,25 +1410,43 @@ CsvImpTransAssist::preview_update_fw_columns (GtkTreeView* treeview, GdkEventBut
 /* Convert state info (errors/skipped) in visual feedback to decorate the preview table */
 void
 CsvImpTransAssist::preview_row_fill_state_cells (GtkListStore *store, GtkTreeIter *iter,
-        std::string& err_msg, bool skip)
+        ErrMap& err_msgs, bool skip)
 {
     /* Extract error status for all non-skipped lines */
-    const char *c_err_msg = nullptr;
+    auto err_msg = std::string();
     const char *icon_name = nullptr;
     const char *fcolor = nullptr;
     const char *bcolor = nullptr;
-    if (!skip && !err_msg.empty())
+    /* Skipped lines or issues with account resolution are not
+     * errors at this stage. */
+    auto non_acct_error = [](ErrPair curr_err)
+                {
+                    return !((curr_err.first == GncTransPropType::ACCOUNT) ||
+                             (curr_err.first == GncTransPropType::TACCOUNT));
+                };
+    if (!skip && std::any_of(err_msgs.cbegin(), err_msgs.cend(), non_acct_error))
     {
         fcolor = "black";
         bcolor = "pink";
-        c_err_msg = err_msg.c_str();
+        err_msg = std::string(_("This line has the following parse issues:"));
+        auto add_non_acct_err_bullet = [](std::string& a, ErrMap::value_type& b)->std::string
+                                {
+                                    if ((b.first == GncTransPropType::ACCOUNT) ||
+                                        (b.first == GncTransPropType::TACCOUNT))
+                                        return std::move(a);
+                                    else
+                                        return std::move(a) + "\n• " + b.second;
+
+                                };
+        err_msg = std::accumulate (err_msgs.begin(), err_msgs.end(),
+                                   std::move (err_msg), add_non_acct_err_bullet);
         icon_name = "dialog-error";
     }
     gtk_list_store_set (store, iter,
             PREV_COL_FCOLOR, fcolor,
             PREV_COL_BCOLOR, bcolor,
             PREV_COL_STRIKE, skip,
-            PREV_COL_ERROR, c_err_msg,
+            PREV_COL_ERROR, err_msg.c_str(),
             PREV_COL_ERR_ICON, icon_name, -1);
 }
 
@@ -1712,8 +1738,9 @@ CsvImpTransAssist::preview_refresh ()
 void CsvImpTransAssist::preview_validate_settings ()
 {
     /* Allow the user to proceed only if there are no inconsistencies in the settings */
-    auto error_msg = tx_imp->verify();
-    gtk_assistant_set_page_complete (csv_imp_asst, preview_page, error_msg.empty());
+    auto has_non_acct_errors = !tx_imp->verify (false).empty();
+    auto error_msg = tx_imp->verify (m_req_mapped_accts);
+    gtk_assistant_set_page_complete (csv_imp_asst, preview_page, !has_non_acct_errors);
     gtk_label_set_markup(GTK_LABEL(instructions_label), error_msg.c_str());
     gtk_widget_set_visible (GTK_WIDGET(instructions_image), !error_msg.empty());
 
@@ -1721,7 +1748,7 @@ void CsvImpTransAssist::preview_validate_settings ()
      * accounts in the user data according to the importer configuration
      * only if there are no errors
      */
-    if (error_msg.empty())
+    if (!has_non_acct_errors)
         gtk_widget_set_visible (GTK_WIDGET(account_match_page),
                 !tx_imp->accounts().empty());
 }
@@ -1733,8 +1760,6 @@ void CsvImpTransAssist::preview_validate_settings ()
 
 /* Populates the account match view with all potential
  * account names found in the parse data.
- *
- * @param info The data being previewed
  */
 void CsvImpTransAssist::acct_match_set_accounts ()
 {
@@ -1751,6 +1776,39 @@ void CsvImpTransAssist::acct_match_set_accounts ()
     }
 }
 
+static void
+csv_tximp_acct_match_load_mappings (GtkTreeModel *mappings_store)
+{
+    // Set iter to first entry of store
+    GtkTreeIter iter;
+    auto valid = gtk_tree_model_get_iter_first (mappings_store, &iter);
+
+    // Walk through the store trying to match to a map
+    while (valid)
+    {
+        // Walk through the list, reading each row
+        Account *account = nullptr;
+        gchar   *map_string;
+        gtk_tree_model_get (GTK_TREE_MODEL(mappings_store), &iter, MAPPING_STRING, &map_string, MAPPING_ACCOUNT, &account, -1);
+
+        // Look for an account matching the map_string
+        // It may already be set in the tree model. If not we try to match the map_string with
+        // - an entry in our saved account maps
+        // - a full name of any of our existing accounts
+        if (account ||
+            (account = gnc_account_imap_find_any (gnc_get_current_book(), IMAP_CAT_CSV, map_string)) ||
+            (account = gnc_account_lookup_by_full_name (gnc_get_current_root_account(), map_string)))
+        {
+            auto fullpath = gnc_account_get_full_name (account);
+            gtk_list_store_set (GTK_LIST_STORE(mappings_store), &iter, MAPPING_FULLPATH, fullpath, -1);
+            gtk_list_store_set (GTK_LIST_STORE(mappings_store), &iter, MAPPING_ACCOUNT, account, -1);
+            g_free (fullpath);
+        }
+
+        g_free (map_string);
+        valid = gtk_tree_model_iter_next (mappings_store, &iter);
+    }
+}
 
 static bool
 csv_tximp_acct_match_check_all (GtkTreeModel *model)
@@ -1832,15 +1890,39 @@ CsvImpTransAssist::acct_match_select(GtkTreeModel *model, GtkTreeIter* iter)
                 MAPPING_FULLPATH, fullpath, -1);
 
         // Update the account kvp mappings
-        gnc_csv_account_map_change_mappings (account, gnc_acc, text);
+        if (text && *text)
+        {
+            gnc_account_imap_delete_account (account, IMAP_CAT_CSV, text);
+            gnc_account_imap_add_account (gnc_acc, IMAP_CAT_CSV, text, gnc_acc);
+        }
+
+        // Force reparsing of account columns - may impact multi-currency mode
+        auto col_types = tx_imp->column_types();
+        auto col_type_it = std::find (col_types.cbegin(),
+                                      col_types.cend(), GncTransPropType::ACCOUNT);
+        if (col_type_it != col_types.cend())
+            tx_imp->set_column_type(col_type_it - col_types.cbegin(),
+                                    GncTransPropType::ACCOUNT, true);
+        col_type_it = std::find (col_types.cbegin(),
+                                 col_types.cend(), GncTransPropType::TACCOUNT);
+        if (col_type_it != col_types.cend())
+            tx_imp->set_column_type(col_type_it - col_types.cbegin(),
+                                    GncTransPropType::TACCOUNT, true);
 
         g_free (fullpath);
     }
     g_free (text);
 
-    gtk_assistant_set_page_complete (csv_imp_asst, account_match_page,
-            csv_tximp_acct_match_check_all (model));
 
+    /* Enable the "Next" Assistant Button */
+    auto all_checked = csv_tximp_acct_match_check_all (model);
+    gtk_assistant_set_page_complete (csv_imp_asst, account_match_page,
+                                     all_checked);
+
+    /* Update information message and whether to display account errors */
+    m_req_mapped_accts = all_checked;
+    auto errs = tx_imp->verify(m_req_mapped_accts);
+    gtk_label_set_text (GTK_LABEL(account_match_label), errs.c_str());
 }
 
 void
@@ -1893,11 +1975,17 @@ void
 CsvImpTransAssist::assist_file_page_prepare ()
 {
     /* Set the default directory */
-    auto starting_dir = gnc_get_default_directory (GNC_PREFS_GROUP);
-    if (starting_dir)
+    if (!m_final_file_name.empty())
+        gtk_file_chooser_set_filename (GTK_FILE_CHOOSER(file_chooser),
+                                       m_final_file_name.c_str());
+    else
     {
-        gtk_file_chooser_set_current_folder (GTK_FILE_CHOOSER(file_chooser), starting_dir);
-        g_free (starting_dir);
+        auto starting_dir = gnc_get_default_directory (GNC_PREFS_GROUP);
+        if (starting_dir)
+        {
+            gtk_file_chooser_set_current_folder (GTK_FILE_CHOOSER(file_chooser), starting_dir);
+            g_free (starting_dir);
+        }
     }
 
     /* Disable the "Next" Assistant Button */
@@ -1910,114 +1998,91 @@ CsvImpTransAssist::assist_preview_page_prepare ()
 {
     auto go_back = false;
 
-    /* Load the file into parse_data, reset if already loaded. */
-    if (tx_imp)
-        tx_imp.reset();
+    if (m_final_file_name != m_fc_file_name)
+    {
+        tx_imp = std::unique_ptr<GncTxImport>(new GncTxImport);
 
-    tx_imp = std::unique_ptr<GncTxImport>(new GncTxImport);
+        /* Assume data is CSV. User can later override to Fixed Width if needed */
+        try
+        {
+            tx_imp->file_format (GncImpFileFormat::CSV);
+            tx_imp->load_file (m_fc_file_name);
+            tx_imp->tokenize (true);
+            m_req_mapped_accts = false;
 
-    /* Assume data is CSV. User can later override to Fixed Width if needed */
-    try
-    {
-        tx_imp->file_format (GncImpFileFormat::CSV);
-        tx_imp->load_file (m_file_name);
-        tx_imp->tokenize (true);
-    }
-    catch (std::ifstream::failure& e)
-    {
-        /* File loading failed ... */
-        gnc_error_dialog (GTK_WINDOW (csv_imp_asst), "%s", e.what());
-        go_back = true;
-    }
-    catch (std::range_error &e)
-    {
-        /* Parsing failed ... */
-        gnc_error_dialog (GTK_WINDOW (csv_imp_asst), "%s", _(e.what()));
-        go_back = true;
+            /* Get settings store and populate */
+            preview_populate_settings_combo();
+            gtk_combo_box_set_active (settings_combo, 0);
+
+            /* Disable the "Next" Assistant Button */
+            gtk_assistant_set_page_complete (csv_imp_asst, preview_page, false);
+        }
+        catch (std::ifstream::failure& e)
+        {
+            /* File loading failed ... */
+            gnc_error_dialog (GTK_WINDOW (csv_imp_asst), "%s", e.what());
+            go_back = true;
+        }
+        catch (std::range_error &e)
+        {
+            /* Parsing failed ... */
+            gnc_error_dialog (GTK_WINDOW (csv_imp_asst), "%s", _(e.what()));
+            go_back = true;
+        }
     }
 
     if (go_back)
         gtk_assistant_previous_page (csv_imp_asst);
     else
     {
+        m_final_file_name = m_fc_file_name;
         preview_refresh ();
-
-        /* Get settings store and populate */
-        preview_populate_settings_combo();
-        gtk_combo_box_set_active (settings_combo, 0);
-
-        tx_imp->req_mapped_accts (false);
-
-        /* Disable the "Next" Assistant Button */
-        gtk_assistant_set_page_complete (csv_imp_asst, preview_page, false);
 
         /* Load the data into the treeview. */
         g_idle_add ((GSourceFunc)csv_imp_preview_queue_rebuild_table, this);
     }
 }
-
 void
 CsvImpTransAssist::assist_account_match_page_prepare ()
 {
-    tx_imp->req_mapped_accts(true);
 
     // Load the account strings into the store
     acct_match_set_accounts ();
 
-    // Match the account strings to the mappings
+    // Match the account strings to account maps from previous imports
     auto store = gtk_tree_view_get_model (GTK_TREE_VIEW(account_match_view));
-    gnc_csv_account_map_load_mappings (store);
-
-    auto text = std::string ("<span size=\"medium\" color=\"red\"><b>");
-    text += _("To change mapping, double click on a row or select a row and press the button...");
-    text += "</b></span>";
-    gtk_label_set_markup (GTK_LABEL(account_match_label), text.c_str());
+    csv_tximp_acct_match_load_mappings (store);
 
     // Enable the view, possibly after an error
     gtk_widget_set_sensitive (account_match_view, true);
     gtk_widget_set_sensitive (account_match_btn, true);
 
     /* Enable the "Next" Assistant Button */
+    auto all_checked = csv_tximp_acct_match_check_all (store);
     gtk_assistant_set_page_complete (csv_imp_asst, account_match_page,
-               csv_tximp_acct_match_check_all (store));
+                                     all_checked);
+
+    /* Update information message and whether to display account errors */
+    m_req_mapped_accts = all_checked;
+    auto text = tx_imp->verify (m_req_mapped_accts);
+    gtk_label_set_text (GTK_LABEL(account_match_label), text.c_str());
 }
 
 
 void
 CsvImpTransAssist::assist_doc_page_prepare ()
 {
+    if (!tx_imp->verify (true).empty())
+    {
+        /* New accounts can change the multi-currency situation and hence
+         * may require more column tweaks. If so
+         * inform the user and go back to the preview page.
+         */
+        gtk_assistant_set_current_page (csv_imp_asst, 2);
+    }
+
     /* Block going back */
     gtk_assistant_commit (csv_imp_asst);
-
-    /* At this stage in the assistant each account should be mapped so
-     * complete the split properties with this information. If this triggers
-     * an exception it indicates a logic error in the code.
-     */
-    try
-    {
-        auto col_types = tx_imp->column_types();
-        auto acct_col = std::find (col_types.begin(),
-                col_types.end(), GncTransPropType::ACCOUNT);
-        if (acct_col != col_types.end())
-            tx_imp->set_column_type (acct_col - col_types.begin(),
-                    GncTransPropType::ACCOUNT, true);
-        acct_col = std::find (col_types.begin(),
-                col_types.end(), GncTransPropType::TACCOUNT);
-        if (acct_col != col_types.end())
-            tx_imp->set_column_type (acct_col - col_types.begin(),
-                    GncTransPropType::TACCOUNT, true);
-    }
-    catch (const std::invalid_argument& err)
-    {
-        /* Oops! This shouldn't happen when using the import assistant !
-         * Inform the user and go back to the preview page.
-         */
-        gnc_error_dialog (GTK_WINDOW (csv_imp_asst),
-            _("An unexpected error has occurred while mapping accounts. Please report this as a bug.\n\n"
-              "Error message:\n%s"), err.what());
-        gtk_assistant_set_current_page (csv_imp_asst, 2);
-
-    }
 
     /* Before creating transactions, if this is a new book, let user specify
      * book options, since they affect how transactions are created */
@@ -2049,14 +2114,19 @@ CsvImpTransAssist::assist_match_page_prepare ()
     {
         tx_imp->create_transactions ();
     }
-    catch (const std::invalid_argument& err)
+    catch (const GncCsvImpParseError& err)
     {
         /* Oops! This shouldn't happen when using the import assistant !
          * Inform the user and go back to the preview page.
          */
+        auto err_msg = std::string(err.what());
+        auto err_msgs = err.errors();
+        auto add_bullet_item = [](std::string& a, ErrMap::value_type& b)->std::string { return std::move(a) + "\n• " + b.second; };
+        err_msg = std::accumulate (err_msgs.begin(), err_msgs.end(), std::move (err_msg), add_bullet_item);
+
         gnc_error_dialog (GTK_WINDOW (csv_imp_asst),
             _("An unexpected error has occurred while creating transactions. Please report this as a bug.\n\n"
-              "Error message:\n%s"), err.what());
+              "Error message:\n%s"), err_msg.c_str());
         gtk_assistant_set_current_page (csv_imp_asst, 2);
     }
 
@@ -2099,7 +2169,17 @@ CsvImpTransAssist::assist_match_page_prepare ()
         auto draft_trans = trans_it.second;
         if (draft_trans->trans)
         {
-            gnc_gen_trans_list_add_trans (gnc_csv_importer_gui, draft_trans->trans);
+            auto lsplit = GNCImportLastSplitInfo {
+                draft_trans->m_price ? static_cast<gnc_numeric>(*draft_trans->m_price) : gnc_numeric{0, 0},
+                draft_trans->m_taction ? draft_trans->m_taction->c_str() : nullptr,
+                draft_trans->m_tmemo ? draft_trans->m_tmemo->c_str() : nullptr,
+                draft_trans->m_tamount ? static_cast<gnc_numeric>(*draft_trans->m_tamount) : gnc_numeric{0, 0},
+                draft_trans->m_taccount ? *draft_trans->m_taccount : nullptr,
+                draft_trans->m_trec_state ? *draft_trans->m_trec_state : '\0',
+                draft_trans->m_trec_date ? static_cast<time64>(GncDateTime(*draft_trans->m_trec_date, DayPart::neutral)) : 0,
+            };
+
+            gnc_gen_trans_list_add_trans_with_split_data (gnc_csv_importer_gui, std::move (draft_trans->trans), &lsplit);
             draft_trans->trans = nullptr;
         }
     }
@@ -2119,7 +2199,7 @@ CsvImpTransAssist::assist_summary_page_prepare ()
     try
     {
     /* Translators: {1} will be replaced with a filename */
-      text += (bl::format (bl::translate ("The transactions were imported from file '{1}'.")) % m_file_name).str(gnc_get_boost_locale());
+        text += (bl::format (std::string{_("The transactions were imported from file '{1}'.")}) % m_final_file_name).str();
         text += "</b></span>";
     }
     catch (const bl::conv::conversion_error& err)

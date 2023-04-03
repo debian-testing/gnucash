@@ -34,9 +34,6 @@
  */
 #include <glib.h>
 
-extern "C"
-{
-
 #include <config.h>
 
 #include <stdlib.h>
@@ -47,8 +44,6 @@ extern "C"
 #define __STDC_FORMAT_MACROS = 1
 #endif
 #include <inttypes.h>
-
-}
 
 #include "qof.h"
 #include "qofevent-p.h"
@@ -61,6 +56,8 @@ extern "C"
 // For GNC_ID_ROOT_ACCOUNT:
 #include "AccountP.h"
 
+#include "qofbook.hpp"
+
 static QofLogModule log_module = QOF_MOD_ENGINE;
 #define AB_KEY "hbci"
 #define AB_TEMPLATES "template-list"
@@ -70,28 +67,12 @@ enum
     PROP_0,
 //  PROP_ROOT_ACCOUNT,                        /* Table */
 //  PROP_ROOT_TEMPLATE,                       /* Table */
-/*   keep trading accounts property, while adding book-currency, default gains
-     policy and default gains account properties, so that files prior to 2.7 can
-     be read/processed; GUI changed to use all four properties as of 2.7.
-     Trading accounts, on the one hand, and book-currency plus default-gains-
-     policy, and optionally, default gains account, on the other, are mutually
-     exclusive */
     PROP_OPT_TRADING_ACCOUNTS,              /* KVP */
-/*   Book currency and default gains policy properties only apply if currency
-     accounting method selected in GUI is 'book-currency'; both required and
-     both are exclusive with trading accounts */
-    PROP_OPT_BOOK_CURRENCY,                 /* KVP */
-    PROP_OPT_DEFAULT_GAINS_POLICY,          /* KVP */
-/*   Default gains account property only applies if currency accounting method
-     selected in GUI is 'book-currency'; its use is optional but exclusive with
-     trading accounts */
-    PROP_OPT_DEFAULT_GAINS_ACCOUNT_GUID,    /* KVP */
     PROP_OPT_AUTO_READONLY_DAYS,            /* KVP */
     PROP_OPT_NUM_FIELD_SOURCE,              /* KVP */
     PROP_OPT_DEFAULT_BUDGET,                /* KVP */
     PROP_OPT_FY_END,                        /* KVP */
     PROP_AB_TEMPLATES,                      /* KVP */
-    N_PROPERTIES                            /* Just a counter */
 };
 
 static void
@@ -107,11 +88,10 @@ qof_book_option_num_autoreadonly_changed_cb (GObject *gobject,
 #define PARAM_NAME_NUM_FIELD_SOURCE "split-action-num-field"
 #define PARAM_NAME_NUM_AUTOREAD_ONLY "autoreadonly-days"
 
-G_DEFINE_TYPE(QofBook, qof_book, QOF_TYPE_INSTANCE);
+G_DEFINE_TYPE(QofBook, qof_book, QOF_TYPE_INSTANCE)
 QOF_GOBJECT_DISPOSE(qof_book);
 QOF_GOBJECT_FINALIZE(qof_book);
 
-static GParamSpec *obj_properties[N_PROPERTIES] = { NULL, };
 #undef G_PARAM_READWRITE
 #define G_PARAM_READWRITE static_cast<GParamFlags>(G_PARAM_READABLE | G_PARAM_WRITABLE)
 /* ====================================================================== */
@@ -176,7 +156,6 @@ qof_book_get_property (GObject* object,
                GParamSpec* pspec)
 {
     QofBook *book;
-    gchar *key;
 
     g_return_if_fail (QOF_IS_BOOK (object));
     book = QOF_BOOK (object);
@@ -185,18 +164,6 @@ qof_book_get_property (GObject* object,
     case PROP_OPT_TRADING_ACCOUNTS:
         qof_instance_get_path_kvp (QOF_INSTANCE (book), value, {str_KVP_OPTION_PATH,
                 str_OPTION_SECTION_ACCOUNTS, str_OPTION_NAME_TRADING_ACCOUNTS});
-        break;
-    case PROP_OPT_BOOK_CURRENCY:
-        qof_instance_get_path_kvp (QOF_INSTANCE (book), value, {str_KVP_OPTION_PATH,
-                str_OPTION_SECTION_ACCOUNTS, OPTION_NAME_BOOK_CURRENCY});
-        break;
-    case PROP_OPT_DEFAULT_GAINS_POLICY:
-        qof_instance_get_path_kvp (QOF_INSTANCE (book), value, {str_KVP_OPTION_PATH,
-                str_OPTION_SECTION_ACCOUNTS, OPTION_NAME_DEFAULT_GAINS_POLICY});
-        break;
-    case PROP_OPT_DEFAULT_GAINS_ACCOUNT_GUID:
-        qof_instance_get_path_kvp (QOF_INSTANCE (book), value, {str_KVP_OPTION_PATH,
-                str_OPTION_SECTION_ACCOUNTS, OPTION_NAME_DEFAULT_GAINS_LOSS_ACCT_GUID});
         break;
     case PROP_OPT_AUTO_READONLY_DAYS:
         qof_instance_get_path_kvp (QOF_INSTANCE (book), value, {str_KVP_OPTION_PATH,
@@ -229,7 +196,6 @@ qof_book_set_property (GObject      *object,
                GParamSpec   *pspec)
 {
     QofBook *book;
-    gchar *key;
 
     g_return_if_fail (QOF_IS_BOOK (object));
     book = QOF_BOOK (object);
@@ -240,18 +206,6 @@ qof_book_set_property (GObject      *object,
     case PROP_OPT_TRADING_ACCOUNTS:
         qof_instance_set_path_kvp (QOF_INSTANCE (book), value, {str_KVP_OPTION_PATH,
                 str_OPTION_SECTION_ACCOUNTS, str_OPTION_NAME_TRADING_ACCOUNTS});
-        break;
-    case PROP_OPT_BOOK_CURRENCY:
-        qof_instance_set_path_kvp (QOF_INSTANCE (book), value, {str_KVP_OPTION_PATH,
-                str_OPTION_SECTION_ACCOUNTS, OPTION_NAME_BOOK_CURRENCY});
-        break;
-    case PROP_OPT_DEFAULT_GAINS_POLICY:
-        qof_instance_set_path_kvp (QOF_INSTANCE (book), value, {str_KVP_OPTION_PATH,
-                str_OPTION_SECTION_ACCOUNTS, OPTION_NAME_DEFAULT_GAINS_POLICY});
-        break;
-    case PROP_OPT_DEFAULT_GAINS_ACCOUNT_GUID:
-        qof_instance_set_path_kvp (QOF_INSTANCE (book), value, {str_KVP_OPTION_PATH,
-                str_OPTION_SECTION_ACCOUNTS, OPTION_NAME_DEFAULT_GAINS_LOSS_ACCT_GUID});
         break;
     case PROP_OPT_AUTO_READONLY_DAYS:
         qof_instance_set_path_kvp (QOF_INSTANCE (book), value, {str_KVP_OPTION_PATH,
@@ -295,41 +249,6 @@ qof_book_class_init (QofBookClass *klass)
                          "uses trading accounts for managing multiple-currency "
                          "transactions.",
                          NULL,
-                         G_PARAM_READWRITE));
-
-    g_object_class_install_property
-    (gobject_class,
-     PROP_OPT_BOOK_CURRENCY,
-     g_param_spec_string("book-currency",
-                         "Select Book Currency",
-                         "The reference currency used to manage multiple-currency "
-                         "transactions when 'book-currency' currency accounting method "
-                         "selected; requires valid default gains/loss policy.",
-                         NULL,
-                         G_PARAM_READWRITE));
-
-    g_object_class_install_property
-    (gobject_class,
-     PROP_OPT_DEFAULT_GAINS_POLICY,
-     g_param_spec_string("default-gains-policy",
-                         "Select Default Gains Policy",
-                         "The default policy to be used to calculate gains/losses on "
-                         "dispositions of currencies/commodities other than "
-                         "'book-currency' when 'book-currency' currency accounting "
-                         "method selected; requires valid book-currency.",
-                         NULL,
-                         G_PARAM_READWRITE));
-
-    g_object_class_install_property
-    (gobject_class,
-     PROP_OPT_DEFAULT_GAINS_ACCOUNT_GUID,
-     g_param_spec_boxed("default-gain-loss-account-guid",
-                        "Select Default Gain/Loss Account",
-                        "The default account to be used for calculated gains/losses on "
-                        "dispositions of currencies/commodities other than "
-                        "'book-currency' when 'book-currency' currency accounting "
-                        "method selected; requires valid book-currency.",
-                         GNC_TYPE_GUID,
                          G_PARAM_READWRITE));
 
     g_object_class_install_property
@@ -982,52 +901,6 @@ qof_book_normalize_counter_format_internal(const gchar *p,
     return normalized_str;
 }
 
-/** Returns pointer to book-currency name for book, if one exists in the
-  * KVP, or NULL; does not validate contents nor determine if there is a valid
-  * default gain/loss policy, both of which are required, for the
-  * 'book-currency' currency accounting method to apply. Use instead
-  * 'gnc_book_get_book_currency_name' which does these validations. */
-const gchar *
-qof_book_get_book_currency_name (QofBook *book)
-{
-    const gchar *opt = NULL;
-    qof_instance_get (QOF_INSTANCE (book),
-              "book-currency", &opt,
-              NULL);
-    return opt;
-}
-
-/** Returns pointer to default gain/loss policy for book, if one exists in the
-  * KVP, or NULL; does not validate contents nor determine if there is a valid
-  * book-currency, both of which are required, for the 'book-currency'
-  * currency accounting method to apply. Use instead
-  * 'gnc_book_get_default_gains_policy' which does these validations. */
-const gchar *
-qof_book_get_default_gains_policy (QofBook *book)
-{
-    const gchar *opt = NULL;
-    qof_instance_get (QOF_INSTANCE (book),
-              "default-gains-policy", &opt,
-              NULL);
-    return opt;
-}
-
-/** Returns pointer to default gain/loss account GUID for book, if one exists in
-  * the KVP, or NULL; does not validate contents nor determine if there is a
-  * valid book-currency, both of which are required, for the 'book-currency'
-  * currency accounting method to apply. Use instead
-  * 'gnc_book_get_default_gain_loss_acct' which does these validations. */
-GncGUID *
-qof_book_get_default_gain_loss_acct_guid (QofBook *book)
-{
-    GncGUID *guid = NULL;
-    qof_instance_get (QOF_INSTANCE (book),
-              "default-gain-loss-account-guid", &guid,
-              NULL);
-    return guid;
-
-}
-
 /* Determine whether this book uses trading accounts */
 gboolean
 qof_book_use_trading_accounts (const QofBook *book)
@@ -1137,6 +1010,143 @@ qof_book_option_num_autoreadonly_changed_cb (GObject *gobject,
     book->cached_num_days_autoreadonly_isvalid = FALSE;
 }
 
+static KvpValue*
+get_option_default_invoice_report_value (QofBook *book)
+{
+    KvpFrame *root = qof_instance_get_slots (QOF_INSTANCE(book));
+    return root->get_slot ({KVP_OPTION_PATH,
+                            OPTION_SECTION_BUSINESS,
+                            OPTION_NAME_DEFAULT_INVOICE_REPORT});
+}
+
+void
+qof_book_set_default_invoice_report (QofBook *book, const gchar *guid,
+                                     const gchar *name)
+{
+    const gchar *existing_guid_name = nullptr;
+    gchar *new_guid_name;
+
+    if (!book)
+    {
+        PWARN ("No book!!!");
+        return;
+    }
+
+    if (!guid)
+    {
+        PWARN ("No guid!!!");
+        return;
+    }
+
+    if (!name)
+    {
+        PWARN ("No name!!!");
+        return;
+    }
+
+    KvpValue *value = get_option_default_invoice_report_value (book);
+
+    if (value)
+        existing_guid_name = {value->get<const char*>()};
+
+    new_guid_name = g_strconcat (guid, "/", name, nullptr);
+
+    if (g_strcmp0 (existing_guid_name, new_guid_name) != 0)
+    {
+        auto value = new KvpValue {g_strdup(new_guid_name)};
+        KvpFrame *root = qof_instance_get_slots (QOF_INSTANCE(book));
+        qof_book_begin_edit (book);
+        delete root->set_path ({KVP_OPTION_PATH,
+                                OPTION_SECTION_BUSINESS,
+                                OPTION_NAME_DEFAULT_INVOICE_REPORT}, value);
+        qof_instance_set_dirty (QOF_INSTANCE(book));
+        qof_book_commit_edit (book);
+    }
+    g_free (new_guid_name);
+}
+
+gchar *
+qof_book_get_default_invoice_report_guid (const QofBook *book)
+{
+    gchar *report_guid = nullptr;
+
+    if (!book)
+    {
+        PWARN ("No book!!!");
+        return report_guid;
+    }
+
+    KvpValue *value = get_option_default_invoice_report_value (const_cast<QofBook*>(book));
+
+    if (value)
+    {
+        auto str {value->get<const char*>()};
+        auto ptr = strchr (str, '/');
+        if (ptr)
+        {
+            if (ptr - str == GUID_ENCODING_LENGTH)
+            {
+                if (strlen (str) > GUID_ENCODING_LENGTH)
+                    report_guid = g_strndup (&str[0], GUID_ENCODING_LENGTH);
+            }
+        }
+    }
+    return report_guid;
+}
+
+gchar *
+qof_book_get_default_invoice_report_name (const QofBook *book)
+{
+    gchar *report_name = nullptr;
+
+    if (!book)
+    {
+        PWARN ("No book!!!");
+        return report_name;
+    }
+
+    KvpValue *value = get_option_default_invoice_report_value (const_cast<QofBook*>(book));
+
+    if (value)
+    {
+        auto str {value->get<const char*>()};
+        auto ptr = strchr (str, '/');
+        if (ptr)
+        {
+            if (ptr - str == GUID_ENCODING_LENGTH)
+            {
+                if (strlen (str) > GUID_ENCODING_LENGTH + 1)
+                    report_name = g_strdup (&str[GUID_ENCODING_LENGTH + 1]);
+                else
+                    report_name = g_strdup ("");
+            }
+        }
+    }
+    return report_name;
+}
+
+gdouble
+qof_book_get_default_invoice_report_timeout (const QofBook *book)
+{
+    double ret = 0;
+
+    if (!book)
+    {
+        PWARN ("No book!!!");
+        return ret;
+    }
+
+    KvpFrame *root = qof_instance_get_slots (QOF_INSTANCE(book));
+    KvpValue *value = root->get_slot ({KVP_OPTION_PATH,
+                                       OPTION_SECTION_BUSINESS,
+                                       OPTION_NAME_DEFAULT_INVOICE_REPORT_TIMEOUT});
+
+    if (value)
+        ret = {value->get<double>()};
+
+    return ret;
+}
+
 /* Note: this will fail if the book slots we're looking for here are flattened at some point !
  * When that happens, this function can be removed. */
 static Path opt_name_to_path (const char* opt_name)
@@ -1226,6 +1236,8 @@ qof_book_get_features (QofBook *book)
     GHashTable *features = g_hash_table_new_full (g_str_hash, g_str_equal,
                                                   NULL, g_free);
 
+    PWARN ("qof_book_get_features is now deprecated.");
+
     auto slot = frame->get_slot({GNC_FEATURES});
     if (slot != nullptr)
     {
@@ -1255,15 +1267,57 @@ qof_book_set_feature (QofBook *book, const gchar *key, const gchar *descr)
     }
 }
 
+std::vector<std::string>
+qof_book_get_unknown_features (QofBook *book, const FeaturesTable& features)
+{
+    std::vector<std::string> rv;
+    auto test_feature = [&](const KvpFrameImpl::map_type::value_type& feature)
+    {
+        if (features.find (feature.first) == features.end ())
+            rv.push_back (feature.second->get<const char*>());
+    };
+    auto frame = qof_instance_get_slots (QOF_INSTANCE (book));
+    auto slot = frame->get_slot({GNC_FEATURES});
+    if (slot != nullptr)
+    {
+        frame = slot->get<KvpFrame*>();
+        std::for_each (frame->begin (), frame->end (), test_feature);
+    }
+    return rv;
+}
+
+bool
+qof_book_test_feature (QofBook *book, const char *feature)
+{
+    auto frame = qof_instance_get_slots (QOF_INSTANCE (book));
+    return (frame->get_slot({GNC_FEATURES, feature}) != nullptr);
+}
+
 void
-qof_book_load_options (QofBook *book, GNCOptionLoad load_cb, GNCOptionDB *odb)
+qof_book_unset_feature (QofBook *book, const gchar *key)
+{
+    KvpFrame *frame = qof_instance_get_slots (QOF_INSTANCE (book));
+    auto feature_slot = frame->get_slot({GNC_FEATURES, key});
+    if (!feature_slot)
+    {
+        PWARN ("no feature %s. bail out.", key);
+        return;
+    }
+    qof_book_begin_edit (book);
+    delete frame->set_path({GNC_FEATURES, key}, nullptr);
+    qof_instance_set_dirty (QOF_INSTANCE (book));
+    qof_book_commit_edit (book);
+}
+
+void
+qof_book_load_options (QofBook *book, GncOptionLoad load_cb, GncOptionDB *odb)
 {
     load_cb (odb, book);
 }
 
 void
-qof_book_save_options (QofBook *book, GNCOptionSave save_cb,
-               GNCOptionDB* odb, gboolean clear)
+qof_book_save_options (QofBook *book, GncOptionSave save_cb,
+                       GncOptionDB* odb, gboolean clear)
 {
     /* Wrap this in begin/commit so that it commits only once instead of doing
      * so for every option. Qof_book_set_option will take care of dirtying the
@@ -1284,7 +1338,7 @@ qof_book_commit_edit(QofBook *book)
 }
 
 /* Deal with the fact that some options are not in the "options" tree but rather
- * in the "counters" tree */
+ * in the "counters" or "counter_formats" tree */
 static Path gslist_to_option_path (GSList *gspath)
 {
     Path tmp_path;
@@ -1293,7 +1347,7 @@ static Path gslist_to_option_path (GSList *gspath)
     Path path_v {str_KVP_OPTION_PATH};
     for (auto item = gspath; item != nullptr; item = g_slist_next(item))
         tmp_path.push_back(static_cast<const char*>(item->data));
-    if (tmp_path.front() == "counters")
+    if ((tmp_path.front() == "counters") || (tmp_path.front() == "counter_formats"))
         return tmp_path;
 
     path_v.insert(path_v.end(), tmp_path.begin(), tmp_path.end());

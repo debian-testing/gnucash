@@ -34,8 +34,6 @@
 #include <string>
 #include <vector>
 
-extern "C"
-{
 #include <config.h>
 
 #include <gtk/gtk.h>
@@ -44,7 +42,6 @@ extern "C"
 #include "Account.h"
 #include "gnc-state.h"
 #include "gnc-ui-util.h"
-}
 
 constexpr auto group_prefix = "Import csv,transaction - ";
 
@@ -92,10 +89,46 @@ static std::shared_ptr<CsvTransImpSettings> create_int_gnc_exp_preset(void)
             GncTransPropType::ACCOUNT,
             GncTransPropType::NONE,
             GncTransPropType::NONE,
-            GncTransPropType::DEPOSIT,
+            GncTransPropType::AMOUNT,
+            GncTransPropType::NONE,
+            GncTransPropType::VALUE,
             GncTransPropType::REC_STATE,
             GncTransPropType::REC_DATE,
             GncTransPropType::PRICE
+    };
+    return preset;
+}
+
+static std::shared_ptr<CsvTransImpSettings> create_int_gnc_exp_4_preset(void)
+{
+    auto preset = std::make_shared<CsvTransImpSettings>();
+    preset->m_name = get_gnc_exp_4();
+    preset->m_skip_start_lines = 1;
+    preset->m_multi_split = true;
+
+    /* FIXME date and currency format should still be aligned with export format!
+     * That's currently hard to do, because the export uses whatever the user
+     * had set as global preference.
+     *   preset->date_active = 0;
+     *   preset->currency_active = 0;
+     */
+    preset->m_column_types = {
+        GncTransPropType::DATE,
+        GncTransPropType::UNIQUE_ID,
+        GncTransPropType::NUM,
+        GncTransPropType::DESCRIPTION,
+        GncTransPropType::NOTES,
+        GncTransPropType::COMMODITY,
+        GncTransPropType::VOID_REASON,
+        GncTransPropType::ACTION,
+        GncTransPropType::MEMO,
+        GncTransPropType::ACCOUNT,
+        GncTransPropType::NONE,
+        GncTransPropType::NONE,
+        GncTransPropType::AMOUNT,
+        GncTransPropType::REC_STATE,
+        GncTransPropType::REC_DATE,
+        GncTransPropType::PRICE
     };
     return preset;
 }
@@ -137,6 +170,7 @@ const preset_vec_trans& get_import_presets_trans (void)
     /* Start with the internally generated ones */
     presets_trans.push_back(create_int_no_preset());
     presets_trans.push_back(create_int_gnc_exp_preset());
+    presets_trans.push_back(create_int_gnc_exp_4_preset());
 
     /* Then add all the ones we found in the state file */
     for (auto preset_name : preset_names)
@@ -217,14 +251,22 @@ CsvTransImpSettings::load (void)
             &list_len, &key_error);
     for (uint32_t i = 0; i < list_len; i++)
     {
+        /* Special case a few legacy column names */
+        const char *col_type_str = col_types_str[i];
+        if (!g_strcmp0(col_type_str, "Deposit"))  // -> "Amount"
+            col_type_str = gnc_csv_col_type_strs[GncTransPropType::AMOUNT];
+        if (!g_strcmp0(col_type_str, "Withdrawal"))  // -> "Amount (Negated)"
+            col_type_str = gnc_csv_col_type_strs[GncTransPropType::AMOUNT_NEG];
+        if (!g_strcmp0(col_type_str, "Num"))  // -> "Number"
+            col_type_str = gnc_csv_col_type_strs[GncTransPropType::NUM];
         auto col_types_it = std::find_if (gnc_csv_col_type_strs.begin(),
-                gnc_csv_col_type_strs.end(), test_prop_type_str (col_types_str[i]));
+                gnc_csv_col_type_strs.end(), test_prop_type_str (col_type_str));
+        auto prop = GncTransPropType::NONE;
         if (col_types_it != gnc_csv_col_type_strs.end())
         {
             /* Found a valid column type. Now check whether it is allowed
              * in the selected mode (two-split vs multi-split) */
-            auto prop = sanitize_trans_prop (col_types_it->first, m_multi_split);
-                m_column_types.push_back(prop);
+            prop = sanitize_trans_prop (col_types_it->first, m_multi_split);
             if (prop != col_types_it->first)
                 PWARN("Found column type '%s', but this is blacklisted when multi-split mode is %s. "
                       "Inserting column type 'NONE' instead'.",
@@ -232,7 +274,8 @@ CsvTransImpSettings::load (void)
         }
         else
             PWARN("Found invalid column type '%s'. Inserting column type 'NONE' instead'.",
-                    col_types_str[i]);
+                  col_types_str[i]);
+        m_column_types.push_back(prop);
     }
     if (col_types_str)
         g_strfreev (col_types_str);

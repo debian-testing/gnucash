@@ -23,8 +23,7 @@
 \********************************************************************/
 
 #include "guid.hpp"
-extern "C"
-{
+#include "guid.h"
 
 #ifdef HAVE_CONFIG_H
 # include <config.h>
@@ -52,7 +51,6 @@ extern "C"
 #endif
 #include "qof.h"
 
-}
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_generators.hpp>
 #include <boost/uuid/uuid_io.hpp>
@@ -236,7 +234,6 @@ guid_hash_to_guint (gconstpointer ptr)
     gnc::GUID const & temp {guid};
 
     guint hash {0};
-    unsigned retspot {0};
     std::for_each (temp.begin (), temp.end (), [&hash] (unsigned char a) {
         hash <<=4;
         hash |= a;
@@ -364,7 +361,7 @@ GUID::is_valid_guid (std::string const & str)
     try
     {
         static boost::uuids::string_generator strgen;
-        auto a = strgen (str);
+        strgen (str);
         return true;
     }
     catch (...)
@@ -435,3 +432,9 @@ GUID::operator GncGUID () const noexcept
 }
 
 } // namespace gnc
+
+bool
+operator==(const GncGUID& lhs, const GncGUID& rhs)
+{
+    return gnc::GUID{lhs} == gnc::GUID{rhs};
+}

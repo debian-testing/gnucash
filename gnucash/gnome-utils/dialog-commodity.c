@@ -169,7 +169,7 @@ gnc_ui_select_commodity_modal_full(gnc_commodity * orig_sel,
                         /* Translators: Replace here and later CUSIP by the name of your local
                            National Securities Identifying Number
                            like gb:SEDOL, de:WKN, ch:Valorennummer, fr:SICOVAM ...
-                           See http://en.wikipedia.org/wiki/ISIN and
+                           See https://en.wikipedia.org/wiki/ISIN and
                            https://en.wikipedia.org/wiki/National_numbering_agency for hints. */
                         cusip    ? _("\nExchange code (ISIN, CUSIP or similar): ") : "",
                         cusip    ? cusip : "",
@@ -1140,7 +1140,7 @@ gnc_ui_common_commodity_modal(gnc_commodity *commodity,
             break;
         case GTK_RESPONSE_HELP:
             DEBUG("case HELP");
-            gnc_gnome_help (GTK_WINDOW(win->dialog), HF_HELP, HL_COMMODITY);
+            gnc_gnome_help (GTK_WINDOW(win->dialog), DF_MANUAL, DL_COMMODITY);
             break;
         default:	/* Cancel, Escape, Close, etc. */
             DEBUG("default: %d", value);

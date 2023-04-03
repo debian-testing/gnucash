@@ -23,8 +23,6 @@
  *******************************************************************/
 #include <glib.h>
 
-extern "C"
-{
 #include <config.h>
 #include <string.h>
 #include "AccountP.h"
@@ -32,7 +30,6 @@ extern "C"
 #include "TransactionP.h"
 #include "gnc-lot.h"
 #include "gnc-lot-p.h"
-}
 
 #include "gnc-xml-helper.h"
 
@@ -49,7 +46,7 @@ extern "C"
 
 #include "sixtp-dom-parsers.h"
 
-static const QofLogModule log_module = G_LOG_DOMAIN;
+[[maybe_unused]] static const QofLogModule log_module = G_LOG_DOMAIN;
 const gchar* transaction_version_string = "2.0.0";
 
 static void
@@ -429,16 +426,6 @@ set_tran_string (xmlNodePtr node, Transaction* trn,
 static gboolean
 set_tran_time64 (xmlNodePtr node, Transaction * trn,
         void (*func) (Transaction *, time64))
-{
-    time64 time = dom_tree_to_time64 (node);
-    if (!dom_tree_valid_time64 (time, node->name)) time = 0;
-    func (trn, time);
-    return TRUE;
-}
-
-static inline gboolean
-set_tran_date (xmlNodePtr node, Transaction* trn,
-               void (*func) (Transaction* trn, const time64 tm))
 {
     time64 time = dom_tree_to_time64 (node);
     if (!dom_tree_valid_time64 (time, node->name)) time = 0;

@@ -41,6 +41,10 @@
 #include <glib.h>
 #include <glib-object.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /** @name Gobject Tracking Functions
  *  @{
  *
@@ -128,7 +132,7 @@ void gnc_gobject_tracking_dump (void);
 
 #define _GNC_DEFINE_TYPE_EXTENDED_BEGIN(TypeName, type_name, TYPE_PARENT, flags) \
 \
-static void     type_name##_init         (TypeName        *self, void *class); \
+static void     type_name##_init         (TypeName        *self, void *klass); \
 static void     type_name##_class_init   (TypeName##Class *klass); \
 static gpointer type_name##_parent_class = NULL; \
 static gint     TypeName##_private_offset; \
@@ -164,6 +168,10 @@ type_name##_get_type (void) \
     }                                   \
   return g_define_type_id_static;    \
 } /* closes type_name##_get_type() */
+
+#ifdef __cplusplus
+}
+#endif
 
 
 #endif /* GNC_GOBJECT_UTILS_H */

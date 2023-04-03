@@ -22,11 +22,8 @@
  *                                                                  *
 \********************************************************************/
 
-extern "C"
-{
 #include <config.h>
 #include "platform.h"
-}
 #include <boost/date_time/gregorian/gregorian.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/date_time/local_time/local_time.hpp>
@@ -46,9 +43,6 @@ extern "C"
 #include <gnc-locale-utils.hpp>
 #include "gnc-timezone.hpp"
 #include "gnc-datetime.hpp"
-#include "qoflog.h"
-
-static const char* log_module = "gnc.engine";
 
 #define N_(string) string //So that xgettext will find it
 
@@ -318,7 +312,7 @@ public:
     GncDateImpl(const std::string str, const std::string fmt);
 
     void today() { m_greg = boost::gregorian::day_clock::local_day(); }
-    ymd year_month_day() const;
+    gnc_ymd year_month_day() const;
     std::string format(const char* format) const;
     std::string format_zulu(const char* format) const {
 	return this->format(format);
@@ -601,7 +595,7 @@ GncDateImpl::GncDateImpl(const std::string str, const std::string fmt) :
                   std::stoi (what.str("DAY")));
 }
 
-ymd
+gnc_ymd
 GncDateImpl::year_month_day() const
 {
     auto boost_ymd = m_greg.year_month_day();
@@ -738,7 +732,7 @@ GncDate::format(const char* format)
     return m_impl->format(format);
 }
 
-ymd
+gnc_ymd
 GncDate::year_month_day() const
 {
     return m_impl->year_month_day();

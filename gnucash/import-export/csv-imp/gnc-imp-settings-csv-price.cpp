@@ -34,8 +34,6 @@
 #include <string>
 #include <vector>
 
-extern "C"
-{
 #include <config.h>
 
 #include <gtk/gtk.h>
@@ -44,7 +42,6 @@ extern "C"
 #include "Account.h"
 #include "gnc-state.h"
 #include "gnc-ui-util.h"
-}
 
 constexpr auto group_prefix = "Import csv,price - ";
 
@@ -62,28 +59,6 @@ static std::shared_ptr<CsvPriceImpSettings> create_int_no_preset(void)
     auto preset = std::make_shared<CsvPriceImpSettings>();
     preset->m_name = get_no_settings();
 
-    return preset;
-}
-
-static std::shared_ptr<CsvPriceImpSettings> create_int_gnc_exp_preset(void)
-{
-    auto preset = std::make_shared<CsvPriceImpSettings>();
-    preset->m_name = get_gnc_exp();
-    preset->m_skip_start_lines = 1;
-
-    /* FIXME date and currency format should still be aligned with export format!
-     * That's currently hard to do, because the export uses whatever the user
-     * had set as global preference.
-    preset->date_active = 0;
-    preset->currency_active = 0;
-    */
-    preset->m_column_types_price = {
-            GncPricePropType::DATE,
-            GncPricePropType::AMOUNT,
-            GncPricePropType::FROM_SYMBOL,
-            GncPricePropType::FROM_NAMESPACE,
-            GncPricePropType::TO_CURRENCY
-    };
     return preset;
 }
 
@@ -177,14 +152,14 @@ CsvPriceImpSettings::load (void)
     {
         auto col_types_it = std::find_if (gnc_price_col_type_strs.begin(),
                 gnc_price_col_type_strs.end(), test_price_prop_type_str (col_types_str_price[i]));
+        auto prop = GncPricePropType::NONE;
         if (col_types_it != gnc_price_col_type_strs.end())
-        {
             // Found a valid column type
-            m_column_types_price.push_back(col_types_it->first);
-        }
+            prop = col_types_it->first;
         else
             PWARN("Found invalid column type '%s' in group '%s'. Inserting column type 'NONE' instead'.",
                     col_types_str_price[i], group.c_str());
+        m_column_types_price.push_back(prop);
     }
     if (col_types_str_price)
         g_strfreev (col_types_str_price);

@@ -27,8 +27,6 @@
 #include <glib/gi18n.h>
 #include <gtk/gtk.h>
 
-extern "C"
-{
 #include <config.h>
 #include <string.h>
 #include <stdlib.h>
@@ -52,7 +50,6 @@ extern "C"
 #ifdef __MINGW32__
 #include <Windows.h>
 #endif
-}
 
 #include <gnc-locale-utils.hpp>
 #include <boost/locale.hpp>
@@ -641,7 +638,6 @@ gnc_loan_assistant_create( LoanAssistantData *ldd )
                                   gas_data[i].height);
 
                 gtk_widget_set_halign (GTK_WIDGET(gas), GTK_ALIGN_FILL);
-                gnc_account_sel_set_hexpand (GNC_ACCOUNT_SEL(gas), true);
                 gnc_account_sel_set_new_account_modal (GNC_ACCOUNT_SEL(gas), true);
                 g_object_set (GTK_WIDGET(gas), "margin", 2, nullptr);
                 *(gas_data[i].loc) = gas;
@@ -735,7 +731,7 @@ gnc_loan_assistant_create( LoanAssistantData *ldd )
                           G_CALLBACK(loan_opt_escrow_toggle_cb), ldd );
         gtk_widget_set_sensitive( GTK_WIDGET(ldd->optEscrowHBox), FALSE );
         ldd->optEscrowGAS = GNC_ACCOUNT_SEL(gnc_account_sel_new());
-        gnc_account_sel_set_hexpand (GNC_ACCOUNT_SEL(ldd->optEscrowGAS), true);
+        g_object_set (ldd->optEscrowGAS, "entry-width", 50, NULL);
         gnc_account_sel_set_new_account_modal (GNC_ACCOUNT_SEL(ldd->optEscrowGAS), true);
         gnc_account_sel_set_new_account_ability( ldd->optEscrowGAS, TRUE );
         gtk_container_add( GTK_CONTAINER(ldd->optEscrowHBox),
@@ -767,7 +763,7 @@ gnc_loan_assistant_create( LoanAssistantData *ldd )
 
                 /* Translators: %s is "Taxes",
                    "Insurance", or similar. */
-                g_string_printf( str, _("... pay \"%s\"?"),
+                g_string_printf( str, _("… pay \"%s\"?"),
                                  rouid->optData->name );
                 rouid->optCb =
                     GTK_CHECK_BUTTON(
@@ -1340,8 +1336,7 @@ loan_rep_prep( GtkAssistant *assistant, gpointer user_data )
 
     str = g_string_sized_new( 64 );
     loan_get_pmt_formula( ldd, str);
-    ldd->ld.repAmount = str->str;
-    g_string_free( str, FALSE );
+    ldd->ld.repAmount = g_string_free (str, false);
 
     if ( ldd->ld.repMemo )
         gtk_entry_set_text( ldd->repTxnName, ldd->ld.repMemo );

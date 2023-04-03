@@ -52,6 +52,10 @@
 #include "SplitP.h"
 #include "qof.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 
 /** STRUCTS *********************************************************/
 /*
@@ -111,23 +115,11 @@ struct transaction_s
      */
     Transaction *orig;
 
-    /* The readonly_reason is a string that indicates why a transaction
-     * is marked as read-only. If NULL, the transaction is read-write.
-     * This value is stored in kvp, but we cache a copy here for
-     * performance reasons.
+    /* A flag to indicate when a transaction represents an invoice, a payment,
+     * or a link between the two.
      */
-    char * readonly_reason;
-
-    char * doclink;
-    char * void_reason;
-    char * notes;
-
     char txn_type;
 
-    /* Cached bool value to indicate whether this is a closing txn. This is
-     * cached from the KVP value because it is queried a lot. Tri-state value: -1
-     * = uninitialized; 0 = FALSE, 1 = TRUE. */
-    gint isClosingTxn_cached;
 };
 
 struct _TransactionClass
@@ -204,6 +196,10 @@ typedef struct
 TransTestFunctions* _utest_trans_fill_functions (void);
 
 /*@}*/
+
+#ifdef __cplusplus
+}
+#endif
 
 
 #endif /* XACC_TRANSACTION_P_H */

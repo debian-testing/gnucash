@@ -362,7 +362,7 @@ test_gnc_txn_to_float_txn (Fixture *fixture, gconstpointer pData)
 {
     FloatingTxn *ft = NULL;
     SplitList *sl = xaccTransGetSplitList(fixture->txn), *siter;
-    SplitList *fsl, *fsiter;
+    SplitList *fsiter;
     FloatingSplit *fs;
     Split *s;
 
@@ -419,7 +419,7 @@ test_gnc_txn_to_float_txn_cut_semantics (Fixture *fixture, gconstpointer pData)
 {
     FloatingTxn *ft = NULL;
     SplitList *sl = xaccTransGetSplitList(fixture->txn), *siter;
-    SplitList *fsl, *fsiter;
+    SplitList *fsiter;
     FloatingSplit *fs;
     Split *s;
 
@@ -536,7 +536,6 @@ test_gnc_float_txn_to_txn_swap_accounts (FlFixture *fixture, gconstpointer pData
     Account *exp_acct1 = fixture->acc1, *exp_acct2 = fixture->acc2;
     SplitList *siter;
     Split *s;
-    gnc_numeric amt;
 
     if (prefs->swap_accts)
     {
@@ -600,7 +599,7 @@ test_suite_split_register_copy_ops (void)
     GNC_TEST_ADD (suitename, "gnc split to float split", Fixture, NULL, setup, test_gnc_split_to_float_split, teardown);
     GNC_TEST_ADD (suitename, "gnc float split to split", Fixture, NULL, setup, test_gnc_float_split_to_split, teardown);
     GNC_TEST_ADD (suitename, "gnc float txn to float txn", Fixture, NULL, setup, test_gnc_txn_to_float_txn, teardown);
-    GNC_TEST_ADD (suitename, "gnc float txn to float txn cut semantics", Fixture, NULL, setup, test_gnc_txn_to_float_txn, teardown);
+    GNC_TEST_ADD (suitename, "gnc float txn to float txn cut semantics", Fixture, NULL, setup, test_gnc_txn_to_float_txn_cut_semantics, teardown);
     GNC_TEST_ADD (suitename, "gnc float txn get float split", FlFixture, NULL, flsetup, test_gnc_float_txn_get_float_split, flteardown);
     GNC_TEST_ADD (suitename, "gnc float txn get other float split", FlFixture, NULL, flsetup, test_gnc_float_txn_get_other_float_split, flteardown);
 

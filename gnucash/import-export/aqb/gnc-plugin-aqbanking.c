@@ -46,7 +46,6 @@
 #include "gnc-plugin-manager.h"
 #include "gnc-plugin-page-account-tree.h"
 #include "gnc-plugin-page-register.h"
-#include "gnc-plugin-page-register2.h"
 #include "gnc-main-window.h"
 #include "gnc-prefs.h"
 #include "gnc-ui-util.h" // for gnc_get_current_book
@@ -68,118 +67,53 @@ static void gnc_plugin_ab_account_selected(GncPluginPage *plugin_page, Account *
 static Account *main_window_to_account(GncMainWindow *window);
 
 /* Command callbacks */
-static void gnc_plugin_ab_cmd_setup(GtkAction *action, GncMainWindowActionData *data);
-static void gnc_plugin_ab_cmd_get_balance(GtkAction *action, GncMainWindowActionData *data);
-static void gnc_plugin_ab_cmd_get_transactions(GtkAction *action, GncMainWindowActionData *data);
-static void gnc_plugin_ab_cmd_issue_sepatransaction(GtkAction *action, GncMainWindowActionData *data);
-static void gnc_plugin_ab_cmd_issue_sepainternaltransaction(GtkAction *action, GncMainWindowActionData *data);
-static void gnc_plugin_ab_cmd_issue_inttransaction(GtkAction *action, GncMainWindowActionData *data);
-static void gnc_plugin_ab_cmd_issue_sepa_direct_debit(GtkAction *action, GncMainWindowActionData *data);
-static void gnc_plugin_ab_cmd_view_logwindow(GtkToggleAction *action, GncMainWindow *window);
-static void gnc_plugin_ab_cmd_mt940_import(GtkAction *action, GncMainWindowActionData *data);
-static void gnc_plugin_ab_cmd_mt942_import(GtkAction *action, GncMainWindowActionData *data);
-static void gnc_plugin_ab_cmd_dtaus_import(GtkAction *action, GncMainWindowActionData *data);
-static void gnc_plugin_ab_cmd_dtaus_importsend(GtkAction *action, GncMainWindowActionData *data);
+static void gnc_plugin_ab_cmd_setup (GSimpleAction *simple, GVariant *parameter, gpointer user_data);
+static void gnc_plugin_ab_cmd_get_balance (GSimpleAction *simple, GVariant *parameter, gpointer user_data);
+static void gnc_plugin_ab_cmd_get_transactions (GSimpleAction *simple, GVariant *parameter, gpointer user_data);
+static void gnc_plugin_ab_cmd_issue_sepatransaction (GSimpleAction *simple, GVariant *parameter, gpointer user_data);
+static void gnc_plugin_ab_cmd_issue_sepainternaltransaction (GSimpleAction *simple, GVariant *parameter, gpointer user_data);
+static void gnc_plugin_ab_cmd_issue_inttransaction (GSimpleAction *simple, GVariant *parameter, gpointer user_data);
+static void gnc_plugin_ab_cmd_issue_sepa_direct_debit (GSimpleAction *simple, GVariant *parameter, gpointer user_data);
+static void gnc_plugin_ab_cmd_view_logwindow (GSimpleAction *simple, GVariant *parameter, gpointer user_data);
+static void gnc_plugin_ab_cmd_aqb_import (GSimpleAction *simple, GVariant *parameter, gpointer user_data);
 
 #define PLUGIN_ACTIONS_NAME "gnc-plugin-aqbanking-actions"
-#define PLUGIN_UI_FILENAME  "gnc-plugin-aqbanking-ui.xml"
+#define PLUGIN_UI_FILENAME  "gnc-plugin-aqbanking.ui"
 
 #define MENU_TOGGLE_ACTION_AB_VIEW_LOGWINDOW "ABViewLogwindowAction"
 
-
-static GtkActionEntry gnc_plugin_actions [] =
+static void
+change_state_logwindow (GSimpleAction *simple,
+                        GVariant      *state,
+                        gpointer       user_data)
 {
-    /* Menus */
-    { "OnlineActionsAction", NULL, N_("_Online Actions"), NULL, NULL, NULL },
+   g_simple_action_set_state (simple, state);
+}
 
-    /* Menu Items */
-    {
-        "ABSetupAction", NULL, N_("_Online Banking Setup..."), NULL,
-        N_("Initial setup of Online Banking access (HBCI, or OFX DirectConnect, using AqBanking)"),
-        G_CALLBACK(gnc_plugin_ab_cmd_setup)
-    },
-    {
-        "ABGetBalanceAction", NULL, N_("Get _Balance"), NULL,
-        N_("Get the account balance online through Online Banking"),
-        G_CALLBACK(gnc_plugin_ab_cmd_get_balance)
-    },
-    {
-        "ABGetTransAction", NULL, N_("Get _Transactions..."), NULL,
-        N_("Get the transactions online through Online Banking"),
-        G_CALLBACK(gnc_plugin_ab_cmd_get_transactions)
-    },
-    {
-        "ABIssueSepaTransAction", NULL,
-		/* Translators: https://en.wikipedia.org/wiki/Single_Euro_Payments_Area */
-		N_("Issue _SEPA Transaction..."), NULL,
-        N_("Issue a new international European (SEPA) transaction online through Online Banking"),
-        G_CALLBACK(gnc_plugin_ab_cmd_issue_sepatransaction)
-    },
-    {
-        "ABIssueSepaIntTransAction", NULL,
-        N_("Issue SEPA I_nternal Transaction..."), NULL,
-        N_("Issue a new internal European (SEPA) transaction online through Online Banking"),
-        G_CALLBACK(gnc_plugin_ab_cmd_issue_sepainternaltransaction)
-    },
-    {
-        "ABIssueIntTransAction", NULL, N_("_Internal Transaction..."), NULL,
-        N_("Issue a new bank-internal transaction online through Online Banking"),
-        G_CALLBACK(gnc_plugin_ab_cmd_issue_inttransaction)
-    },
-    {
-        "ABIssueSepaDirectDebitAction", NULL, N_("Issue SEPA Direct _Debit..."), NULL,
-        N_("Issue a new international European (SEPA) direct debit note online through Online Banking"),
-        G_CALLBACK(gnc_plugin_ab_cmd_issue_sepa_direct_debit)
-    },
-
-    /* File -> Import menu item */
-    {
-        "Mt940ImportAction", "go-previous",
-		/* Translators: Message types MTxxxx are exchange formats used by the SWIFT network
-		   https://en.wikipedia.org/wiki/Society_for_Worldwide_Interbank_Financial_Telecommunication */
-		N_("Import _MT940"), NULL,
-        N_("Import an end-of-day account statement in SWIFT MT940 format into GnuCash."),
-        G_CALLBACK(gnc_plugin_ab_cmd_mt940_import)
-    },
-    {
-        "Mt942ImportAction", "go-previous", N_("Import MT94_2"), NULL,
-        N_("Import an interim account statement in SWIFT MT942 format into GnuCash."),
-        G_CALLBACK(gnc_plugin_ab_cmd_mt942_import)
-    },
-    {
-        "DtausImportAction", "go-previous",
-	/* Translators: DTAUS is a traditional german exchange format.
-           https://de.wikipedia.org/wiki/Datentr%C3%A4geraustauschverfahren */
-		N_("Import _DTAUS"), NULL,
-        N_("Import a traditional german DTAUS file into GnuCash."),
-        G_CALLBACK(gnc_plugin_ab_cmd_dtaus_import)
-    },
-    /* #ifdef CSV_IMPORT_FUNCTIONAL */
-    /*     { "CsvImportAction", "go-previous", N_("Import _CSV"), NULL, */
-    /*       N_("Import a CSV file into GnuCash"), */
-    /*       G_CALLBACK(gnc_plugin_ab_cmd_csv_import) }, */
-    /*     { "CsvImportSendAction", "go-previous", N_("Import CSV and s_end..."), NULL, */
-    /*       N_("Import a CSV file into GnuCash and send the transfers online through Online Banking"), */
-    /*       G_CALLBACK(gnc_plugin_ab_cmd_csv_importsend) }, */
-    /* #endif */
-    {
-        "DtausImportSendAction", "go-previous", N_("Import DTAUS and _send..."), NULL,
-        N_("Import a DTAUS file into GnuCash and transmit its orders by Online Banking."),
-        G_CALLBACK(gnc_plugin_ab_cmd_dtaus_importsend)
-    },
+static GActionEntry gnc_plugin_actions [] =
+{
+    { "OnlineActionsAction", NULL, NULL, NULL, NULL },
+    { "ABSetupAction", gnc_plugin_ab_cmd_setup, NULL, NULL, NULL },
+    { "ABGetBalanceAction", gnc_plugin_ab_cmd_get_balance, NULL, NULL, NULL },
+    { "ABGetTransAction", gnc_plugin_ab_cmd_get_transactions, NULL, NULL, NULL },
+    { "ABIssueSepaTransAction", gnc_plugin_ab_cmd_issue_sepatransaction, NULL, NULL, NULL },
+    { "ABIssueSepaIntTransAction", gnc_plugin_ab_cmd_issue_sepainternaltransaction, NULL, NULL, NULL },
+    { "ABIssueIntTransAction", gnc_plugin_ab_cmd_issue_inttransaction, NULL, NULL, NULL },
+    { "ABIssueSepaDirectDebitAction", gnc_plugin_ab_cmd_issue_sepa_direct_debit, NULL, NULL, NULL },
+    { "AQBankingImportAction", gnc_plugin_ab_cmd_aqb_import, NULL, NULL, NULL },
+    { MENU_TOGGLE_ACTION_AB_VIEW_LOGWINDOW, gnc_plugin_ab_cmd_view_logwindow, NULL, "true", change_state_logwindow },
 };
+/** The number of actions provided by this plugin. */
 static guint gnc_plugin_n_actions = G_N_ELEMENTS(gnc_plugin_actions);
 
-static GtkToggleActionEntry gnc_plugin_toggle_actions [] =
+/** The default menu items that need to be add to the menu */
+static const gchar *gnc_plugin_load_ui_items [] =
 {
-    {
-        MENU_TOGGLE_ACTION_AB_VIEW_LOGWINDOW, NULL,
-        N_("Show _log window"), NULL,
-        N_("Show the online banking log window."),
-        G_CALLBACK(gnc_plugin_ab_cmd_view_logwindow), TRUE
-    },
+    "FilePlaceholder1",
+    "ToolsPlaceholder0",
+    "ActionsPlaceholder1",
+    NULL,
 };
-static guint gnc_plugin_n_toggle_actions = G_N_ELEMENTS(gnc_plugin_toggle_actions);
 
 static const gchar *need_account_actions[] =
 {
@@ -235,9 +169,8 @@ gnc_plugin_aqbanking_class_init(GncPluginAqBankingClass *klass)
     plugin_class->actions_name       = PLUGIN_ACTIONS_NAME;
     plugin_class->actions            = gnc_plugin_actions;
     plugin_class->n_actions          = gnc_plugin_n_actions;
-    plugin_class->toggle_actions     = gnc_plugin_toggle_actions;
-    plugin_class->n_toggle_actions   = gnc_plugin_n_toggle_actions;
     plugin_class->ui_filename        = PLUGIN_UI_FILENAME;
+    plugin_class->ui_updates         = gnc_plugin_load_ui_items;
     plugin_class->add_to_window      = gnc_plugin_aqbanking_add_to_window;
     plugin_class->remove_from_window = gnc_plugin_aqbanking_remove_from_window;
 }
@@ -255,20 +188,26 @@ static void
 gnc_plugin_aqbanking_add_to_window(GncPlugin *plugin, GncMainWindow *window,
                                    GQuark type)
 {
-    GtkAction *action;
+    GAction *action;
 
     gnc_main_window = window;
 
-    g_signal_connect(window, "page_added",
-                     G_CALLBACK(gnc_plugin_ab_main_window_page_added),
-                     plugin);
-    g_signal_connect(window, "page_changed",
-                     G_CALLBACK(gnc_plugin_ab_main_window_page_changed),
-                     plugin);
+    g_signal_connect (window, "page_added",
+                      G_CALLBACK(gnc_plugin_ab_main_window_page_added),
+                      plugin);
+    g_signal_connect (window, "page_changed",
+                      G_CALLBACK(gnc_plugin_ab_main_window_page_changed),
+                      plugin);
 
-    action = gnc_main_window_find_action(window, MENU_TOGGLE_ACTION_AB_VIEW_LOGWINDOW);
+    action = gnc_main_window_find_action_in_group (window, PLUGIN_ACTIONS_NAME,
+                                                   MENU_TOGGLE_ACTION_AB_VIEW_LOGWINDOW);
 
-    gtk_toggle_action_set_active(GTK_TOGGLE_ACTION(action), FALSE);
+    if (action)
+    {
+        GVariant *state = g_action_get_state (G_ACTION(action));
+        g_action_change_state (G_ACTION(action), g_variant_new_boolean (FALSE));
+        g_variant_unref (state);
+    }
 }
 
 static void
@@ -326,7 +265,7 @@ gnc_plugin_ab_main_window_page_added(GncMainWindow *window, GncPluginPage *page,
 static void update_inactive_actions(GncPluginPage *plugin_page)
 {
     GncMainWindow  *window;
-    GtkActionGroup *action_group;
+    GSimpleActionGroup *simple_action_group;
 
     // We are readonly - so we have to switch particular actions to inactive.
     gboolean is_readwrite = !qof_book_is_readonly(gnc_get_current_book());
@@ -336,13 +275,13 @@ static void update_inactive_actions(GncPluginPage *plugin_page)
         return;
 
     window = GNC_MAIN_WINDOW(plugin_page->window);
-    g_return_if_fail(GNC_IS_MAIN_WINDOW(window));
-    action_group = gnc_main_window_get_action_group(window, PLUGIN_ACTIONS_NAME);
-    g_return_if_fail(GTK_IS_ACTION_GROUP(action_group));
+    g_return_if_fail (GNC_IS_MAIN_WINDOW(window));
+    simple_action_group = gnc_main_window_get_action_group (window, PLUGIN_ACTIONS_NAME);
+    g_return_if_fail (G_IS_SIMPLE_ACTION_GROUP(simple_action_group));
 
     /* Set the action's sensitivity */
-    gnc_plugin_update_actions (action_group, readonly_inactive_actions,
-                               "sensitive", is_readwrite);
+    gnc_plugin_set_actions_enabled (G_ACTION_MAP(simple_action_group), readonly_inactive_actions,
+                                    is_readwrite);
 }
 
 
@@ -351,19 +290,19 @@ static void update_inactive_actions(GncPluginPage *plugin_page)
  * the page that is currently selected.
  */
 static void
-gnc_plugin_ab_main_window_page_changed(GncMainWindow *window,
-                                       GncPluginPage *page, gpointer user_data)
+gnc_plugin_ab_main_window_page_changed (GncMainWindow *window,
+                                        GncPluginPage *page, gpointer user_data)
 {
-    Account *account = main_window_to_account(window);
+    Account *account = main_window_to_account (window);
 
     /* Make sure not to call this with a NULL GncPluginPage */
     if (page)
     {
         // Update the menu items according to the selected account
-        gnc_plugin_ab_account_selected(page, account, user_data);
+        gnc_plugin_ab_account_selected (page, account, user_data);
 
         // Also update the action sensitivity due to read-only
-        update_inactive_actions(page);
+        update_inactive_actions (page);
     }
 }
 
@@ -372,44 +311,44 @@ gnc_plugin_ab_main_window_page_changed(GncMainWindow *window,
  * selecting another register page. Update the aqbanking menus appropriately.
  */
 static void
-gnc_plugin_ab_account_selected(GncPluginPage *plugin_page, Account *account,
-                               gpointer user_data)
+gnc_plugin_ab_account_selected (GncPluginPage *plugin_page, Account *account,
+                                gpointer user_data)
 {
     GncMainWindow  *window;
-    GtkActionGroup *action_group;
+    GSimpleActionGroup *simple_action_group;
     const gchar *bankcode = NULL;
     const gchar *accountid = NULL;
 
     g_return_if_fail(GNC_IS_PLUGIN_PAGE(plugin_page));
     window = GNC_MAIN_WINDOW(plugin_page->window);
     g_return_if_fail(GNC_IS_MAIN_WINDOW(window));
-    action_group = gnc_main_window_get_action_group(window, PLUGIN_ACTIONS_NAME);
-    g_return_if_fail(GTK_IS_ACTION_GROUP(action_group));
+    simple_action_group = gnc_main_window_get_action_group (window, PLUGIN_ACTIONS_NAME);
+    g_return_if_fail (G_IS_SIMPLE_ACTION_GROUP(simple_action_group));
 
     if (account)
     {
         bankcode = gnc_ab_get_account_bankcode(account);
         accountid = gnc_ab_get_account_accountid(account);
 
-        gnc_plugin_update_actions(action_group, need_account_actions,
-                                  "sensitive",
-                                  (account && bankcode && *bankcode
-                                   && accountid && *accountid));
-        gnc_plugin_update_actions(action_group, need_account_actions,
-                                  "visible", TRUE);
+        gnc_plugin_set_actions_enabled (G_ACTION_MAP(simple_action_group), need_account_actions,
+                                        (account && bankcode && *bankcode
+                                         && accountid && *accountid));
+        gnc_main_window_set_vis_of_items_by_action (window, need_account_actions,
+                                                    TRUE);
+
 #if (AQBANKING_VERSION_INT < 60400)
-        gnc_plugin_update_actions(action_group, inactive_account_actions,
-                                  "sensitive", FALSE);
-        gnc_plugin_update_actions(action_group, inactive_account_actions,
-                                  "visible", FALSE);
+        gnc_plugin_set_actions_enabled (G_ACTION_MAP(simple_action_group),
+                                        inactive_account_actions, FALSE);
+        gnc_main_window_set_vis_of_items_by_action (window, inactive_account_actions,
+                                                    FALSE);
 #endif
     }
     else
     {
-        gnc_plugin_update_actions(action_group, need_account_actions,
-                                  "sensitive", FALSE);
-        gnc_plugin_update_actions(action_group, need_account_actions,
-                                  "visible", FALSE);
+        gnc_plugin_set_actions_enabled (G_ACTION_MAP(simple_action_group),
+                                        need_account_actions, FALSE);
+        gnc_main_window_set_vis_of_items_by_action (window, need_account_actions,
+                                                    FALSE);
     }
 
 }
@@ -463,12 +402,6 @@ main_window_to_account(GncMainWindow *window)
         account = gnc_plugin_page_register_get_account(
                       GNC_PLUGIN_PAGE_REGISTER(page));
     }
-    else if (strcmp(page_name, GNC_PLUGIN_PAGE_REGISTER2_NAME) == 0)
-    {
-        DEBUG("register2 page");
-        account = gnc_plugin_page_register2_get_account(
-                      GNC_PLUGIN_PAGE_REGISTER2(page));
-    }
     else if (strcmp(page_name, GNC_PLUGIN_PAGE_ACCOUNT_TREE_NAME) == 0)
     {
         DEBUG("account tree page");
@@ -485,16 +418,16 @@ main_window_to_account(GncMainWindow *window)
 }
 
 void
-gnc_plugin_aqbanking_set_logwindow_visible(gboolean logwindow_visible)
+gnc_plugin_aqbanking_set_logwindow_visible (gboolean logwindow_visible)
 {
-    GtkAction *action;
+    GAction *action = gnc_main_window_find_action_in_group (gnc_main_window, PLUGIN_ACTIONS_NAME,
+                                                            MENU_TOGGLE_ACTION_AB_VIEW_LOGWINDOW);
 
-    action = gnc_main_window_find_action(gnc_main_window,
-                                         MENU_TOGGLE_ACTION_AB_VIEW_LOGWINDOW);
     if (action)
     {
-        gtk_toggle_action_set_active(GTK_TOGGLE_ACTION(action),
-                                     logwindow_visible);
+        GVariant *state = g_action_get_state (G_ACTION(action));
+        g_action_change_state (G_ACTION(action), g_variant_new_boolean (logwindow_visible));
+        g_variant_unref (state);
     }
 }
 
@@ -503,20 +436,26 @@ gnc_plugin_aqbanking_set_logwindow_visible(gboolean logwindow_visible)
  ************************************************************/
 
 static void
-gnc_plugin_ab_cmd_setup(GtkAction *action, GncMainWindowActionData *data)
+gnc_plugin_ab_cmd_setup (GSimpleAction *simple,
+                         GVariant *parameter,
+                         gpointer user_data)
 {
-    ENTER("action %p, main window data %p", action, data);
+    GncMainWindowActionData *data = user_data;
+    ENTER("action %p, main window data %p", simple, data);
     gnc_main_window = data->window;
     gnc_ab_initial_assistant();
     LEAVE(" ");
 }
 
 static void
-gnc_plugin_ab_cmd_get_balance(GtkAction *action, GncMainWindowActionData *data)
+gnc_plugin_ab_cmd_get_balance (GSimpleAction *simple,
+                               GVariant *parameter,
+                               gpointer user_data)
 {
+    GncMainWindowActionData *data = user_data;
     Account *account;
 
-    ENTER("action %p, main window data %p", action, data);
+    ENTER("action %p, main window data %p", simple, data);
     account = main_window_to_account(data->window);
     if (account == NULL)
     {
@@ -532,12 +471,14 @@ gnc_plugin_ab_cmd_get_balance(GtkAction *action, GncMainWindowActionData *data)
 }
 
 static void
-gnc_plugin_ab_cmd_get_transactions(GtkAction *action,
-                                   GncMainWindowActionData *data)
+gnc_plugin_ab_cmd_get_transactions (GSimpleAction *simple,
+                                    GVariant *parameter,
+                                    gpointer user_data)
 {
+    GncMainWindowActionData *data = user_data;
     Account *account;
 
-    ENTER("action %p, main window data %p", action, data);
+    ENTER("action %p, main window data %p", simple, data);
     account = main_window_to_account(data->window);
     if (account == NULL)
     {
@@ -553,12 +494,14 @@ gnc_plugin_ab_cmd_get_transactions(GtkAction *action,
 }
 
 static void
-gnc_plugin_ab_cmd_issue_sepatransaction(GtkAction *action,
-                                    GncMainWindowActionData *data)
+gnc_plugin_ab_cmd_issue_sepatransaction (GSimpleAction *simple,
+                                         GVariant *parameter,
+                                         gpointer user_data)
 {
+    GncMainWindowActionData *data = user_data;
     Account *account;
 
-    ENTER("action %p, main window data %p", action, data);
+    ENTER("action %p, main window data %p", simple, data);
     account = main_window_to_account(data->window);
     if (account == NULL)
     {
@@ -575,12 +518,14 @@ gnc_plugin_ab_cmd_issue_sepatransaction(GtkAction *action,
 
 #if (AQBANKING_VERSION_INT >= 60400)
 static void
-gnc_plugin_ab_cmd_issue_sepainternaltransaction(GtkAction *action,
-                                    GncMainWindowActionData *data)
+gnc_plugin_ab_cmd_issue_sepainternaltransaction (GSimpleAction *simple,
+                                                 GVariant *parameter,
+                                                 gpointer user_data)
 {
+    GncMainWindowActionData *data = user_data;
     Account *account;
 
-    ENTER("action %p, main window data %p", action, data);
+    ENTER("action %p, main window data %p", simple, data);
     account = main_window_to_account(data->window);
     if (account == NULL)
     {
@@ -596,23 +541,27 @@ gnc_plugin_ab_cmd_issue_sepainternaltransaction(GtkAction *action,
 }
 #else
 static void
-gnc_plugin_ab_cmd_issue_sepainternaltransaction(GtkAction *action,
-                                    GncMainWindowActionData *data)
+gnc_plugin_ab_cmd_issue_sepainternaltransaction (GSimpleAction *simple,
+                                                 GVariant *parameter,
+                                                 gpointer user_data)
 {
+    GncMainWindowActionData *data = user_data;
 
-    ENTER("action %p, main window data %p", action, data);
+    ENTER("action %p, main window data %p", simple, data);
     PINFO("Sepa Internal Transfer not supported by your aqbanking version!");
     LEAVE("Sepa Internal Transfer not supported!");
 }
 #endif
 
 static void
-gnc_plugin_ab_cmd_issue_inttransaction(GtkAction *action,
-                                       GncMainWindowActionData *data)
+gnc_plugin_ab_cmd_issue_inttransaction (GSimpleAction *simple,
+                                        GVariant *parameter,
+                                        gpointer user_data)
 {
+    GncMainWindowActionData *data = user_data;
     Account *account;
 
-    ENTER("action %p, main window data %p", action, data);
+    ENTER("action %p, main window data %p", simple, data);
     account = main_window_to_account(data->window);
     if (account == NULL)
     {
@@ -629,12 +578,14 @@ gnc_plugin_ab_cmd_issue_inttransaction(GtkAction *action,
 }
 
 static void
-gnc_plugin_ab_cmd_issue_sepa_direct_debit(GtkAction *action,
-                                          GncMainWindowActionData *data)
+gnc_plugin_ab_cmd_issue_sepa_direct_debit (GSimpleAction *simple,
+                                           GVariant *parameter,
+                                           gpointer user_data)
 {
+    GncMainWindowActionData *data = user_data;
     Account *account;
 
-    ENTER("action %p, main window data %p", action, data);
+    ENTER("action %p, main window data %p", simple, data);
     account = main_window_to_account(data->window);
     if (account == NULL)
     {
@@ -650,14 +601,23 @@ gnc_plugin_ab_cmd_issue_sepa_direct_debit(GtkAction *action,
 }
 
 static void
-gnc_plugin_ab_cmd_view_logwindow(GtkToggleAction *action, GncMainWindow *window)
+gnc_plugin_ab_cmd_view_logwindow (GSimpleAction *simple,
+                                  GVariant *parameter,
+                                  gpointer user_data)
 {
-    if (gtk_toggle_action_get_active(GTK_TOGGLE_ACTION(action)))
+    GVariant *state = g_action_get_state (G_ACTION(simple));
+    gboolean toggle = g_variant_get_boolean (state);
+    g_variant_unref (state);
+
+    gboolean new_toggle = !toggle;
+    g_action_change_state (G_ACTION(simple), g_variant_new_boolean (new_toggle));
+
+    if (new_toggle)
     {
         if (!gnc_GWEN_Gui_show_dialog())
         {
             /* Log window could not be made visible */
-            gtk_toggle_action_set_active(GTK_TOGGLE_ACTION(action), FALSE);
+            g_action_change_state (G_ACTION(simple), g_variant_new_boolean (FALSE));
         }
     }
     else
@@ -666,50 +626,14 @@ gnc_plugin_ab_cmd_view_logwindow(GtkToggleAction *action, GncMainWindow *window)
     }
 }
 
-
 static void
-gnc_plugin_ab_cmd_mt940_import(GtkAction *action, GncMainWindowActionData *data)
+gnc_plugin_ab_cmd_aqb_import (GSimpleAction *simple,
+                              GVariant *parameter,
+                              gpointer user_data)
 {
-    gchar *format = gnc_prefs_get_string(GNC_PREFS_GROUP_AQBANKING,
-                                         GNC_PREF_FORMAT_SWIFT940);
+    GncMainWindowActionData *data = user_data;
     gnc_main_window = data->window;
-    gnc_file_aqbanking_import (GTK_WINDOW (gnc_main_window),
-                               "swift", format && *format ? format : "swift-mt940", FALSE);
-    g_free(format);
-}
-
-static void
-gnc_plugin_ab_cmd_mt942_import(GtkAction *action, GncMainWindowActionData *data)
-{
-    gchar *format = gnc_prefs_get_string(GNC_PREFS_GROUP_AQBANKING,
-                                         GNC_PREF_FORMAT_SWIFT942);
-    gnc_main_window = data->window;
-    gnc_file_aqbanking_import (GTK_WINDOW (gnc_main_window),
-                               "swift", format && *format? format : "swift-mt942", FALSE);
-    g_free(format);
-}
-
-static void
-gnc_plugin_ab_cmd_dtaus_import(GtkAction *action, GncMainWindowActionData *data)
-{
-    gchar *format = gnc_prefs_get_string(GNC_PREFS_GROUP_AQBANKING,
-                                         GNC_PREF_FORMAT_DTAUS);
-    gnc_main_window = data->window;
-    gnc_file_aqbanking_import (GTK_WINDOW (gnc_main_window),
-                               "dtaus", format && *format ? format : "default", FALSE);
-    g_free(format);
-}
-
-static void
-gnc_plugin_ab_cmd_dtaus_importsend(GtkAction *action,
-                                   GncMainWindowActionData *data)
-{
-    gchar *format = gnc_prefs_get_string(GNC_PREFS_GROUP_AQBANKING,
-                                         GNC_PREF_FORMAT_DTAUS);
-    gnc_main_window = data->window;
-    gnc_file_aqbanking_import (GTK_WINDOW (gnc_main_window),
-                               "dtaus", format && *format ? format : "default", TRUE);
-    g_free(format);
+    gnc_file_aqbanking_import_dialog (GTK_WINDOW (gnc_main_window));
 }
 
 /************************************************************

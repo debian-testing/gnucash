@@ -6,13 +6,10 @@ if (CMAKE_VERSION VERSION_GREATER_EQUAL 3.14.0)
 endif()
 
 project (gnucash
-    VERSION 4.11
+    VERSION 5.0
 )
 
 enable_testing()
-
-# Version number of gnucash
-set (GNUCASH_LATEST_STABLE_SERIES 3.x)
 
 set (PACKAGE_NAME GnuCash)
 set (PACKAGE_BUGREPORT "https://bugs.gnucash.org")
@@ -39,6 +36,7 @@ include (CheckIncludeFiles)
 include (GncAddSchemeTargets)
 include (GncAddGSchemaTargets)
 include (GncAddTest)
+include (GncGenerateGResources)
 include (MakeDistFiles)
 include (GNUInstallDirs)
 include (TestBigEndian)
@@ -48,16 +46,12 @@ include (TestBigEndian)
 # SQL, put -D WITH_SQL=OFF on the command line.
 
 option (WITH_SQL "Build this project with SQL (libdbi) support" ON)
-option (WITH_AQBANKING "Build this project with aqbanking (online banking) support" ON)
+option (WITH_AQBANKING "Build this project with aqbanking (online banking and a variety of file import formats) support" ON)
 option (WITH_GNUCASH "Build all of GnuCash, not just the library" ON)
 option (WITH_OFX "compile with ofx support (needs LibOFX)" ON)
 option (WITH_PYTHON "enable python plugin and bindings" OFF)
 option (ENABLE_BINRELOC "compile with binary relocation support" ON)
-option (ENABLE_REGISTER2 "compile with register2 enabled" OFF)
 option (DISABLE_NLS "do not use Native Language Support" OFF)
-option (DISABLE_DEPRECATED_GLIB "don't use deprecated glib functions" OFF)
-option (DISABLE_DEPRECATED_GTK "don't use deprecated gtk, gdk or gdk-pixbuf functions" OFF)
-option (DISABLE_DEPRECATED_GNOME "don't use deprecated gnome functions" OFF)
 # ############################################################
 
 # These are also settable from the command line in a similar way.
@@ -72,6 +66,8 @@ set(GNUCASH_BUILD_ID "" CACHE STRING "Overrides the GnuCash build identification
 # gnucash/gnome/gnucash.releases.xml with (package) release details to be included
 # in the appdata file. It should follow appdata <release> node conventions.
 
+# Common prefix to use for GLib resources related to GnuCash
+set (GNUCASH_RESOURCE_PREFIX "/org/${PROJECT_NAME}/${PACKAGE_NAME}")
 
 # Check that all of the absolute install paths are inside
 # ${CMAKE_INSTALL_PREFIX}. If they're not, disable binreloc as it
@@ -198,7 +194,10 @@ if (NOT PKG_CONFIG_FOUND)
  endif()
 
 # glib et al.
-pkg_check_modules (GLIB2 REQUIRED glib-2.0>=2.56.1)
+set(GLIB_MIN_VERSION 2.56.1)
+set(GTK_MIN_VERSION 3.22.30)
+
+pkg_check_modules (GLIB2 REQUIRED IMPORTED_TARGET glib-2.0>=${GLIB_MIN_VERSION})
 pkg_check_modules (GIO REQUIRED gio-2.0)
 pkg_check_modules (GOBJECT REQUIRED gobject-2.0)
 pkg_check_modules (GMODULE REQUIRED gmodule-2.0)
@@ -211,11 +210,14 @@ if (WITH_GNUCASH)
     pkg_check_modules (WEBKIT REQUIRED IMPORTED_TARGET webkitgtk-3.0)
     set(WEBKIT1 1 CACHE INTERNAL "WebKitGtk")
   else()
-    pkg_check_modules (WEBKIT REQUIRED IMPORTED_TARGET webkit2gtk-4.0>=2.14.0)
+    pkg_check_modules (WEBKIT IMPORTED_TARGET webkit2gtk-4.0>=2.14.0)
+    if (NOT WEBKIT_FOUND)
+      pkg_check_modules (WEBKIT REQUIRED IMPORTED_TARGET webkit2gtk-4.1)
+    endif()
     set(WEBKIT2 1 CACHE INTERNAL "WebKit2Gtk4")
   endif()
 
-  pkg_check_modules (GTK3 REQUIRED IMPORTED_TARGET gtk+-3.0>=3.22.30)
+  pkg_check_modules (GTK3 REQUIRED IMPORTED_TARGET gtk+-3.0>=${GTK_MIN_VERSION})
 endif()
 
 pkg_check_modules (ZLIB REQUIRED zlib)
@@ -356,8 +358,8 @@ find_guile_dirs()
 
 # ############################################################
 if (WITH_AQBANKING)
-  pkg_check_modules (GWENHYWFAR REQUIRED gwenhywfar>=4.20)
-  pkg_check_modules (AQBANKING REQUIRED aqbanking>=5.7.8)
+  pkg_check_modules (GWENHYWFAR REQUIRED gwenhywfar>=5.6.0)
+  pkg_check_modules (AQBANKING REQUIRED aqbanking>=6.2.0)
   set(CMAKE_REQUIRED_INCLUDES "${AQBANKING_INCLUDE_DIRS}"
     "${GWENHYWFAR_INCLUDE_DIRS}")
   set(CMAKE_REQUIRED_LIBRARIES "${AQBANKING_LD_FLAGS}")
@@ -513,6 +515,14 @@ if (NOT PERL_FOUND)
   message(SEND_ERROR "Perl executable not found. Please set PERL_EXECUTABLE.")
 endif()
 
+execute_process(COMMAND
+        ${PERL_EXECUTABLE} -MFinance::Quote -e ""
+        ERROR_QUIET
+        RESULT_VARIABLE have_f_q)
+if (${have_f_q} EQUAL 0)
+  set(HAVE_F_Q 1)
+endif()
+
 get_filename_component(PERL_DIR ${PERL_EXECUTABLE} DIRECTORY)
 
 find_program(POD2MAN_EXECUTABLE pod2man HINTS ${PERL_DIR})
@@ -533,7 +543,7 @@ set (Boost_FIND_QUIETLY ON)
 if (NOT DEFINED ${BOOST_ROOT})
   set(BOOST_ROOT $ENV{BOOST_ROOT})
 endif()
-find_package (Boost 1.67.0 COMPONENTS date_time regex locale filesystem system program_options)
+find_package (Boost 1.67.0 COMPONENTS date_time filesystem locale program_options regex system)
 
 if (Boost_FOUND)
   include_directories(${Boost_INCLUDE_DIRS})
@@ -569,7 +579,7 @@ endif()
 
 add_definitions(-D_GNU_SOURCE)
 
-# Also, set the C++ version to c++11
+# Set up the language standards:
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -578,14 +588,12 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS ON)
 
 if (UNIX)
-  set( CMAKE_C_FLAGS "-Werror -Wdeclaration-after-statement -Wno-pointer-sign -Wall -Wmissing-prototypes -Wmissing-declarations -Wno-unused ${CMAKE_C_FLAGS}")
-  set( CMAKE_C_FLAGS "-Wno-error=deprecated-declarations -Wno-error=parentheses ${CMAKE_C_FLAGS}")
-  set( CMAKE_CXX_FLAGS "-Werror -Wall -Wmissing-declarations -Wno-unused -Wno-error=parentheses ${CMAKE_CXX_FLAGS}")
-  set( CMAKE_CXX_FLAGS "-Wno-error=deprecated-declarations ${REGISTER_CXXFLAG} ${CMAKE_CXX_FLAGS}")
+  set( CMAKE_C_FLAGS "-Werror -Wall -Wmissing-prototypes -Wmissing-declarations ${CMAKE_C_FLAGS}")
+  set( CMAKE_CXX_FLAGS "-Werror -Wall -Wmissing-declarations ${CMAKE_CXX_FLAGS}")
   set( CMAKE_C_FLAGS_RELEASE "-O3 -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=2 ${CMAKE_C_FLAGS}")
 endif()
 if (MINGW)
-  set( CMAKE_C_FLAGS "-Werror -Wdeclaration-after-statement -Wno-pointer-sign -Wall -Wunused -Wmissing-prototypes -Wmissing-declarations  -Wno-unused -Wno-error=deprecated-declarations ${CMAKE_C_FLAGS}")
+  set( CMAKE_C_FLAGS "-Werror -Wall -Wmissing-prototypes -Wmissing-declarations ${CMAKE_C_FLAGS}")
   set( CMAKE_CXX_FLAGS "-DWINVER=0x0500 -D_EMULATE_GLIBC=0 ${CMAKE_CXX_FLAGS}") # Workaround for bug in gtest on mingw, see https://github.com/google/googletest/issues/893 and https://github.com/google/googletest/issues/920
 endif()
 
@@ -614,7 +622,7 @@ if (XCODE_VERSION)
   set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_RELEASE ${LIBDIR_BUILD}/gnucash)
 endif()
 
-# For binarines
+# For binaries
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY         ${CMAKE_BINARY_DIR}/bin)
 if (XCODE_VERSION)
   set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG   ${CMAKE_BINARY_DIR}/bin)
@@ -654,6 +662,7 @@ set(gnucash_DOCS
     ChangeLog.2019
     ChangeLog.2020
     ChangeLog.2021
+    ChangeLog.2022
     DOCUMENTERS
     HACKING
     LICENSE
@@ -762,19 +771,17 @@ set(PLATFORM_OSX 1)
 set(HAVE_OSX_KEYCHAIN 1)
 endif()
 
-if(DISABLE_DEPRECATED_GNOME)
-set(GNOME_DISABLE_DEPRECATED 1)
-endif()
+string(REGEX MATCH "^([0-9]+)\.([0-9]+)" GLIB_MIN_MATCH ${GLIB_MIN_VERSION})
+set(GLIB_API ${CMAKE_MATCH_1}_${CMAKE_MATCH_2})
+set_property(TARGET PkgConfig::GLIB2 PROPERTY INTERFACE_COMPILE_DEFINITIONS
+  GLIB_VERSION_MIN_REQUIRED=GLIB_VERSION_${GLIB_API}
+  GLIB_VERSION_MAX_ALLOWED=GLIB_VERSION_${GLIB_API})
 
-if(DISABLE_DEPRECATED_GTK)
-set(GTK_DISABLE_DEPRECATED 1)
-set(GDK_DISABLE_DEPRECATED 1)
-set(GDK_PIXMAP_DISABLE_DEPRECATED 1)
-endif()
-
-if(DISABLE_DEPRECATED_GLIB)
-set(G_DISABLE_DEPRECATED 1)
-endif()
+string(REGEX MATCH "^([0-9]+)\.([0-9]+)" GTK_MIN_MATCH ${GTK_MIN_VERSION})
+set(GTK_API ${CMAKE_MATCH_1}_${CMAKE_MATCH_2})
+set_property(TARGET PkgConfig::GTK3 PROPERTY INTERFACE_COMPILE_DEFINITIONS
+  GDK_VERSION_MIN_REQUIRED=GDK_VERSION_${GTK_API}
+  GDK_VERSION_MAX_ALLOWED=GDK_VERSION_${GTK_API})
 
 add_definitions (-DHAVE_CONFIG_H)
 
@@ -804,7 +811,7 @@ add_subdirectory(cmake)
 
 if (BUILDING_FROM_VCS)
     add_custom_target(ChangeLog ALL
-        COMMAND ${GIT_EXECUTABLE} log --format=\"%ad %aN %n%n%x09* %s%d%n\" --date=short --since=2022-01-01 > ${CMAKE_BINARY_DIR}/ChangeLog
+        COMMAND ${GIT_EXECUTABLE} log --format=\"%ad %aN %n%n%x09* %s%d%n\" --date=short --since=2023-01-01 > ${CMAKE_BINARY_DIR}/ChangeLog
         WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
     )
     install(FILES ${CMAKE_BINARY_DIR}/ChangeLog DESTINATION ${CMAKE_INSTALL_DOCDIR})
@@ -838,7 +845,7 @@ set_local_dist(toplvl_DIST ${toplvl_DIST_local})
 
 set(ALL_DIST ${bindings_DIST} ${borrowed_DIST} ${cmake_DIST} ${common_DIST} ${data_DIST}
     ${doc_DIST} ${gnucash_DIST} ${libgnucash_DIST} ${packaging_DIST}
-    ${po_DIST} ${test_templates_DIST} ${toplvl_DIST} ${util_DIST})
+    ${po_DIST} ${test_templates_DIST} ${toplvl_DIST} ${util_DIST} Info.plist)
 
 
 if (BUILDING_FROM_VCS)

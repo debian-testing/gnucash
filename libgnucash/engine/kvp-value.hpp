@@ -24,15 +24,9 @@
 #ifndef GNC_KVP_VALUE_TYPE
 #define GNC_KVP_VALUE_TYPE
 
-extern "C"
-{
 #include <config.h>
 #include "qof.h"
-}
-#include <boost/version.hpp>
-#if BOOST_VERSION == 105600
-#include <boost/type_traits/is_nothrow_move_assignable.hpp>
-#endif
+
 #include <boost/variant.hpp>
 
 //Must be a struct because it's exposed to C so that it can in turn be
@@ -142,6 +136,8 @@ struct KvpValueImpl
 
     template <typename T>
     T get() const noexcept;
+    template <typename T>
+    const T* get_ptr() const noexcept;
 
     template <typename T>
     void set(T) noexcept;
@@ -174,8 +170,15 @@ KvpValueImpl::KvpValueImpl(T newvalue) noexcept:
 template <typename T> T
 KvpValueImpl::get() const noexcept
 {
-    if (this->datastore.type() != typeid(T)) return {};
+    if (this->datastore.type() != boost::typeindex::type_id<T>()) return {};
     return boost::get<T>(datastore);
+}
+
+template <typename T> const T*
+KvpValueImpl::get_ptr() const noexcept
+{
+    if (this->datastore.type() != typeid(T)) return nullptr;
+    return boost::get<T>(&datastore);
 }
 
 template <typename T> void
@@ -190,7 +193,7 @@ KvpValueImpl::set(T val) noexcept
  * @param kval: A KvpValue.
  * @return GValue*. Must be freed with g_free().
  */
-GValue* gvalue_from_kvp_value (const KvpValue *kval);
+GValue* gvalue_from_kvp_value (const KvpValue *kval, GValue* val = nullptr);
 
 /** Convert a gvalue into a kvpvalue.
  * @param gval: A GValue of a type KvpValue can digest.

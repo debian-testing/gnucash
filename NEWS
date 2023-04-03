@@ -1,5 +1,575 @@
 Version history:
 ------- -------
+5.0  - 26 March 2023
+
+Between 4.904 and 5.0, the following bugfixes were accomplished:
+    Bug 798792 - "Delete Split" missing from context menu
+    Bug 798793 - Cursor jumps to the end of the field.
+
+The following fixes and improvements were not associated with bug reports:
+    Fix crash in gnc_owner_get_owner
+    [gnc-account-sel] fix entered_text leak
+    Fix missing statusbar tooltips for popup menus
+    Popup menu missing from sx template transactions window
+
+New and Updated Translations: Chinese (Simplified), Croatian, Hungarian,
+    Japanese, Portuguese, Portuguese (Brazil), Spanish, Swedish
+
+4.14 - 26 March 2023
+
+Between 4.13 and 4.14, the following bugfixes were accomplished:
+
+    Bug 797477 - Manual foreign transaction from APAR to another doesn't
+        trigger price input
+    Bug 797725 - Untranslatable string "For Period Covering ~a to ~a"
+    Bug 797903 - Transaction window: The 'blue line' is always (erroneously)
+        topmost when t. sorting order is inverted.
+    Bug 798570 - Totals for the income, expenses and remaining to budget
+        incorrect for one specific date.
+    Bug 798625 - "Last up through report date" changed in 4.12
+                 Don't adjust report dates with time64CanonicalDayTime. They're
+                 set to 23:59:59 local which is always >= neutral time at which
+                 prices and transactions are timestamped. Local noon is before
+                 neutral time for all time zones east of UTC+2.
+    Bug 798679 - Unicode normalization should be used for comparison but not
+        stored.
+                 Change to NFC normalization for all comparisons because the
+                 Unicode meaning of compatible might collide with the user's
+                 intent.
+    Bug 798702 - Crash in gnc_plugin_page_focus_idle_destroy() closing a report
+        before it completes.
+    Bug 798705 - ] New: UI string mismatch: OK vs. Next
+    Bug 798712 - Regional Decimal Point not recognized in budgets
+    Bug 798717 - Reports > Business > Fancy Invoice duplicates company details
+    Bug 798732 - : Type of balance carry forward accounts for german skr49
+        account template fixed
+    Bug 798734 - Aging Reports don't handle mixed currency payments and
+        invoices without Trading Accounts
+    Bug 798737 - Minor grammatical error - 'for' missing in 'You will be asked
+        a conversion rate for each.'
+    Bug 798740 - Build fails with gcc 13
+    Bug 798747 - Crash in Investment Portfolio report
+    Bug 798748 - Transaction Notes field's value does not appear in reverse
+        transaction.
+    Bug 798754 - Build fails with gcc 13 and glib > 2.76
+    Bug 798759 - Register widths for 'with sub-account' not saved
+    Bug 798765 - Increase the limit for Maximum Slices in the Expense Piechart
+
+The following fixes and improvements were not associated with bug reports:
+
+    Budget totals for one period would be wrong when increasing the number of
+        periods.
+    Allow C decls after statements, legal since C99.
+    [kvp] Use static strings and boxed in gvalue_from_kvp_value. Saves
+        allocating and copying complex values, avoiding potential memory leaks.
+    L10N:DE:Updating accounts from 0001 to 8000 DATEV-SKR04 2022-01-01.
+    Payment dialog - always list all possible post accounts. Before only the
+        post account in the currency of the selected vendor or customer was
+        available.
+    Revisit invoice payment in multi-currency context:
+        * Show proper amount in dialog when applying or editing an existing
+          transaction as payment
+          user chose a new transfer account and the old currency is neither the
+          new transfer account's currency nor the post account's currency)
+    Edit/assign payment - be more prudent not to lose data
+    We can't handle the case where a transaction has splits in more than one
+        APAR account. Instead of only warning that some of them will be lost
+        refuse to continue and leave it to the user to fix the transaction
+        first.
+    Multi-currency - show split amount rather than transaction value
+    Activate feature GNC_FEATURE_EQUITY_TYPE_OPENING_BALANCE
+    [balsheet-pnl] move out of experimental into regular menu. After 4 years it
+        can finally graduate.
+    [dialog-sx-editor]Allow a daily SX to show all recurrences in the calendar
+        instead of only 6 months.
+    Update Form/Schedule line references for 2022 for the US Income Tax Report
+
+New and Updated Translations: Chinese (Simplified), Croatian, Czech,
+    English (Australia), English (New Zealand), English (United Kingdom),
+    French, Hebrew, Hungarian, Italian, Japanese, Macedonian, Polish,
+    Portuguese, Portuguese (Brazil), Russian, Spanish, Swedish, Ukrainian
+
+4.904 - 19 March 2023
+Between 4.903 and 4.904, the following bugfixes were accomplished:
+The following fix will also appear in GnuCash 4.14:
+
+    Bug 798570 - Budget totals for income, expenses and remaining to budget
+                 incorrect for one specific date.
+
+The following fixes are in 4.904 only and will not appear in GnuCash 4.14:
+
+    Bug 798558 - Irregular line spacing in Account Tree View
+    Bug 798773 - Help file launches in browser when using command-H to hide
+                 GnuCash
+                 This is a MacOS-only problem. Note that for the fix to have
+                 effect you must remove the file accelerator-map from
+                 GNC_CONFIG_HOME when GnuCash isn't running.
+    Bug 798778 - GnuCash quits abruptly when attempting to edit options for
+                 certain reports.
+    Bug 798781 - Printing multiple checks prints duplicate checks
+    Bug 798787 - gnc-register-owner-option currently broken
+
+The following fixes and improvements were not associated with bug reports:
+
+    Fix quotes codecvt to wchar_t error on Windows.
+    Budget totals for one period would be wrong when increasing the number of
+        periods.
+    Change the handling of accelerator maps. Gtk no longer supports changing
+        these from the menus and the save no longer writes out the accelerators
+        that have their default values, so to assist users editing them we have
+        generated default ones that we include with GnuCash and have disabled
+        saving when quitting GnuCash. At startup GnuCash will check for the
+        presence of the file accelerator-map in GNC_CONFIG_HOME and if it's
+        not found will copy in the default one.
+    Properly parse plus signs while importing numbers in a CSV file.
+    Fix CSV price import file loading
+    CsvImport - actually do as the warning indicates: If an invalid column is
+        found in a preset, replace it with a NONE column, rather than not
+        inserting a column at all.
+
+New and Updated Translations: Chinese (Simplified), Croatian, Hungarian,
+    Japanese, Portuguese, Portuguese (Brazil), Spanish, Swedish
+
+4.903 - 12 March 2023
+Between 4.902 and 4.903, the following bugfixes were accomplished:
+The following fix will also appear in GnuCash 4.14:
+
+    Bug 798765 - Increase the limit for Maximum Slices in the Expense Piechart
+
+The following fixes and improvements were not associated with bug reports:
+
+    Add JSON::Parse to gnc-fq-update.
+    Guard against some possible null pointer dereferences
+    Change the reconcile window toolbar icon for 'Other the Account' to
+        'gnc-jumpto'
+    Change toolbar 'Blank' icon for invoice page to match register
+    Change the short cut from CTRL+Page_Down to CTRL+b and change the toolbar
+        icon to 'go-jump'.
+    Remove -Wno-pointer-sign, adding the necessary casts in gnc-gwen-guic.c
+    Remove -Wno-error=parentheses, added for gcc 8.0 and gtk 3.14
+    Remove redundant uses of cmake -E env
+    [c++options] Save an empty SCM string for nil or empty option values.
+        Avoids crash at reload due to unknown variable.
+    [c++options]Really fix the gnc_option_db_lookup_string_value leak
+
+New and Updated Translations: Chinese (Simplified), Croatian,
+    English (Australia), English (New Zealand), English (United Kingdom),
+    Hungarian, Macedonian, Polish, Portuguese, Russian, Ukrainian
+
+
+4.902 - 5 March 2023
+Between 4.901 and 4.902, the following bugfixes were accomplished:
+The following fixes will also appear in GnuCash 4.14:
+
+    Bug 798748 - Transaction Notes field's value does not appear in reverse
+                 transaction.
+    Bug 798754 - Build fails with gcc 13 and glib > 2.76
+    Bug 798759 - Register widths for 'with sub-account' not saved
+    Bug 798600 - CSV import of multi-split security transactions fails to load
+                 capital gain. Transactions with capital gains processing can
+                 have splits in transaction currency with a zero amount and a
+                 non-zero value. To properly import those, prefer the value
+                 column even if transaction currency equals account commodity.
+                 Previous (wrong) assumption was that in case of a
+                 same-currency split, the amount would always be the value.
+
+                 Update csv transaction export format to include split values.
+                 In the csv importer the 'GnuCash Export Format' option will
+                 now include values. For compatibility with filex exported from
+                 older gnucash versions the previous preset is still available
+                 under the name 'GnuCash Export Format (4.x and older)'.
+
+The following additional bug fixes are in unstable only:
+
+    Bug 782141 - Import CSV - Multi-currency support can cause rounding errors
+                 Replace the column types 'Deposit' and 'Withdrawal' with
+                 'Amount' and 'Amount (Negated)' that are conceptually
+                 applicable more widely. Also introduce column types 'Value'
+                 and 'Value (Negated)' to allow construction of splits in
+                 commodities different from the transaction currency. While
+                 Value is the number in the transaction currency, always use
+                 'Amount' in single-currency transactions.
+    Bug 793306 - Price is not imported from CSV
+    Bug 796955 - Import CSV - Single-line two-currency transactions can't be
+                 imported
+    Bug 797033 - The CSV Importer should not obey with the "automatic digital
+                 point" setting
+    Bug 797383 - Import transaction via CSV selects the commodity as a currency,
+                 results in an invalid transaction that is uneditable, and a
+                 corrupted price database. Change the transaction currency to
+                 the from or base account's parent account currency if the from
+                 or base account is not denominated in a currency. This allows
+                 to import stock transactions directly into the stock account.
+    Bug 797903 - Transaction window: The 'blue line' is always (erroneously) topmost when t. sorting order is inverted.
+    Bug 798334 - Importing transactions from CSV with space as thousand separator
+    Bug 798572 - Parse numbers with two minus signs as a positive numbers
+    Bug 798691 - Memo field not updated on CSV import using U+C
+    Bug 798732 - : Type of balance carry forward accounts for german skr49
+        account template fixed.
+        The accounts listed are of the EQUITY type and not ASSET.
+    Bug 798749 - Fails to read gsettings on startup
+    Bug 798753 - UX improvements in new import dialog
+    Bug 798763 - "Manage Document Link" keyboard shortcut is missing
+
+The following fixes and improvements were not associated with bug reports:
+
+    Always use the Company Name from book options in reports, removing the
+        Company Name report option.
+    Fix the register sheet being insensitive when in reverse order
+    Allow C decls after statements. Legal since C99.
+    Make the scheme tests fail immediately if they load an external gnucash
+        file.
+    [c++options] Restore the ability to set plot sizes in pixels.
+    [c++ options] Restore forward & backward compatibility, fix crash.
+    CsvTokenizer - add additional test case for escaped quotes
+        It simulates the case where csv fields are fully quoted and an
+        escaped quote ("") is found in some field. This case is handled
+        correctly, adding the test to guard this in potential future
+        modifications.
+    [dialog-employee] toggle sensitivity instead of visibility of GncAccountSel
+    [eguile-utilities.scm] remove fmtnumber. deprecated in maint.
+    Sort the gnc tree view column menu
+    Delete action on account page not disabled on edits.
+    L10N:DE:Updating accounts from 0001 to 8000 DATEV-SKR04 2022-01-01
+    GSettings migration: Ensure that the current version is set on a new
+        GnuCash installation and that migrations applicable to versions of
+        GnuCash later than the current one do not run.
+    Turn on -Wunused
+    Rename Hellow World report to Sample Report.
+    Generic Importer - allow user to modify exchange rates for unbalanced
+       transactions.
+    Make logging accessible from python modules
+    Allow C declarations after statements
+       Good for declaring variables at point of use
+
+New and Updated Translations: Czech, Hungarian
+
+4.901 - 5 February 2023
+Between 4.900 and 4.901, the following bugfixes were accomplished:
+The following fixes will also appear in GnuCash 4.14:
+
+    Bug 797477 - Manual foreign transaction from APAR to another doesn't
+                 trigger price input
+    Bug 797725 - Untranslatable string "For Period Covering ~a to ~a"
+    Bug 798734 - Aging Reports don't handle mixed currency payments and
+                 invoices without Trading Accounts
+    Bug 798737 - Minor grammatical error - 'for' missing in 'You will be asked
+                 a conversion rate for each.'
+    Bug 798740 - Build fails with gcc 13
+    Bug 798747 - Crash in Investment Portfolio report.
+
+The following additional bug fixes are in unstable only:
+
+    Bug 753307 - Custom Report be selectable as default Report for Printing
+        Change the preference in Business->'Report for Printing' to be saved as
+        a book property and allow the selection of any Invoice Report to be
+        used as the default.
+    Bug 794028 - CSV import, default to matching full account name
+        If the account map doesn't yield a result, try to map the import
+        string against existing accounts' full names
+    Bug 796955 - Import CSV - Single-line two-currency transactions can't be
+                 imported
+        Use a provided price if the transfer account uses a different commodity
+        from the base account's; apply it as
+             transfer amount = base amount * price.
+        Add a transfer amount column option to avoid the rounding that might
+        arise from having an inexact price.
+    Bug 797756 - Currency format setting is ignored
+    Bug 798292 - csv Import Transactions Ignores Multi-Splits
+    Bug 798475 - GNCAccountSel could have shortcuts
+    Bug 798730 - Open report doesn't remember selected accounts over restart
+    Bug 798739 - Advanced Portfolio report fails
+
+The following fixes and improvements were not associated with bug reports:
+
+    Move the Balance Sheet P&L Report out of experimental into regular menu.
+    Rename the Deposit and Withdrawal column labels in the CSV import assistant
+        to Amount and Amount(Negated) for clarity when importing into something
+        other than a bank account.
+    Improve muti-currency invoice payment:
+        * Show proper amount in dialog when applying or editing an existing
+          transaction as payment.
+        * Be more careful not to waste the existing payment split
+        * If the user changed the payment amount while starting from an
+          existing transaction unreconcile the changed payment split
+        * Avoid needlessly changing transaction currency (only do so if the
+          user chose a new transfer account and the old currency is neither
+          the new transfer account's currency nor the post account's currency)
+          Payment dialog - always list all possible post accounts instead of
+          only those in the currency of the selected vendor or customer
+        * Refuse to continue when a transaction has splits in more than one
+          AP/AR account to avoid losing data.
+    Add widget names to import dialogs so they can be manipulated with css
+    Fix some memory leaks
+    Ensure original splits are freed in xaccTransRollbackEdit
+    Add ability to show placeholder and hidden accounts in the GNCAccountSel
+        widget to hide placeholder and hidden accounts. By default these
+        accounts are hidden, but with the use of a secondary icon a popup menu
+        is presented where the list can be configured to show them. Also when
+        the GNCAccountSel is set to a specific account with with
+        gnc_account_sel_set_account, the placeholder and hidden properties are
+        checked and appropriate changes made so the account will be visible.
+    Activate feature GNC_FEATURE_EQUITY_TYPE_OPENING_BALANCE
+    Wrap function decls in extern "C" in all headers so that they can be
+        included without wrapping the include statements.
+
+New and Updated Translations: French, Hebrew, Hungarian, Italian,
+    Russian, Ukrainian
+
+4.900 - 8 January 2023
+New Features
+
+    A new Stock Transaction Assistant to guide you through entering
+        most investment transactions for stocks, bonds, and mutual
+        funds. You can access it from Actions>Stock Assistant when you
+        have the Accounts page ora Stock or Fund account register open.
+    A new Investment Lots report showing a graph of capital gains and
+        losses in a period by investment lot. Note that if you don't
+        use the View Lots dialog to manage capital gains and losses
+        this report won't have anything to show you. Use
+        Reports>Assets & Liabilities>Investment Lots to see the
+        report.
+    A new tab on the New/Edit Account dialog called More Properties
+        includes entries to set a high and low limit on an
+        account. That's coupled to a new column that's available on
+        the Accounts Page, Balance Limit. If you set a high or low
+        limit and the account balance falls above or below the
+        respective limit an indicator will be shown in the Balance
+        Limit column.
+    The description field quickfill in the register now displays a
+        drop-down list of possible completions instead of just one
+        inline completion.
+    File import menu items for the MT940, MT942, and DTAUS formats is
+        replaced with a single Import from AQBanking that supports
+        importing any file format supported by AQBanking, including
+        the frequently requested CAMT.
+
+Between 4.13 and 4.900, the following bugfixes were accomplished:
+The following fixes will also appear in GnuCash 4.14:
+
+    Bug 798588 - sx scrubbing was using incorrect free function
+    Bug 798625 - "Last up through report date" changed in 4.12
+    Bug 798679 - Unicode normalization should be used for comparison but
+                 not stored.
+    Bug 798702 - Crash in gnc_plugin_page_focus_idle_destroy() closing a
+                 report before it completes.
+    Bug 798705 - New: UI string mismatch: OK vs. Next
+    Bug 798717 - Reports > Business > Fancy Invoice duplicates company details
+
+The following additional bug fixes are in unstable only:
+
+    Bug 403979 - Balance column shows only low order digits when too narrow
+                 If the column is too narrow to display the whole number it
+                 will display the leading digits with an ellipsis (…).
+    Bug 769256 - Change New Account Dialog
+                 Rearrange the New and Edit Account dialog to move the
+                 parent selector under the description field followed by the
+                 account type as a combo (i.e. drop down) list.
+
+The following fixes and improvements were not associated with bug reports:
+
+    Unicode normalization for string matches is changed from NFKC to
+        NFC. This means that font and positional variants will no
+        longer match and is unlikely to affect most users. See Unicode
+        Normalization Forms:Canonical and Compatibility Equivalence
+        for the technical details.
+    The Gtk menu structure has been rewritten to use the newer
+       GMenu/GMenuModel system. This change is mostly invisible to
+       users, except that to keep menu accelerators (like <cmd>Q to
+       quit) working on macOS we had to let macOS handle the
+       events. That will affect using cut, copy, and paste in dialog
+       boxes because the menu will intercept them. That's temporary,
+       we hope to have it fixed for GnuCash 4.901.
+    The Finance::Quote interface is rewritten in C++. This new design
+        will allow much better capture of diagnostics from
+        Finance::Quote making troubleshooting problems much easier.
+    The perl Finance::Quote utilities gnc-fq-check, gnc-fq-dump, and
+        gnc-fq-helper are removed and new commands added to
+        gnucash-cli: --quotes info replaces gnc-fq-check and --quotes
+        dump replaces gnc-fq-dump.
+    New API: The options system has been rewritten in C++ with Scheme
+        wrappers for report options. While this is invisible to most
+        users, those who have written custom reports should look for
+        deprecation warnings when the custom reports are
+        reconciled. The main difference is that option creation and
+        registration is now done in a single function call. Note that
+        gnc:new-options is now gnc-new-options. There are several
+        similar changes. All of these are wrapped in
+        bindings/guile/options.scm with the old names, but are marked
+        to raise deprecation warnings to encourage you to change. The
+        wrappers will be removed in GnuCash 6.0.
+
+Deprecations: See the deprecation warnings in options.scm as noted above.
+
+New and Updated Translations: Chinese (Simplified), Croatian, Hungarian,
+    Polish, Portuguese (Brazil)
+
+
+4.13 - 18 December 2022
+Between 4.12 and 4.13, the following bugfixes were accomplished:
+
+    Bug 760274 - The Statusbar "forgets" when register doesn't have focus
+    Bug 798545 - Crash when updating document link on vendor bill
+    Bug 798614 - Croatia to join the Euro
+    Bug 798629 - gnucash crashes attempting to import OFX file
+    Bug 798633 - 4.12 build failure on 32-bit Linux: "No code for module"
+    Bug 798640 - Segfault when running saved report
+    Bug 798649 - Crash when closing Edit Style Sheets dialog while Style Sheet
+                 Properties dialog is still open.
+    Bug 798653 - Schedule Calendar event description pop up window does not
+                 track mouse position
+    Bug 798657 - Import Summary language is wrong
+    Bug 798664 - Result of 'gnucash --nofile' is marked dirty
+    Bug 798669 - Multicolumn Balance Sheet not printing exchange rates
+
+    include equity accounts in the exchange rate commodities list.
+    Bug 798672 - Preferences are not saved nor loaded,
+                 ERROR <GLib-GIO> g_settings_new_full: assertion
+                 'schema != NULL' failed
+    Bug 798680 - Not able to match a reverse transaction of a previously
+                 matched transaction.
+    Bug 798681 - Previously imported investment income transactions may not
+                 be filtered.
+    Bug 798694 - Cursor in the wrong place after pasting with auto-completion
+
+The following fixes and improvements were not associated with bug reports:
+
+    Don't normalize text when pasting from the clipboard or appending
+        descriptions or notes during imports.
+    [register] Delay post-ime reset of the selection to works around bug 798587.
+    [ofx import] Clean up importing investment transactions for smoother
+        workflow and better UI behavior.
+    [account-piecharts] drill-down piechart: tree-depth is at most 6
+    Fix numerous memory leaks.
+    [ifrs-report] From Bug 798004 allow Cr cash to offset Dr fee and remove
+        invalid "dividend reinvestment" during short.
+    [gtest-qofevent.cpp] Add comprehensive tests for qofevent
+    [test-qofbook] Test that gnc_features_test_unknown returns a suitable
+        error message
+    [test-qofbook.c] add test for gnc_features_set_unused
+    [gnc-features.cpp] backport gnc_features_set_unused from master
+    [qofbook.cpp] backport qof_book_unset_feature from master
+    Move gnc-euro.[ch] to engine and unit test it.
+    [test-qofbook] basic features test: Sets a feature and tests it's set.
+        It's impossible to design a book with unknown features using the API.
+    po/README: Remove relics from ancient context forms
+    [test-ifrs-cost-basis] amend tests to accommodate extra column.
+    [ifrs-cost-basis] compare register vs calculated capgain per transaction.
+    Accomodate WebKit package version update to webkit2gtk-4.1.
+    [assistant-stock-transaction] input positive capgains for Credit income account.
+
+New API: None.
+
+Deprecations:
+
+    qof_book_get_features
+
+New and Updated Translations: Chinese (Simplified), Croatian, English
+    (Australia), English (New Zealand), English (United Kingdom), French,
+    Hungarian, Indonesian, Japanese, Korean, Macedonian, Polish, Spanish,
+    Urdu
+
+4.12 - 25 September 2022
+Between 4.11 and 4.12, the following bugfixes were accomplished:
+
+    Bug 794584 - Register not updated when scheduled transactions created
+    Bug 798262 - Scheduled transactions with blank amounts do not get created.
+    Bug 798385 - Description to often only
+                 "Landesbank Hessen-Thuringen Girozentrale"
+                 Prepend the Ulitimate Creditor or Ultimate Debtor to the
+                 transaction description.
+    Bug 798565 - Import map editor: deletion of a map does not mark gnucash
+                 document as dirty
+    Bug 798573 - Tab Width Behaviour
+                 Formerly when the notebook tabs on the left or right,
+                 the space used fluctuated depending on tab label
+                 width. This change sets the label width to the
+                 preference setting when the tabs are on the left or
+                 right but when top or bottom the width is set to the
+                 number of characters when shorter than the preference
+                 setting so they take up less room.
+    Bug 798578 - MT940 imports broken - all transactions have date of first
+                 transaction
+    Bug 798585 - segfault running sample script simple_business_create.py.
+    Bug 798588 - sx scrubbing was using incorrect free function
+    Bug 798590 - Transaction report: wrong type argument in position 1
+    Bug 798598 - Selecting a line in a Vendor Credit Note changes display of
+                 Subtotal cell to 0.00
+    Bug 798611 - Date changing when changing timezone by one hour
+                 When getting a date from the date editor anywhere in
+                 the program set the time to neutral time instead of
+                 the beginning of the day unless get_date_internal is
+                 called with GNC_DATE_EDIT_SHOW_TIME in which case the
+                 user-provided time is used.
+    Bug 798616 - Can't register amount greater than 9,000,000,000
+                 Because when loading the value the split in the xml
+                 backend doesn't yet have a parent so the code tried
+                 to convert to GNC_COMMODITY_MAX_FRACTION and if the
+                 numerator was larger than 10^10 that would
+                 overflow. To fix it this changes the "don't know"
+                 response in get_currency_denom and
+                 get_commodity_denom to GNC_DENOM_AUTO which will
+                 normally leave the denominator alone.
+
+The following fixes and improvements were not associated with bug reports:
+
+    It is now possible to edit the description, notes, and memo fields of
+        new transactions in the import matcher and to do so for multiple
+        transactions. The option is accessed via a context menu on selected
+        import lines.
+    Show GnuCash's installation and configuration configuration paths in the
+        About dialog. List the same from the command line with a --paths option.
+    Add account hierarchy templates for locale es_AR
+    Continued work on the Stock Transaction Assistant. If you want to try out
+        this new way of recording your investment transactions start GnuCash
+        with the --extra option. The stock assistant is available on the
+        toolbar and from the Actions menu when a register for a STOCK or FUND
+        account is focused.
+    Replace the very obsolete ghelp: URI scheme with help and install the
+        documentation according to the XDG documentation spec on non-Mac Linux
+        systems. This ensures that the Help menu documentation items work with
+        Gnome 42 and later.
+    Conforming to the XDG documentation spec, rename the root page of the Help
+        manual to index from help. This has the happy side effect of removing
+        some special-case code from the macOS documentation links.
+    Standardize the top-level Equity and Assets account names in the French
+        templates to "Capitaux propres" and "Actif" respectively.
+    [gnc-ab-utils] concise string accumulator
+    [gnc-glib-utils] gnc_g_list_stringjoin skips NULL data
+    [ifrs-cost-basis] identify sale/purchase according to truth table instead
+        of via flawed heuristics
+    [ifrs-cost-basis] add options used as a report footer
+    [lot-viewer] Show Open & Close dates only when they have a value.
+    Fix use-after-free crash in gnc_set_busy_cursor.
+    Create Swiss SMB account chart acctchrt_pme-19.gnucash-xea.
+    [date-utilities] avoid report crash if start > end date
+    [html-chart] add percent formatter for numbers for older javascript.
+    [trial-balance] set default price-source to average-cost to minimise
+        complaints (see Bug 798550)
+    Use macos-latest github runner for mac tests.
+    [dialog-price] Price Database: Insert help buttons
+    Disable transaction type (i.e. Bill or Invoice) in Invoice/Bill Registers,
+        determining the type by inspecting the money flow.
+    Fix python tests dependencies so that ninja check works from a clean build
+        directory with Python enabled.
+    Review of account templates C—missing placeholders, redundancies
+    Fixed a variety of fixed memory leaks, poor list handling, and dangling
+        reference errors.
+
+New API:
+     gnc_tm_get_today_neutral to complement gnc_tm_get_today_begin and
+         gnc_tm_get_today_end.
+     gnc_get_dialog_widget_from_id
+     gnc_list_all_paths
+
+Deprecations: None.
+
+New and Updated Translations: Basque, Chinese (Simplified), Croatian,
+    Dutch, English (Australia), English (New Zealand), English (United
+    Kingdom), French, German, Hebrew, Hungarian, Indonesian, Italian,
+    Korean, Marathi, Polish, Portuguese, Portuguese (Brazil), Russian,
+    Swedish, Ukrainian
+
 4.11 - 26 June 2022
 Between 4.10 and 4.11, the following bugfixes were accomplished:
 

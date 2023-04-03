@@ -4,15 +4,16 @@
 # Kornel Tako <takokornel@gmail.com>, 2007.
 # Frank H. Ellenberger <frank.h.ellenberger@gmail.com>, 2020.
 # Kárász Attila <cult.edie@gmail.com>, 2022.
-# Szia Tomi <sziatomi01@gmail.com>, 2022.
+# Szia Tomi <sziatomi01@gmail.com>, 2022, 2023.
+# mocsa <csaba@feltoltve.hu>, 2023.
 msgid ""
 msgstr ""
 "Project-Id-Version: GnuCash 4.8\n"
 "Report-Msgid-Bugs-To: https://bugs.gnucash.org/enter_bug."
 "cgi?product=GnuCash&component=Translations\n"
 "POT-Creation-Date: 2021-12-05 20:11+0100\n"
-"PO-Revision-Date: 2022-07-24 21:14+0000\n"
-"Last-Translator: Szia Tomi <sziatomi01@gmail.com>\n"
+"PO-Revision-Date: 2023-03-16 17:41+0000\n"
+"Last-Translator: mocsa <csaba@feltoltve.hu>\n"
 "Language-Team: Hungarian <https://hosted.weblate.org/projects/gnucash/"
 "glossary/hu/>\n"
 "Language: hu\n"
@@ -20,7 +21,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
-"X-Generator: Weblate 4.14-dev\n"
+"X-Generator: Weblate 4.16.2-dev\n"
 
 #. "English Definition (Dear translator: This file will never be visible to the user! It should only serve as a tool for you, the translator. Nothing more.)"
 msgid "Term (Dear translator: This file will never be visible to the user!)"
@@ -37,7 +38,7 @@ msgstr "számla"
 
 #. "An alphanumerical key of an account in GnuCash, not at the bank, can be used to sort. Some templates provide them or the user can enter them."
 msgid "account code"
-msgstr "számlakód (belső)"
+msgstr "számlakód (GnuCash belső)"
 
 #. "the tree view of all accounts"
 msgid "account hierarchy"
@@ -109,11 +110,11 @@ msgstr "számlatípus: Részvény"
 
 #. "This account type (new in gnucash-2.4.0) is used when exchanging or trading amounts from one currency into another"
 msgid "account type: trading"
-msgstr "számlatípus: kereskedés"
+msgstr "számlatípus: kereskedés(devizakonverziós)"
 
 #. "-"
 msgid "account: parent account"
-msgstr "számla: szülőszámla"
+msgstr "számla: szülő számla"
 
 #. "-"
 msgid "account: subaccount"
@@ -241,7 +242,7 @@ msgstr "bank"
 
 #. "A written statement of money owed for goods or services supplied. In Gnucash, a 'bill' is a statement that we received (from a vendor), whereas an 'invoice' is one that we sent out (to a customer)."
 msgid "bill"
-msgstr "szállítói számla"
+msgstr "bejövő számla"
 
 #. "see invoice owner"
 msgid "bill owner"
@@ -401,7 +402,7 @@ msgstr "e-mail"
 
 #. "a person who works for somebody or a company in return for wages"
 msgid "employee"
-msgstr "munkavállaló"
+msgstr "alkalmazott"
 
 #. "1. The money value of a property after all charges on it have been paid. Equity isn't debt, it's a representation of long-term capital (So combining it with liability isn't really very meaningful, except in the balance sheet. 2. (a) The value of the shares issued by  a company. (b) Ordinary stocks and shares that carry no fixed interest."
 msgid "equity"
@@ -521,11 +522,11 @@ msgstr "MDI mód (több dokumentumos felület)"
 
 #. "One textfield per split that should help you remember what this split was about."
 msgid "Memo"
-msgstr "Feljegyzés, emlékeztető"
+msgstr "Felosztás jegyzete"
 
 #. "(a) An agreement by which money is lent by a bank for buying a house or other property, the property being the security. (b) A sum of money lent in this way."
 msgid "Mortgage"
-msgstr "Jelzálog"
+msgstr "Jelzálogkölcsön"
 
 #. "Adjustable Rate Mortgage"
 msgid "mortgage: ARM"
@@ -557,7 +558,7 @@ msgstr "nettó vagyon"
 
 #. "One textfield per transaction that can hold explanatory text about the transaction."
 msgid "notes (register)"
-msgstr "jegyzetek (könyvelés)"
+msgstr "megjegyzések (a számlaregiszterben)"
 
 #. "Abbreviation for: number; Field in a transaction. If this transaction was done by check, then the check number should be noted in this field."
 msgid "Num (column in register)"
@@ -577,7 +578,7 @@ msgstr "Opciók"
 
 #. "Watch out: Although this word exists in gnucash program code, all that program code in gnucash is currently not activated. In the future, it will be used in business accounting as follows: A particular request to make or supply goods, but belonging to a (larger) job. Such a request can come from a customer or be sent to a vendor. An order will probably generate one invoice or bill."
 msgid "order"
-msgstr "rendelés"
+msgstr "megrendelés"
 
 #. "Name of an automatically created account that holds splits that have no account."
 msgid "orphan"
@@ -632,7 +633,7 @@ msgstr "tőkefizetés (tőkerészlet)"
 
 #. "An amount of money for which sth may be bought or sold"
 msgid "price (in a split)"
-msgstr "ár"
+msgstr "ár (egy felosztásban)"
 
 #. "An ask is an offer to sell, and the price you want to sell at."
 msgid "price type: ask"
@@ -672,11 +673,11 @@ msgstr "nyilvántartás vezetése"
 
 #. "A list of items; a book containing such a list"
 msgid "register"
-msgstr "nyilvántartás"
+msgstr "számlaregiszter"
 
 #. "A transaction that is divided into two or more parts"
 msgid "register entry: split transaction"
-msgstr "nyilvántartási bejegyzés: megosztott tranzakció"
+msgstr "nyilvántartási bejegyzés: felosztott tranzakció"
 
 #. "-"
 msgid "register entry: stock split"
@@ -744,7 +745,7 @@ msgstr "Osztalékegyenleg (nyilvántartás)"
 
 #. "Any of the equal parts into which the money of a business company is divided, giving the holder a right to a portion of the profits"
 msgid "shares"
-msgstr "osztalék"
+msgstr "részvény(ek darabszáma)"
 
 #. "(often: of a quote) A place from which something comes or is obtained."
 msgid "source"
@@ -808,7 +809,7 @@ msgstr "Össz."
 
 #. "The full number or amount: total of some balances, of any account's running balance etc."
 msgid "total"
-msgstr "Összesen"
+msgstr "összesen"
 
 #. "A piece of business done; the transfer of money from one account to one or more other accounts. (see also: Scheduled Transaction)"
 msgid "transaction"
@@ -860,22 +861,22 @@ msgstr "URL"
 
 #. "The worth of sth in terms of money or other commodities for which it can be exchanged"
 msgid "value (in a split)"
-msgstr "érték"
+msgstr "érték (egy felosztásban)"
 
 #. "In small business accounting: A person or company that sells items and is supplying goods"
 msgid "vendor"
-msgstr "eladó"
+msgstr "beszállító"
 
 #. "The terms 'Voucher' and 'Expense Voucher' are used interchangeably in gnucash. The 'Expense Voucher' is also a bit of a misnomer -- it's more like an 'Expense Report' in gnucash.  The phrase is meant to be a list of expenses incurred by an employee for which the company will reminburse them."
 msgid "voucher"
-msgstr "utalvány"
+msgstr "költségbizonylat vagy csak bizonylat"
 
 #. "see debit"
 msgid "withdraw (in the reconcile dialog)"
-msgstr "visszavonás(az egyeztetési párbeszédpanelen)"
+msgstr "visszavonás(az egyeztető párbeszédpanelen)"
 
 msgid "stock"
-msgstr "készlet"
+msgstr "részvény"
 
 msgid "due"
 msgstr "esedékes"

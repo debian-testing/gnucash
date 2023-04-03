@@ -1,6 +1,7 @@
 (use-modules (ice-9 textual-ports))
 (use-modules (ice-9 popen))
 (use-modules (gnucash engine))
+(use-modules (sw_engine))
 (use-modules (gnucash utilities))
 (use-modules (gnucash app-utils))
 (use-modules (tests test-engine-extras))
@@ -11,6 +12,7 @@
 (use-modules (gnucash reports))
 (use-modules (tests test-report-extras))
 (use-modules (srfi srfi-9))
+(use-modules (srfi srfi-26))
 (use-modules (srfi srfi-64))
 (use-modules (srfi srfi-98))
 (use-modules (tests srfi64-extras))
@@ -62,22 +64,25 @@
   (define optionslist '())
   (gnc:report-templates-for-each
    (lambda (report-id template)
-     (let* ((options-generator (gnc:report-template-options-generator template))
+     (let* ((book (gnc-get-current-book))
+            (options-generator (gnc:report-template-options-generator template))
             (options (options-generator))
             (report-options-tested '()))
        (gnc:options-for-each
         (lambda (option)
           (when (case (gnc:option-type option)
-                  ((multichoice) (pair? (cdr (gnc:option-data option))))
+                  ((multichoice)
+                   (> (GncOption-num-permissible-values option) 1))
                   ((boolean) #t)
                   (else #f))
             (set! report-options-tested
               (cons (make-combo
-                     (gnc:option-section option)
-                     (gnc:option-name option)
-                     (case (gnc:option-type option)
-                       ((multichoice) (map (lambda (d) (vector-ref d 0))
-                                           (gnc:option-data option)))
+                     (GncOption-get-section option)
+                     (GncOption-get-name option)
+                     (case (GncOption-get-type option)
+                       ((multichoice)
+                        (map (cut GncOption-permissible-value option <>)
+                             (iota (GncOption-num-permissible-values option))))
                        ((boolean) (list #t #f))))
                     report-options-tested))))
         options)
@@ -92,9 +97,8 @@
   (get-environment-variable "COMBINATORICS"))
 
 (define (set-option! options section name value)
-  (let ((option (gnc:lookup-option options section name)))
-    (if option
-        (gnc:option-set-value option value))))
+  (if (gnc-lookup-option (gnc:optiondb options) section name)
+      (gnc-set-option (gnc:optiondb options) section name value)))
 
 ;; code snippet to run report uuid, with options object
 (define (try-run-report uuid options option-summary)
@@ -111,7 +115,8 @@
       (format #t "[pass] ~a\n" (string-join option-summary ","))))))
 
 (define (simple-stress-test report-name uuid report-options)
-  (let ((options (gnc:make-report-options uuid)))
+  (let* ((book (gnc-get-current-book))
+         (options (gnc:make-report-options uuid)))
     (test-assert (format #f "basic test ~a" report-name)
       (gnc:options->render uuid options (string-append "stress-" report-name) "test"))
     (format #t "Testing SIMPLE combinations for:\n~a" report-name)
@@ -124,10 +129,10 @@
     (newline)
     (for-each
      (lambda (idx)
-       (when (gnc:lookup-option options "General" "Start Date")
+       (when (gnc-lookup-option (gnc:optiondb options) "General" "Start Date")
          (set-option! options "General" "Start Date"
                       (cons 'absolute (gnc-dmy2time64 1 12 1969))))
-       (when (gnc:lookup-option options "General" "End Date")
+       (when (gnc-lookup-option (gnc:optiondb options) "General" "End Date")
          (set-option! options "General" "End Date"
                       (cons 'absolute (gnc-dmy2time64 1 1 1972))))
        (let loop ((report-options report-options)
@@ -149,7 +154,8 @@
                                    report-options)))))))
 
 (define (combinatorial-stress-test report-name uuid report-options)
-  (let* ((options (gnc:make-report-options uuid))
+  (let* ((book (gnc-get-current-book))
+         (options (gnc:make-report-options uuid))
          (render #f))
 
     (test-assert (format #f "basic test ~a" report-name)
@@ -167,10 +173,10 @@
                  (get-name option)))
        report-options)
       (newline)
-      (when (gnc:lookup-option options "General" "Start Date")
+      (when (gnc-lookup-option (gnc:optiondb options) "General" "Start Date")
         (set-option! options "General" "Start Date"
                      (cons 'absolute (gnc-dmy2time64 1 12 1969))))
-      (when (gnc:lookup-option options "General" "End Date")
+      (when (gnc-lookup-option (gnc:optiondb options) "General" "End Date")
         (set-option! options "General" "End Date"
                      (cons 'absolute (gnc-dmy2time64 1 1 1972))))
       ;; generate combinatorics
@@ -242,9 +248,6 @@
                      "Receipt"
                      "Australian Tax Invoice"
                      "Balance Sheet (eguile)"
-
-                     ;; skip Hello World which is designed to crash...
-                     "Hello, World"
                      ))
            (format #t "\nSkipping ~a ~a...\n" report-name prefix)
            (begin
@@ -261,8 +264,9 @@
   (run-tests "on a populated book" optionslist stress-test-runner))
 
 (define (run-test)
-  (let ((optionslist (generate-optionslist))
-        (stress-test-runner (get-stress-test-runner)))
+  (let* ((book (gnc-get-current-book))
+         (optionslist (generate-optionslist))
+         (stress-test-runner (get-stress-test-runner)))
     (test-runner-factory gnc:test-runner)
     (test-begin "stress options")
     (tests optionslist stress-test-runner)

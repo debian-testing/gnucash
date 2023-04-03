@@ -31,6 +31,10 @@
 #ifndef GNC_TAXTABLE_H_
 #define GNC_TAXTABLE_H_
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /** @struct GncTaxTable
 
 modtime is the internal date of the last modtime\n
@@ -142,8 +146,6 @@ gboolean gncTaxTableEqual(const GncTaxTable *a, const GncTaxTable *b);
 /** Return a pointer to the instance gncTaxTable that is identified
  *  by the guid, and is residing in the book. Returns NULL if the
  *  instance can't be found.
- *  Equivalent function prototype is
- *  GncTaxTable * gncTaxTableLookup (QofBook *book, const GncGUID *guid);
  */
 static inline GncTaxTable *gncTaxTableLookup (const QofBook* book, const GncGUID *guid)
 {
@@ -205,6 +207,10 @@ void gncAccountValueDestroy (GList *list);
 #define gncTaxTableGetGUID(x) qof_instance_get_guid(QOF_INSTANCE(x))
 #define gncTaxTableRetGUID(x) (x ? *(qof_instance_get_guid(QOF_INSTANCE(x))) : *(guid_null()))
 #define gncTaxTableLookupDirect(G,B) gncTaxTableLookup((B), &(G))
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* GNC_TAXTABLE_H_ */
 /** @} */

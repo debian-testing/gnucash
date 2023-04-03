@@ -11,7 +11,7 @@ struct _MockTransactionClass
 };
 typedef struct _MockTransactionClass MockTransactionClass;
 
-G_DEFINE_TYPE(MockTransaction, gnc_mocktransaction, QOF_TYPE_INSTANCE);
+G_DEFINE_TYPE(MockTransaction, gnc_mocktransaction, QOF_TYPE_INSTANCE)
 
 static void
 gnc_mocktransaction_init (MockTransaction *inst)
@@ -128,6 +128,14 @@ xaccTransGetNum (const Transaction *trans)
     SCOPED_TRACE("");
     auto mocktrans = gnc_mocktransaction(trans);
     return mocktrans ? mocktrans->get_num() : "";
+}
+
+gnc_commodity *
+xaccTransGetCurrency (const Transaction *trans)
+{
+    SCOPED_TRACE("");
+    auto mocktrans = gnc_mocktransaction(trans);
+    return mocktrans ? mocktrans->get_currency() : nullptr;
 }
 
 gboolean

@@ -251,6 +251,10 @@ gnc_split_register_get_num_label (VirtualLocation virt_loc,
     case RECEIVABLE_REGISTER:
     case PAYABLE_REGISTER:
         /* Column label for Invoice IDs in A/P & A/R accounts */
+        /* Translators: Ref is the column header in Accounts Payable and
+         * Accounts Receivable ledgers for the number of the invoice or bill
+         * associated with the transaction.
+         */
         return _ ("Ref");
     default:
         return _ ("Num");
@@ -507,15 +511,6 @@ gnc_split_register_get_fcredit_label (VirtualLocation virt_loc,
 }
 
 
-static char*
-gnc_split_register_get_default_tooltip (VirtualLocation virt_loc,
-                                        gpointer user_data)
-{
-    SplitRegister* reg = user_data;
-    const char* tooltip = gnc_table_get_entry (reg->table, virt_loc);
-
-    return g_strdup (tooltip);
-}
 
 static char*
 gnc_split_register_get_recn_tooltip (VirtualLocation virt_loc,
@@ -1680,13 +1675,13 @@ gnc_split_reg_has_rate_cell (SplitRegisterType type)
     case GENERAL_JOURNAL:
     case INCOME_LEDGER:
     case SEARCH_LEDGER:
+    case RECEIVABLE_REGISTER:
+    case PAYABLE_REGISTER:
         return TRUE;
 
     case STOCK_REGISTER:
     case CURRENCY_REGISTER:
     case PORTFOLIO_LEDGER:
-    case RECEIVABLE_REGISTER:
-    case PAYABLE_REGISTER:
     default:
         return FALSE;
     }
@@ -1873,7 +1868,6 @@ gnc_split_register_get_debcred_entry (VirtualLocation virt_loc,
         }
         else
         {
-            gboolean currency_match;
             switch (reg->type)
             {
             case STOCK_REGISTER:
@@ -2707,8 +2701,6 @@ gnc_split_register_model_new (void)
                                        RBALN_CELL);
 
     // tooltip handlers
-//    gnc_table_model_set_default_tooltip_handler(
-//        model, gnc_split_register_get_default_tooltip);
 
     gnc_table_model_set_tooltip_handler (model,
                                          gnc_split_register_get_recn_tooltip,

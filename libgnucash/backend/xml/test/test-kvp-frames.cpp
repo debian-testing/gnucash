@@ -1,7 +1,5 @@
 #include <kvp-frame.hpp>
 
-extern "C"
-{
 #include <config.h>
 
 #include <stdlib.h>
@@ -10,7 +8,6 @@ extern "C"
 #include "test-engine-stuff.h"
 
 #include "qof.h"
-}
 
 #include "test-file-stuff.h"
 #include "sixtp-dom-generators.h"
@@ -33,7 +30,6 @@ test_kvp_get_slot (int run,
     }
     else
     {
-        gchar* tmp;
         failure_args (msg, __FILE__, __LINE__, "run=%d", run);
         printf ("    Value is %s\n", test_val2->to_string ().c_str ());
     }
@@ -55,7 +51,6 @@ test_kvp_copy_compare (int run,
     }
     else
     {
-        gchar* tmp;
         failure_args (msg, __FILE__, __LINE__, "run=%d", run);
         printf ("Frame1 is %s\n", test_frame1->to_string ().c_str ());
         printf ("Frame2 is %s\n", test_frame2->to_string ().c_str ());
@@ -78,7 +73,6 @@ test_kvp_copy_get_slot (int run,
     }
     else
     {
-        gchar* tmp;
         failure_args (msg, __FILE__, __LINE__, "run=%d", run);
         printf ("Frame1 is %s\n", test_frame1->to_string ().c_str ());
         printf ("Frame2 is %s\n", test_frame2->to_string ().c_str ());

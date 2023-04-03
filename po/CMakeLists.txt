@@ -1,7 +1,7 @@
 add_subdirectory(glossary)
 
 # Set of available languages:
-set (ALL_LINGUAS ar as az bg brx ca cs da de doi el en_AU en_GB en_NZ es es_NI et eu fa fi fr gu he hi hr hu id it ja kn ko kok kok@latin ks lt lv mai mni mni@bengali mr nb ne nl pl pt pt_BR ro rw sk sr sv ru ta te tr uk ur vi zh_CN zh_TW)
+set (ALL_LINGUAS ar as az bg brx ca cs da de doi el en_AU en_GB en_NZ es es_NI et eu fa fi fr gu he hi hr hu id it ja kn ko kok kok@latin ks lt lv mai mk mni mni@bengali mr nb ne nl pl pt pt_BR ro rw sk sr sv ru ta te tr uk ur vi zh_CN zh_TW)
 # LINGUAS is used to create localized destkop and appdata files
 string(REPLACE ";" " " LINGUAS "${ALL_LINGUAS}")
 file(WRITE ${CMAKE_CURRENT_SOURCE_DIR}/LINGUAS "${LINGUAS}")
@@ -19,8 +19,7 @@ foreach (lingua ${ALL_LINGUAS})
 
   add_custom_command(
       OUTPUT ${_MO_FILE}
-      COMMAND ${CMAKE_COMMAND} -E env
-        ${GETTEXT_MSGFMT_EXECUTABLE}
+      COMMAND ${GETTEXT_MSGFMT_EXECUTABLE}
             -o ${_MO_FILE} ${CMAKE_CURRENT_SOURCE_DIR}/${lingua}.po
       DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/${lingua}.po
   )
@@ -54,6 +53,7 @@ function(make_gnucash_potfiles)
     ${CMAKE_SOURCE_DIR}/*.keys.in ${CMAKE_SOURCE_DIR}/*.scm
     ${CMAKE_SOURCE_DIR}/*.py ${CMAKE_SOURCE_DIR}/*/qofbookslots.h
     ${CMAKE_SOURCE_DIR}/*/gnc-commodity.h
+    ${CMAKE_SOURCE_DIR}/*.ui
   )
 
   # Only consider files in a selection of the source directories and
@@ -141,3 +141,7 @@ if(BUILD_GNUCASH_POT)
   add_custom_target (pot DEPENDS gnucash.pot)
 endif()
 dist_add_generated (${BUILDING_FROM_VCS} gnucash.pot)
+
+if(BUILD_GNUCASH_POT)
+  add_dependencies (dist-po-gnucash-pot pot)
+endif()

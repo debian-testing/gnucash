@@ -19,10 +19,9 @@
  * 51 Franklin Street, Fifth Floor    Fax:    +1-617-542-2652       *
  * Boston, MA  02110-1301,  USA       gnu@gnu.org                   *
  ********************************************************************/
+#include <cstddef>
 #include <glib.h>
 
-extern "C"
-{
 #include <config.h>
 #include <string.h>
 #include <unittest-support.h>
@@ -40,8 +39,7 @@ extern "C"
 #define USE_CLANG_FUNC_SIG 1
 #endif
 static const gchar *suitename = "/engine/Account";
-void test_suite_account (void);
-}
+extern "C" void test_suite_account (void);
 
 #include <qofinstance-p.h>
 #include <kvp-frame.hpp>
@@ -443,7 +441,7 @@ gchar *gnc_account_name_violations_errmsg (const gchar *separator, GList* invali
 static void
 test_gnc_account_name_violations_errmsg ()
 {
-    GList *badnames = NULL, *nonames = NULL, *node = NULL;
+    GList *badnames = NULL, *nonames = NULL;
     auto separator = ":";
     /* FUT wants to free the strings, so we alloc them */
     badnames = g_list_prepend (badnames, g_strdup ("Foo:bar"));
@@ -1089,6 +1087,14 @@ test_gnc_account_kvp_setters_getters (Fixture *fixture, gconstpointer pData)
 {
     Account *account = xaccMallocAccount (gnc_account_get_book (fixture->acct));
     xaccAccountSetType (account, ACCT_TYPE_EQUITY);
+    gnc_numeric h_balance = gnc_numeric_create (1700, 100);
+    gnc_numeric l_balance = gnc_numeric_create (1000, 100);
+    gnc_numeric balance_limit;
+    gnc_numeric post_balance = gnc_numeric_create (2345, 100);
+    gnc_numeric returned_post_balance;
+    time64 date = gnc_time (nullptr);
+    time64 returned_date;
+    int prev_months, prev_days;
 
     // equity_type getter/setter
     g_assert (xaccAccountGetIsOpeningBalance (account) == FALSE);
@@ -1148,7 +1154,7 @@ test_gnc_account_kvp_setters_getters (Fixture *fixture, gconstpointer pData)
     g_assert_cmpstr (xaccAccountGetTaxUSCode (account), ==, "red");
 
     xaccAccountSetTaxUSCode (account, "");
-    g_assert_cmpstr (xaccAccountGetTaxUSCode (account), ==, "");
+    g_assert_cmpstr (xaccAccountGetTaxUSCode (account), ==, nullptr);
 
     xaccAccountSetTaxUSCode (account, "  ");
     g_assert_cmpstr (xaccAccountGetTaxUSCode (account), ==, "  ");
@@ -1166,7 +1172,7 @@ test_gnc_account_kvp_setters_getters (Fixture *fixture, gconstpointer pData)
     g_assert_cmpstr (xaccAccountGetTaxUSPayerNameSource (account), ==, "red");
 
     xaccAccountSetTaxUSPayerNameSource (account, "");
-    g_assert_cmpstr (xaccAccountGetTaxUSPayerNameSource (account), ==, "");
+    g_assert_cmpstr (xaccAccountGetTaxUSPayerNameSource (account), ==, nullptr);
 
     xaccAccountSetTaxUSPayerNameSource (account, "  ");
     g_assert_cmpstr (xaccAccountGetTaxUSPayerNameSource (account), ==, "  ");
@@ -1187,7 +1193,7 @@ test_gnc_account_kvp_setters_getters (Fixture *fixture, gconstpointer pData)
     g_assert_cmpstr (xaccAccountGetFilter (account), ==, "unset");
 
     xaccAccountSetFilter (account, "   unset ");
-    g_assert_cmpstr (xaccAccountGetFilter (account), ==, "unset");
+    g_assert_cmpstr (xaccAccountGetFilter (account), ==, "   unset ");
 
     xaccAccountSetFilter (account, "");
     g_assert_cmpstr (xaccAccountGetFilter (account), ==, nullptr);
@@ -1205,7 +1211,7 @@ test_gnc_account_kvp_setters_getters (Fixture *fixture, gconstpointer pData)
     g_assert_cmpstr (xaccAccountGetSortOrder (account), ==, "unset");
 
     xaccAccountSetSortOrder (account, "  unset ");
-    g_assert_cmpstr (xaccAccountGetSortOrder (account), ==, "unset");
+    g_assert_cmpstr (xaccAccountGetSortOrder (account), ==, "  unset ");
 
     xaccAccountSetSortOrder (account, "");
     g_assert_cmpstr (xaccAccountGetSortOrder (account), ==, nullptr);
@@ -1223,13 +1229,68 @@ test_gnc_account_kvp_setters_getters (Fixture *fixture, gconstpointer pData)
     g_assert_cmpstr (xaccAccountGetNotes (account), ==, "unset");
 
     xaccAccountSetNotes (account, "    unset ");
-    g_assert_cmpstr (xaccAccountGetNotes (account), ==, "unset");
+    g_assert_cmpstr (xaccAccountGetNotes (account), ==, "    unset ");
 
     xaccAccountSetNotes (account, "");
     g_assert_cmpstr (xaccAccountGetNotes (account), ==, nullptr);
 
     xaccAccountSetNotes (account, nullptr);
     g_assert_cmpstr (xaccAccountGetNotes (account), ==, nullptr);
+
+    // Balance Limits getter/setter
+    g_assert (xaccAccountGetHigherBalanceLimit (account, &balance_limit) == false);
+    g_assert (xaccAccountGetLowerBalanceLimit (account, &balance_limit) == false);
+    g_assert (xaccAccountGetIncludeSubAccountBalances (account) == false);
+
+    xaccAccountSetHigherBalanceLimit (account, h_balance);
+    xaccAccountSetLowerBalanceLimit (account, l_balance);
+    xaccAccountSetIncludeSubAccountBalances (account, true);
+
+    g_assert (xaccAccountGetHigherBalanceLimit (account, &balance_limit) == true);
+    g_assert_cmpint (gnc_numeric_compare (h_balance, balance_limit), ==, 0);
+
+    g_assert (xaccAccountGetLowerBalanceLimit (account, &balance_limit) == true);
+    g_assert_cmpint (gnc_numeric_compare (l_balance, balance_limit), ==, 0);
+
+    g_assert (xaccAccountGetIncludeSubAccountBalances (account) == true);
+
+    xaccAccountSetIncludeSubAccountBalances (account, false);
+
+    xaccAccountClearHigherBalanceLimit (account);
+    xaccAccountClearLowerBalanceLimit (account);
+
+    g_assert (xaccAccountGetHigherBalanceLimit (account, &balance_limit) == false);
+    g_assert (xaccAccountGetLowerBalanceLimit (account, &balance_limit) == false);
+    g_assert (xaccAccountGetIncludeSubAccountBalances (account) == false);
+
+    // Reconcile getter/setter
+    date = date - (60*60*24*7); // -7 days
+    xaccAccountSetReconcileLastDate (account, date);
+    xaccAccountGetReconcileLastDate (account, &returned_date);
+    g_assert (date == returned_date);
+
+    date = date + (60*60*24*2); // +2 days
+    xaccAccountSetReconcilePostponeDate (account, date);
+    xaccAccountGetReconcilePostponeDate (account, &returned_date);
+    g_assert (date == returned_date);
+
+    g_assert (xaccAccountGetReconcilePostponeBalance (account, &returned_post_balance) == false);
+    xaccAccountSetReconcilePostponeBalance (account, post_balance);
+    g_assert (xaccAccountGetReconcilePostponeBalance (account, &returned_post_balance) == true);
+    g_assert_cmpint (gnc_numeric_compare (post_balance, returned_post_balance), ==, 0);
+
+    xaccAccountClearReconcilePostpone (account);
+    g_assert (xaccAccountGetReconcilePostponeBalance (account, &returned_post_balance) == false);
+
+    g_assert (xaccAccountGetReconcileLastInterval (account, &prev_months, &prev_days) == false);
+    xaccAccountSetReconcileLastInterval (account, 2, 6);
+    g_assert (xaccAccountGetReconcileLastInterval (account, &prev_months, &prev_days) == true);
+    g_assert (prev_months == 2);
+    g_assert (prev_days == 6);
+
+    g_assert (xaccAccountGetReconcileChildrenStatus (account) == false); //default
+    xaccAccountSetReconcileChildrenStatus (account, true);
+    g_assert (xaccAccountGetReconcileChildrenStatus (account) == true);
 
     // STOCK_ACCOUNT tests from now on
     xaccAccountSetType (account, ACCT_TYPE_STOCK);
@@ -1241,7 +1302,7 @@ test_gnc_account_kvp_setters_getters (Fixture *fixture, gconstpointer pData)
     g_assert_cmpstr (dxaccAccountGetPriceSrc (account), ==, "boo");
 
     dxaccAccountSetPriceSrc (account, "");
-    g_assert_cmpstr (dxaccAccountGetPriceSrc (account), ==, "");
+    g_assert_cmpstr (dxaccAccountGetPriceSrc (account), ==, nullptr);
 
     dxaccAccountSetPriceSrc (account, nullptr);
     g_assert_cmpstr (dxaccAccountGetPriceSrc (account), ==, nullptr);
@@ -1253,7 +1314,7 @@ test_gnc_account_kvp_setters_getters (Fixture *fixture, gconstpointer pData)
     g_assert_cmpstr (dxaccAccountGetQuoteTZ (account), ==, "boo");
 
     dxaccAccountSetQuoteTZ (account, "");
-    g_assert_cmpstr (dxaccAccountGetQuoteTZ (account), ==, "");
+    g_assert_cmpstr (dxaccAccountGetQuoteTZ (account), ==, nullptr);
 
     dxaccAccountSetQuoteTZ (account, nullptr);
     g_assert_cmpstr (dxaccAccountGetQuoteTZ (account), ==, nullptr);
@@ -2352,7 +2413,6 @@ test_xaccAccountHasAncestor (Fixture *fixture, gconstpointer pData)
 }
 inline GNCAccountType& operator++(GNCAccountType& x)
 {
-    using AcctTypeType = std::underlying_type<GNCAccountType>;
     if (x < ACCT_TYPE_LAST)
         x = static_cast<GNCAccountType>(x + 1);
     return x;
@@ -2555,26 +2615,7 @@ test_xaccAccountType_Compatibility (void)
     g_assert_cmpint (check2->hits, ==, 1);
     g_free (msg2);
 }
-/* More KVP getters & setters
- * xaccAccountGetReconcileLastDate
- * xaccAccountSetReconcileLastDate
- * xaccAccountGetReconcilePostponeDate
- * xaccAccountSetReconcilePostponeDate
- * xaccAccountGetReconcilePostponeBalance
- * xaccAccountSetReconcilePostponeBalance
- * xaccAccountClearReconcilePostpone
- * xaccAccountGetAutoInterestXfer
- * xaccAccountSetAutoInterestXfer
- * xaccAccountGetLastNum
- * xaccAccountSetLastNum
- * xaccAccountSetReconcileChildrenStatus
- * xaccAccountGetReconcileChildrenStatus
- * xaccAccountGetReconcileLastInterval
- * xaccAccountSetReconcileLastInterval
- * dxaccAccountSetPriceSrc
- * dxaccAccountSetQuoteTZ
- * dxaccAccountGetQuoteTZ
- */
+
 /* finder_help_function
 static void
 finder_help_function (const Account *acc, const char *description,// 3

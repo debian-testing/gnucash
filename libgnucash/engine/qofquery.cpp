@@ -22,15 +22,12 @@
 \********************************************************************/
 #include <glib.h>
 
-extern "C"
-{
 #include <config.h>
 
 #include <sys/types.h>
 #include <time.h>
 #include <regex.h>
 #include <string.h>
-}
 
 #include "qof.h"
 #include "qof-backend.hpp"
@@ -510,7 +507,7 @@ compile_sort (QofQuerySort *sort, QofIdType obj)
 
 static void compile_terms (QofQuery *q)
 {
-    GList *or_ptr, *and_ptr, *node;
+    GList *or_ptr, *and_ptr;
 
     ENTER (" query=%p", q);
     /* Find the specific functions for this Query.  Note that the
@@ -1211,7 +1208,8 @@ qof_query_merge(QofQuery *q1, QofQuery *q2, QofQueryOp op)
         break;
     }
 
-    retval->search_for = search_for;
+    if (retval)
+        retval->search_for = search_for;
     return retval;
 }
 

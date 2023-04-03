@@ -14,7 +14,7 @@ gnc_add_swig_guile_command (swig-report-c
 )
 
 set (report_SOURCES
-  gnc-report.c
+        gnc-report.cpp
 )
 
 add_library (gnc-report
@@ -23,11 +23,14 @@ add_library (gnc-report
   ${SWIG_REPORT_C}
 )
 
+add_dependencies(gnc-report swig-report-c)
+
 target_compile_definitions(gnc-report PRIVATE -DG_LOG_DOMAIN=\"gnc.report.core\")
 
 target_link_libraries(gnc-report
     gnc-app-utils
     gnucash-guile
+    gnc-expressions-guile
     PkgConfig::GTK3
     ${GUILE_LDFLAGS})
 
@@ -53,12 +56,8 @@ set (report_SCHEME_1
     commodity-utilities.scm
     html-acct-table.scm
     html-chart.scm
-    html-barchart.scm
     html-document.scm
     html-fonts.scm
-    html-piechart.scm
-    html-scatter.scm
-    html-linechart.scm
     html-style-info.scm
     html-style-sheet.scm
     html-anytag.scm
@@ -109,36 +108,14 @@ gnc_add_scheme_targets(scm-report-2
 gnc_add_scheme_targets(scm-report-eguile-parts
     SOURCES "${report_eguile_parts_SCHEME}"
     OUTPUT_DIR "gnucash/eguile"
-    DEPENDS scm-report-2)
+    DEPENDS scm-report-2
+    MAKE_LINKS)
 
 gnc_add_scheme_targets(scm-report-eguile
     SOURCES "${report_eguile_SCHEME}"
     OUTPUT_DIR "gnucash"
-    DEPENDS scm-report-eguile-parts)
-
-# Module interfaces deprecated in 4.x, will be removed for 5.x
-gnc_add_scheme_deprecated_module (
-    OLD_MODULE "gnucash report eguile-gnc"
-    NEW_MODULE "gnucash eguile"
-    DEPENDS "scm-report-eguile")
-gnc_add_scheme_deprecated_module (
-    OLD_MODULE "gnucash report eguile-html-utilities"
-    NEW_MODULE "gnucash eguile"
-    DEPENDS "scm-report-eguile")
-gnc_add_scheme_deprecated_module (
-    OLD_MODULE "gnucash report eguile-utilities"
-    NEW_MODULE "gnucash eguile"
-    DEPENDS "scm-report-eguile")
-gnc_add_scheme_deprecated_module (
-    OLD_MODULE "gnucash report report-system"
-    NEW_MODULE "gnucash report"
-    DEPENDS "scm-report-2")
-
-gnc_add_scheme_deprecated_module (OLD_MODULE "gnucash report business-reports")
-gnc_add_scheme_deprecated_module (OLD_MODULE "gnucash report report-system collectors")
-gnc_add_scheme_deprecated_module (OLD_MODULE "gnucash report report-system report-collectors")
-gnc_add_scheme_deprecated_module (OLD_MODULE "gnucash report stylesheets")
-gnc_add_scheme_deprecated_module (OLD_MODULE "gnucash report utility-reports")
+    DEPENDS scm-report-eguile-parts
+    MAKE_LINKS)
 
 add_custom_target(scm-report ALL DEPENDS scm-report-2 scm-report-eguile)
 

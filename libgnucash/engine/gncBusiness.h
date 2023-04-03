@@ -34,13 +34,15 @@
 #ifndef GNC_BUSINESS_H_
 #define GNC_BUSINESS_H_
 
-#ifdef __cplusplus
-extern "C++" {
 #include <glib.h>
-}
-#endif
+
 #include "qof.h"
 #include "Account.h"
+
+#ifdef __cplusplus
+extern "C"
+{
+#endif
 
 /* KVP key for report PDF directories */
 #define OWNER_EXPORT_PDF_DIRNAME "export-pdf-directory"
@@ -96,5 +98,8 @@ OwnerList * gncBusinessGetOwnerList (QofBook *book, QofIdTypeConst type_name,
  * liabilities and equity accounts. */
 gboolean gncBusinessIsPaymentAcctType (GNCAccountType type);
 
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* GNC_BUSINESS_H_ */

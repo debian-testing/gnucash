@@ -42,6 +42,9 @@
 #undef __G_IR_SCANNER__
 #endif
 #include <gdk/gdkkeysyms.h>
+#ifdef G_OS_WIN32
+# include <gdk/gdkwin32.h>
+#endif
 #include <glib/gi18n.h>
 #include "gnc-date-edit.h"
 
@@ -49,7 +52,6 @@
 #include "gnc-budget.h"
 #include "gnc-features.h"
 
-#include "dialog-options.h"
 #include "dialog-utils.h"
 #include "gnc-gnome-utils.h"
 #include "gnc-gobject-utils.h"
@@ -61,7 +63,6 @@
 #include "gnc-tree-view-account.h"
 #include "gnc-ui.h"
 #include "gnc-ui-util.h"
-#include "option-util.h"
 #include "gnc-main-window.h"
 #include "gnc-component-manager.h"
 #include "gnc-state.h"
@@ -72,6 +73,7 @@
 #include "gnc-recurrence.h"
 #include "Recurrence.h"
 #include "gnc-tree-model-account-types.h"
+#include "gnc-locale-utils.h"
 
 
 /* This static indicates the debugging module that this .o belongs to. */
@@ -775,8 +777,22 @@ gbv_key_press_cb (GtkWidget *widget, GdkEventKey *event, gpointer user_data)
     if (event->type != GDK_KEY_PRESS || !priv->temp_cr)
         return FALSE;
 
+#ifdef G_OS_WIN32
+    /* gdk never sends GDK_KEY_KP_Decimal on win32. See #486658 */
+    if (event->hardware_keycode == VK_DECIMAL)
+        event->keyval = GDK_KEY_KP_Decimal;
+#endif
+
     switch (event->keyval)
     {
+    case GDK_KEY_KP_Decimal:
+        if (event->keyval == GDK_KEY_KP_Decimal)
+        {
+            struct lconv *lc = gnc_localeconv ();
+            event->keyval = lc->mon_decimal_point[0];
+            event->string[0] = lc->mon_decimal_point[0];
+        }
+        return FALSE;
     case GDK_KEY_Tab:
     case GDK_KEY_ISO_Left_Tab:
     case GDK_KEY_KP_Tab:
@@ -927,7 +943,7 @@ query_tooltip_tree_view_cb (GtkWidget *widget, gint x, gint y,
     GncBudgetViewPrivate *priv = GNC_BUDGET_VIEW_GET_PRIVATE(view);
     GtkTreePath          *path  = NULL;
     GtkTreeViewColumn    *column = NULL;
-    gchar                *note;
+    const gchar          *note;
     guint                 period_num;
     Account              *account;
 
@@ -964,7 +980,6 @@ query_tooltip_tree_view_cb (GtkWidget *widget, gint x, gint y,
     gtk_tooltip_set_text (tooltip, note);
     gtk_tree_view_set_tooltip_cell (tree_view, tooltip, path, column, NULL);
     gtk_tree_path_free (path);
-    g_free (note);
 
     return TRUE;
 }
@@ -1042,9 +1057,6 @@ budget_accum_helper (Account *account, gpointer data)
                     info->pdb, numeric, currency, info->total_currency,
                     gnc_budget_get_period_start_date (info->budget, info->period_num));
 
-        if (gnc_reverse_budget_balance (account, TRUE))
-            numeric = gnc_numeric_neg (numeric);
-
         info->total = gnc_numeric_add (info->total, numeric, GNC_DENOM_AUTO,
                                        GNC_HOW_DENOM_LCD);
     }
@@ -1070,9 +1082,6 @@ gbv_get_accumulated_budget_amount (GncBudget *budget, Account *account, guint pe
     else
         info.total = gnc_budget_get_account_period_value (budget, account, period_num);
 
-    if (gnc_reverse_budget_balance (account, TRUE))
-        info.total = gnc_numeric_neg (info.total);
-
     return info.total;
 }
 
@@ -1093,7 +1102,7 @@ budget_col_source (Account *account, GtkTreeViewColumn *col,
     guint period_num;
     gnc_numeric numeric;
     gchar amtbuff[100]; //FIXME: overkill, where's the #define?
-    gchar *note;
+    const gchar *note;
 
     budget_view = GNC_BUDGET_VIEW(g_object_get_data (G_OBJECT(col), "budget_view"));
     period_num = GPOINTER_TO_UINT(g_object_get_data (G_OBJECT(col), "period_num"));
@@ -1111,6 +1120,10 @@ budget_col_source (Account *account, GtkTreeViewColumn *col,
             gtk_style_context_get_color (stylectxt, GTK_STATE_FLAG_NORMAL, &color);
 
             numeric = gbv_get_accumulated_budget_amount (priv->budget, account, period_num);
+
+            if (gnc_reverse_balance (account))
+                numeric = gnc_numeric_neg (numeric);
+
             xaccSPrintAmount (amtbuff, numeric, gnc_account_print_info (account, FALSE));
             if (gnc_is_dark_theme (&color))
                 g_object_set (cell, "foreground",
@@ -1134,7 +1147,7 @@ budget_col_source (Account *account, GtkTreeViewColumn *col,
             strcpy (amtbuff, "error");
         else
         {
-            if (gnc_reverse_budget_balance (account, TRUE))
+            if (gnc_reverse_balance (account))
                 numeric = gnc_numeric_neg (numeric);
 
             xaccSPrintAmount (amtbuff, numeric,
@@ -1153,7 +1166,6 @@ budget_col_source (Account *account, GtkTreeViewColumn *col,
 
     note = gnc_budget_get_account_period_note (priv->budget, account, period_num);
     g_object_set (cell, "flagged", note != NULL, NULL);
-    g_free (note);
 
     return g_strdup (amtbuff);
 }
@@ -1186,9 +1198,6 @@ bgv_get_total_for_account (Account *account, GncBudget *budget, gnc_commodity *n
             {
                 numeric = gbv_get_accumulated_budget_amount (budget, account, period_num);
 
-                if (gnc_reverse_budget_balance (account, TRUE))
-                    numeric = gnc_numeric_neg (numeric);
-
                 if (new_currency)
                 {
                     numeric = gnc_pricedb_convert_balance_nearest_price_t64 (
@@ -1214,7 +1223,7 @@ bgv_get_total_for_account (Account *account, GncBudget *budget, gnc_commodity *n
         }
     }
 
-    if (gnc_reverse_budget_balance (account, TRUE))
+    if (gnc_reverse_balance (account))
         total = gnc_numeric_neg (total);
 
     return total;
@@ -1281,7 +1290,7 @@ budget_col_edited (Account *account, GtkTreeViewColumn *col,
         gnc_budget_unset_account_period_value (priv->budget, account, period_num);
     else
     {
-        if (gnc_reverse_budget_balance (account, TRUE))
+        if (gnc_reverse_balance (account))
             numeric = gnc_numeric_neg (numeric);
         gnc_budget_set_account_period_value (priv->budget, account, period_num,
                                              numeric);
@@ -1337,65 +1346,31 @@ totals_col_source (GtkTreeViewColumn *col, GtkCellRenderer *cell,
         currency = gnc_account_get_currency_or_parent (account);
         acctype = xaccAccountGetType (account);
 
-        if (gnc_using_unreversed_budgets (gnc_account_get_book (account)))
-        {  /* using book with unreversed-budgets feature. This will be
-              the default in 4.x after budget scrubbing*/
-            neg = gnc_reverse_balance (account);
+        neg = gnc_reverse_balance (account);
 
-            switch (row_type)
-            {
-                case TOTALS_TYPE_ASSET_LIAB_EQ:
-                    if ((acctype != ACCT_TYPE_ASSET) &&
-                        (acctype != ACCT_TYPE_LIABILITY) &&
-                        (acctype != ACCT_TYPE_EQUITY))
-                        continue;
-                    neg = !neg;
-                    break;
-                case TOTALS_TYPE_EXPENSES:
-                    if (acctype != ACCT_TYPE_EXPENSE)
-                        continue;
-                    break;
-                case TOTALS_TYPE_INCOME:
-                    if (acctype != ACCT_TYPE_INCOME)
-                        continue;
-                    neg = !neg;
-                    break;
-                case TOTALS_TYPE_REMAINDER:
-                    neg = !neg;
-                    break;
-                default:
-                    continue;       /* don't count if unexpected total row type is passed in... */
-            }
-        }
-        else
-        {   /* this section is for backward compatibility, to be
-               removed when unreversed-budgets are mandatory */
-            neg = FALSE;
-
-            switch (row_type)
-            {
-                case TOTALS_TYPE_ASSET_LIAB_EQ:
-                    if ((acctype != ACCT_TYPE_ASSET) &&
-                        (acctype != ACCT_TYPE_LIABILITY) &&
-                        (acctype != ACCT_TYPE_EQUITY))
-                        continue;
-                    neg = (acctype == ACCT_TYPE_ASSET);
-                    break;
-                case TOTALS_TYPE_EXPENSES:
-                    if (acctype != ACCT_TYPE_EXPENSE)
-                        continue;
-                    break;
-                case TOTALS_TYPE_INCOME:
-                    if (acctype != ACCT_TYPE_INCOME)
-                        continue;
-                    break;
-                case TOTALS_TYPE_REMAINDER:
-                    neg = ((acctype == ACCT_TYPE_ASSET) ||
-                           (acctype == ACCT_TYPE_EXPENSE));
-                    break;
-                default:
-                    continue;       /* don't count if unexpected total row type is passed in... */
-            }
+        switch (row_type)
+        {
+            case TOTALS_TYPE_ASSET_LIAB_EQ:
+                if ((acctype != ACCT_TYPE_ASSET) &&
+                    (acctype != ACCT_TYPE_LIABILITY) &&
+                    (acctype != ACCT_TYPE_EQUITY))
+                    continue;
+                neg = !neg;
+                break;
+            case TOTALS_TYPE_EXPENSES:
+                if (acctype != ACCT_TYPE_EXPENSE)
+                    continue;
+                break;
+            case TOTALS_TYPE_INCOME:
+                if (acctype != ACCT_TYPE_INCOME)
+                    continue;
+                neg = !neg;
+                break;
+            case TOTALS_TYPE_REMAINDER:
+                neg = !neg;
+                break;
+            default:
+                continue;       /* don't count if unexpected total row type is passed in... */
         }
         // find the total for this account
 
@@ -1482,12 +1457,10 @@ gbv_renderer_add_padding (GtkCellRenderer *renderer)
 static GtkTreeViewColumn*
 gbv_create_totals_column (GncBudgetView *budget_view, gint period_num)
 {
-    GncBudgetViewPrivate *priv;
     GtkTreeViewColumn *col;
     GtkCellRenderer* renderer;
 
     g_return_val_if_fail (budget_view != NULL, NULL);
-    priv = GNC_BUDGET_VIEW_GET_PRIVATE(budget_view);
 
     renderer = gtk_cell_renderer_text_new ();
     col = gtk_tree_view_column_new_with_attributes ("", renderer, NULL);
@@ -1549,6 +1522,14 @@ The function will step through to only display the columns that are set
 void
 gnc_budget_view_refresh (GncBudgetView *budget_view)
 {
+    // Column identifiers
+    enum {
+        code_column         = 1,
+        description_column  = 2,
+        startPeriods_column = 3
+        // The Totals column will be after the periods columns.
+    };
+
     GncBudgetViewPrivate *priv;
     gint num_periods;
     gint num_periods_visible;
@@ -1591,13 +1572,13 @@ gnc_budget_view_refresh (GncBudgetView *budget_view)
     // set visibility of the account code columns
     code_col = gnc_tree_view_find_column_by_name (GNC_TREE_VIEW(priv->tree_view), "account-code");
     gtk_tree_view_column_set_visible (code_col, priv->show_account_code);
-    code_col = gtk_tree_view_get_column (GTK_TREE_VIEW(priv->totals_tree_view), 1);
+    code_col = gtk_tree_view_get_column (GTK_TREE_VIEW(priv->totals_tree_view), code_column);
     gtk_tree_view_column_set_visible (code_col, priv->show_account_code);
 
     // set visibility of the account description columns
     desc_col = gnc_tree_view_find_column_by_name (GNC_TREE_VIEW(priv->tree_view), "description");
     gtk_tree_view_column_set_visible (desc_col, priv->show_account_desc);
-    desc_col = gtk_tree_view_get_column (GTK_TREE_VIEW(priv->totals_tree_view), 2);
+    desc_col = gtk_tree_view_get_column (GTK_TREE_VIEW(priv->totals_tree_view), description_column);
     gtk_tree_view_column_set_visible (desc_col, priv->show_account_desc);
 
     /* If we're creating new columns to be appended to already existing
@@ -1609,7 +1590,8 @@ gnc_budget_view_refresh (GncBudgetView *budget_view)
         col = priv->total_col;
         gtk_tree_view_remove_column (GTK_TREE_VIEW(priv->tree_view), col);
         priv->total_col = NULL;
-        col = gtk_tree_view_get_column (GTK_TREE_VIEW(priv->totals_tree_view), num_periods_visible + 1);
+        col = gtk_tree_view_get_column (GTK_TREE_VIEW(priv->totals_tree_view),
+        	startPeriods_column + num_periods_visible);
         gtk_tree_view_remove_column (GTK_TREE_VIEW(priv->totals_tree_view), col);
     }
 

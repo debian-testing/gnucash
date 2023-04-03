@@ -37,6 +37,10 @@ typedef struct _gncEmployeeClass GncEmployeeClass;
 #include "gncAddress.h"
 #include "Account.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define GNC_ID_EMPLOYEE "gncEmployee"
 
 /* --- type macros --- */
@@ -108,8 +112,6 @@ Account * gncEmployeeGetCCard (const GncEmployee *employee);
 /** Return a pointer to the instance gncEmployee that is identified
  *  by the guid, and is residing in the book. Returns NULL if the
  *  instance can't be found.
- *  Equivalent function prototype is
- *  GncEmployee * gncEmployeeLookup (QofBook *book, const GncGUID *guid);
  */
 static inline GncEmployee * gncEmployeeLookup (const QofBook *book, const GncGUID *guid)
 {
@@ -136,6 +138,10 @@ static inline GncEmployee * gncEmployeeLookup (const QofBook *book, const GncGUI
 /** Test support function, used by test-dbi-business-stuff.c */
 gboolean gncEmployeeEqual(const GncEmployee* e1, const GncEmployee* e2);
 gboolean gncEmployeeIsDirty (const GncEmployee *employee);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* GNC_EMPLOYEE_H_ */
 /** @} */

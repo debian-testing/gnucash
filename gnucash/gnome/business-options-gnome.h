@@ -1,5 +1,5 @@
 /*
- * business-options.h -- Initialize the Business Options
+ * business-options-gnome.h -- Initialize the Business Options
  *
  * Written By: Derek Atkins <warlord@MIT.EDU>
  * Copyright (C) 2002 Derek Atkins
@@ -21,10 +21,27 @@
  * 51 Franklin Street, Fifth Floor    Fax:    +1-617-542-2652
  * Boston, MA  02110-1301,  USA       gnu@gnu.org
  */
+/** @addtogroup GUI
+    @{ */
+/** @addtogroup GuiOptions Options Dialog
+    @{ */
 
 #ifndef GNC_BUSINESS_OPTIONS_H_
 #define GNC_BUSINESS_OPTIONS_H_
 
-void gnc_business_options_gnome_initialize (void);
+/**
+ * Set up the business and counters pages in the File Preferences dialog.
+ */
+#ifdef __cplusplus
+extern "C"
+{
+#endif
 
+void gnc_business_options_gnome_initialize(void);
+
+#ifdef __cplusplus
+}
+#endif
 #endif /* GNC_BUSINESS_OPTIONS_H_ */
+/** @}
+    @} */

@@ -25,16 +25,16 @@
 #ifndef ENGINE_HELPERS_H
 #define ENGINE_HELPERS_H
 
-#ifdef __cplusplus
-extern "C++" {
 #include <glib.h>
-}
-#endif
 
 #include "gnc-engine.h"
 #include "Account.h"
 #include "Query.h"
 #include "Transaction.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 typedef void (*GncBOCb)    (gpointer new_val, gpointer user_data);
 
@@ -74,11 +74,6 @@ void gnc_set_num_action (Transaction *trans, Split *split,
 void
 gnc_book_option_num_field_source_change (gboolean num_action);
 
-/** Calls registered callbacks when book_currency book option changes so that
-  * registers/reports can update themselves */
-void
-gnc_book_option_book_currency_selected (gboolean use_book_currency);
-
 /** Registers callbacks to be called when the book option changes for the
   * specified book option key */
 void
@@ -87,5 +82,9 @@ gnc_book_option_register_cb (gchar *key, GncBOCb func, gpointer user_data);
 /** Removes previously registered callbacks for the specified book option key */
 void
 gnc_book_option_remove_cb (gchar *key, GncBOCb func, gpointer user_data);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

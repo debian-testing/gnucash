@@ -36,12 +36,13 @@ endif()
 set (gnc_html_SCHEME html.scm)
 
 set(GUILE_OUTPUT_DIR   gnucash)
-set(GUILE_DEPENDS      gnc-html gnucash-guile)
+set(GUILE_DEPENDS      gnc-html gnucash-guile scm-core-utils)
 
 gnc_add_scheme_targets(scm-gnc-html
     SOURCES "${gnc_html_SCHEME}"
     OUTPUT_DIR ${GUILE_OUTPUT_DIR}
-    DEPENDS "${GUILE_DEPENDS}")
+    DEPENDS "${GUILE_DEPENDS}"
+    MAKE_LINKS)
 
 set_dist_list(html_DIST CMakeLists.txt ${html_HEADERS} ${html_SOURCES} gnc-html.i ${html_EXTRA_DIST} html.scm)
 
@@ -71,6 +72,7 @@ if (APPLE)
   set_target_properties (gnc-html PROPERTIES INSTALL_NAME_DIR "${CMAKE_INSTALL_FULL_LIBDIR}/gnucash")
 endif()
 
+add_dependencies(gnc-html swig-gnc-html-c)
 install(TARGETS gnc-html
   LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}/gnucash
   ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}/gnucash

@@ -21,8 +21,6 @@
 #include <glib.h>
 #include <glib/gstdio.h>
 
-extern "C"
-{
 #include <config.h>
 
 #include <platform.h>
@@ -65,7 +63,6 @@ extern "C"
 # define g_fopen fopen
 # define g_open _open
 #endif
-}
 
 #include "gnc-xml-backend.hpp"
 #include "sixtp-parsers.h"
@@ -85,10 +82,6 @@ extern "C"
 #endif
 
 static QofLogModule log_module = GNC_MOD_IO;
-
-/* map pointers, e.g. of type FILE*, to GThreads */
-static GHashTable* threads = NULL;
-G_LOCK_DEFINE_STATIC (threads);
 
 typedef struct
 {
@@ -810,7 +803,7 @@ qof_session_load_from_xml_file_v2_full (
                                        generic_callback, gd, book);
             fclose (file);
             if (thread)
-                g_thread_join (thread) != nullptr;
+                g_thread_join (thread);
         }
     }
 

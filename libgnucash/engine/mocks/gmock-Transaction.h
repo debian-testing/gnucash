@@ -4,10 +4,7 @@
 #include <gmock/gmock.h>
 
 #include <Transaction.h>
-extern "C"
-{
 #include <TransactionP.h>
-}
 
 #include "gmock-gobject.h"
 
@@ -32,8 +29,6 @@ public:
         date_posted         = 0;
         marker              = 0;
         orig                = nullptr;
-        readonly_reason     = nullptr;
-        isClosingTxn_cached = -1;
     }
     void* operator new(size_t size)
     {
@@ -59,6 +54,7 @@ public:
     MOCK_METHOD1(set_date_posted_secs_normalized, void(time64));
     MOCK_CONST_METHOD0(get_description, const char *());
     MOCK_METHOD1(set_description, void(const char*));
+    MOCK_CONST_METHOD0(get_currency, gnc_commodity *());
     MOCK_CONST_METHOD0(get_notes, const char *());
     MOCK_METHOD1(set_notes, void(const char*));
     MOCK_CONST_METHOD0(get_imbalance_value, gnc_numeric());

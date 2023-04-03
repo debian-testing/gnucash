@@ -77,12 +77,6 @@ enum matcher_cols
 /*static short module = MOD_IMPORT;*/
 
 /********************************************************************\
- *   Constants, should idealy be defined a user preference dialog    *
-\********************************************************************/
-
-static const int SHOW_NUMERIC_SCORE = FALSE;
-
-/********************************************************************\
  *               Structures passed between the functions             *
 \********************************************************************/
 
@@ -467,6 +461,10 @@ init_match_picker_gui(GtkWidget *parent, GNCImportMatchPicker * matcher)
     matcher->downloaded_view = (GtkTreeView *)GTK_WIDGET(gtk_builder_get_object (builder, "download_view"));
     matcher->match_view = (GtkTreeView *)GTK_WIDGET(gtk_builder_get_object (builder, "matched_view"));
     matcher->reconciled_chk = (GtkCheckButton *)GTK_WIDGET(gtk_builder_get_object(builder, "hide_reconciled_check1"));
+
+    // Set the name for this dialog so it can be easily manipulated with css
+    gtk_widget_set_name (GTK_WIDGET(matcher->transaction_matcher), "gnc-id-import-matcher-picker");
+    gnc_widget_style_context_add_class (GTK_WIDGET(matcher->transaction_matcher), "gnc-class-imports");
 
     gtk_window_set_transient_for (GTK_WINDOW (matcher->transaction_matcher), GTK_WINDOW(parent));
 

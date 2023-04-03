@@ -32,7 +32,7 @@ function(get_guile_env)
   list(APPEND env "GUILE=${GUILE_EXECUTABLE}")
 
   set(guile_load_paths "")
-  #list(APPEND guile_load_paths "${CMAKE_BINARY_DIR}/${GUILE_REL_SITEDIR}")
+  list(APPEND guile_load_paths "${CMAKE_BINARY_DIR}/${GUILE_REL_SITEDIR}")
   list(APPEND guile_load_paths "${CMAKE_BINARY_DIR}/${GUILE_REL_SITEDIR}/gnucash/deprecated") # Path to gnucash' deprecated modules
   set(guile_load_path "${guile_load_paths}")
 
@@ -84,9 +84,7 @@ function(gnc_add_test _TARGET _SOURCE_FILES TEST_INCLUDE_VAR_NAME TEST_LIBS_VAR_
   target_link_libraries(${_TARGET} ${TEST_LIBS})
   target_include_directories(${_TARGET} PRIVATE ${TEST_INCLUDE_DIRS})
   if (${HAVE_ENV_VARS})
-    add_test(${_TARGET} ${CMAKE_COMMAND} -E env "GNC_UNINSTALLED=YES;GNC_BUILDDIR=${CMAKE_BINARY_DIR};${ARGN}"
-      ${CMAKE_BINARY_DIR}/bin/${_TARGET}
-    )
+    add_test(${_TARGET} ${CMAKE_BINARY_DIR}/bin/${_TARGET})
     set_tests_properties(${_TARGET} PROPERTIES ENVIRONMENT "GNC_UNINSTALLED=YES;GNC_BUILDDIR=${CMAKE_BINARY_DIR};${ARGN}")
   else()
     if (CMAKE_GENERATOR STREQUAL Xcode)
@@ -108,8 +106,17 @@ endfunction()
 
 
 function(gnc_add_scheme_test _TARGET _SOURCE_FILE)
-  add_test(${_TARGET} ${CMAKE_COMMAND} -E env
-    ${GUILE_EXECUTABLE} --debug -c "(load-from-path \"${_TARGET}\")(exit (run-test))"
+  add_test(${_TARGET} ${GUILE_EXECUTABLE} --debug -c "
+    (set! %load-hook
+          (lambda (filename)
+            (when (and filename
+                       (string-contains filename \"${GUILE_REL_SITEDIR}\")
+                       (not (string-prefix? \"${CMAKE_BINARY_DIR}\" filename)))
+                  (format #t \"%load-path = ~s~%\" %load-path)
+                  (format #t \"%load-compiled-path = ~s~%\" %load-compiled-path)
+                  (error \"Loading guile/site file from outside build tree!\" filename))))
+    (load-from-path \"${_TARGET}\")
+    (exit (run-test))"
   )
   get_guile_env()
   set_tests_properties(${_TARGET} PROPERTIES ENVIRONMENT "${GUILE_ENV};${ARGN}")

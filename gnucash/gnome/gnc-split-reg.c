@@ -411,7 +411,6 @@ static void
 gsr_move_sort_and_filter_to_state_file (GNCSplitReg *gsr, GKeyFile* state_file, const gchar *state_section)
 {
     GNCLedgerDisplayType ledger_type;
-    GNCLedgerDisplay* ld;
 
     // Look for any old kvp entries and add them to .gcm file
     ledger_type = gnc_ledger_display_type (gsr->ledger);
@@ -454,22 +453,36 @@ gsr_move_sort_and_filter_to_state_file (GNCSplitReg *gsr, GKeyFile* state_file, 
     }
 }
 
+gchar *
+gsr_get_register_state_section (GNCSplitReg *gsr)
+{
+    GNCLedgerDisplayType ledger_type = gnc_ledger_display_type (gsr->ledger);
+    Account *account = gnc_ledger_display_leader (gsr->ledger);
+    const GncGUID *guid = xaccAccountGetGUID (account);
+    gchar guidstr[GUID_ENCODING_LENGTH+1];
+    gchar *register_state_section;
+
+    guid_to_string_buff (guid, guidstr);
+
+    if (ledger_type == LD_SUBACCOUNT)
+        register_state_section = g_strconcat (STATE_SECTION_REG_PREFIX, " ", guidstr, "+", NULL);
+    else
+        register_state_section = g_strconcat (STATE_SECTION_REG_PREFIX, " ", guidstr, NULL);
+
+    return register_state_section;
+}
+
 static
 void
 gsr_create_table( GNCSplitReg *gsr )
 {
     GtkWidget *register_widget = NULL;
     SplitRegister *sr = NULL;
-
-    Account * account = gnc_ledger_display_leader(gsr->ledger);
-    const GncGUID * guid = xaccAccountGetGUID(account);
-    gchar guidstr[GUID_ENCODING_LENGTH+1];
     GKeyFile* state_file = gnc_state_get_current();
     gchar *register_state_section;
 
-    guid_to_string_buff (guid, guidstr);
-
-    register_state_section = g_strconcat (STATE_SECTION_REG_PREFIX, " ", guidstr, NULL);
+    /* register_state_section is used to store per register state: column widths, sort order,... */
+    register_state_section = gsr_get_register_state_section (gsr);
 
     ENTER("gsr=%p", gsr);
 
@@ -786,29 +799,22 @@ static void
 gnc_split_reg_ld_destroy( GNCLedgerDisplay *ledger )
 {
     GNCSplitReg *gsr = gnc_ledger_display_get_user_data( ledger );
-    Account * account = gnc_ledger_display_leader(ledger);
-    const GncGUID * guid = xaccAccountGetGUID(account);
-    gchar guidstr[GUID_ENCODING_LENGTH+1];
-    gchar *state_section;
-    guid_to_string_buff(guid, guidstr);
-
-    state_section = g_strconcat (STATE_SECTION_REG_PREFIX, " ", guidstr, NULL);
 
     if (gsr)
     {
-        SplitRegister *reg;
-
-        reg = gnc_ledger_display_get_split_register (ledger);
+        /* register_state_section is used to store per register state: column widths, sort order,... */
+        gchar *register_state_section = gsr_get_register_state_section (gsr);
+        SplitRegister *reg = gnc_ledger_display_get_split_register (ledger);
 
         if (reg && reg->table)
-            gnc_table_save_state (reg->table, state_section);
+            gnc_table_save_state (reg->table, register_state_section);
 
         /*
          * Don't destroy the window here any more.  The register no longer
          * owns it.
          */
+        g_free (register_state_section);
     }
-    g_free (state_section);
 
     gnc_ledger_display_set_user_data (ledger, NULL);
     g_object_unref (gsr);
@@ -1368,7 +1374,6 @@ gsr_default_doclink_remove_handler (GNCSplitReg *gsr)
 static void
 gsr_default_doclink_from_sheet_handler (GNCSplitReg *gsr)
 {
-    CursorClass cursor_class;
     SplitRegister *reg = gnc_ledger_display_get_split_register (gsr->ledger);
     Transaction *trans;
     Split *split;
@@ -2145,9 +2150,14 @@ gnc_split_reg_set_sort_reversed(GNCSplitReg *gsr, gboolean rev, gboolean refresh
      *       In other words, qof_query_set_sort_increasing should
      *       always use the inverse of rev.
      */
+    SplitRegister *reg = gnc_ledger_display_get_split_register (gsr->ledger);
     Query *query = gnc_ledger_display_get_query( gsr->ledger );
+
+    gnc_split_register_set_reverse_sort (reg, rev);
+
     qof_query_set_sort_increasing (query, !rev, !rev, !rev);
     gsr->sort_rev = rev;
+
     if (refresh)
         gnc_ledger_display_refresh( gsr->ledger );
 }
@@ -2452,7 +2462,6 @@ gtk_callback_bug_workaround (gpointer argp)
     GNCLedgerDisplayType ledger_type = gnc_ledger_display_type (args->gsr->ledger);
     Account *acc = gnc_ledger_display_leader (args->gsr->ledger);
     const gchar *acc_name = NULL;
-    gchar *tmp = NULL;
 
     if (acc)
     {
@@ -2502,7 +2511,6 @@ gnc_split_reg_determine_read_only( GNCSplitReg *gsr, gboolean show_dialog )
 
     if ( !gsr->read_only )
     {
-        dialog_args *args;
         char *string = NULL;
         reg = gnc_ledger_display_get_split_register( gsr->ledger );
         if(reg->mismatched_commodities)
@@ -2539,12 +2547,15 @@ gnc_split_reg_determine_read_only( GNCSplitReg *gsr, gboolean show_dialog )
             }
         }
         gsr->read_only = TRUE;
-        /* Put up a warning dialog */
-        args = g_malloc(sizeof(dialog_args));
-        args->string = string;
-        args->gsr = gsr;
         if (show_dialog)
+        {
+            /* Put up a warning dialog */
+            dialog_args *args = g_malloc(sizeof(dialog_args));
+            args->string = string;
+            args->gsr = gsr;
+
             g_timeout_add (250, gtk_callback_bug_workaround, args); /* 0.25 seconds */
+        }
     }
 
     /* Make the contents immutable */

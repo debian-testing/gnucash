@@ -83,7 +83,7 @@ enum
 };
 
 /* GObject Initialization */
-G_DEFINE_TYPE(GncJob, gnc_job, QOF_TYPE_INSTANCE);
+G_DEFINE_TYPE(GncJob, gnc_job, QOF_TYPE_INSTANCE)
 
 static void
 gnc_job_init(GncJob* job)
@@ -109,7 +109,6 @@ gnc_job_get_property (GObject         *object,
                       GParamSpec      *pspec)
 {
     GncJob *job;
-    gchar *key;
 
     g_return_if_fail(GNC_IS_JOB(object));
 
@@ -135,7 +134,6 @@ gnc_job_set_property (GObject         *object,
                       GParamSpec      *pspec)
 {
     GncJob *job;
-    gchar *key;
 
     g_return_if_fail(GNC_IS_JOB(object));
 
@@ -229,6 +227,18 @@ GncJob *gncJobCreate (QofBook *book)
     qof_event_gen (&job->inst, QOF_EVENT_CREATE, NULL);
 
     return job;
+}
+
+static void free_job_list (GncJob *job)
+{
+    gncJobBeginEdit (job);
+    gncJobDestroy (job);
+}
+
+void gncJobFreeList (GList *jobs)
+{
+    GList *job_list = g_list_copy (jobs);
+    g_list_free_full (job_list, (GDestroyNotify)free_job_list);
 }
 
 void gncJobDestroy (GncJob *job)

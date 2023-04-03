@@ -232,13 +232,6 @@
   (let ((root (gnc-get-current-root-account)))
     (gnc-account-get-tree-depth root)))
 
-;; Return accountslist *and* their descendant accounts
-(define (gnc:accounts-and-all-descendants accountslist)
-  (issue-deprecation-warning "gnc:accounts-and-all-descendants is \
-now deprecated, use gnc-accounts-and-all-descendants instead. sort \
-with gnc:account-full-name<? if necessary.")
-  (sort (gnc-accounts-and-all-descendants accountslist) gnc:account-full-name<?))
-
 ;;; Here's a statistics collector...  Collects max, min, total, and makes
 ;;; it easy to get at the mean.
 
@@ -594,39 +587,6 @@ with gnc:account-full-name<? if necessary.")
      accounts)
     collector))
 
-;; Adds all accounts' balances, where the balances are determined with
-;; the get-balance-fn. Intended for usage with a profit and loss
-;; report, hence a) only the income/expense accounts are regarded, and
-;; b) the result is sign reversed. Returns a commodity-collector.
-(define (gnc:accounts-get-comm-total-profit accounts 
-					    get-balance-fn)
-  (issue-deprecation-warning "gnc:accounts-get-comm-total-profit deprecated.")
-  (gnc:accounts-get-balance-helper
-   (gnc:filter-accountlist-type (list ACCT-TYPE-INCOME ACCT-TYPE-EXPENSE) accounts)
-   get-balance-fn
-   (lambda(x) #t)))
-
-;; Adds all accounts' balances, where the balances are determined with
-;; the get-balance-fn. Only the income accounts are regarded, and
-;; the result is sign reversed. Returns a commodity-collector.
-(define (gnc:accounts-get-comm-total-income accounts 
-					    get-balance-fn)
-  (issue-deprecation-warning "gnc:accounts-get-comm-total-income deprecated.")
-  (gnc:accounts-get-balance-helper
-   (gnc:filter-accountlist-type (list ACCT-TYPE-INCOME) accounts)
-   get-balance-fn
-   (lambda(x) #t)))
-
-;; Adds all accounts' balances, where the balances are determined with
-;; the get-balance-fn. Only the expense accounts are regarded, and
-;; the result is sign reversed. Returns a commodity-collector.
-(define (gnc:accounts-get-comm-total-expense accounts 
-                                             get-balance-fn)
-  (issue-deprecation-warning "gnc:accounts-get-comm-total-expense deprecated.")
-  (gnc:accounts-get-balance-helper
-   (gnc:filter-accountlist-type (list ACCT-TYPE-EXPENSE) accounts)
-   get-balance-fn
-   (lambda(x) #t)))
 
 ;; Adds all accounts' balances, where the balances are determined with
 ;; the get-balance-fn. Intended for usage with a balance sheet, hence
@@ -670,54 +630,19 @@ with gnc:account-full-name<? if necessary.")
 (define (gnc:accountlist-get-comm-balance-at-date-with-closing accountlist date)
   (gnc:account-get-trans-type-balance-interval-with-closing accountlist #f #f date))
 
-;; utility function - ensure that a query matches only non-voids.  Destructive.
-(define (gnc:query-set-match-non-voids-only! query book)
-  (issue-deprecation-warning
-   "gnc:query-set-match-non-voids-only! is deprecated. add query for\
-(logand CLEARED-ALL (lognot CLEARED-VOIDED)) instead.")
-  (let ((temp-query (qof-query-create-for-splits)))
-    (qof-query-set-book temp-query book)
-
-    (xaccQueryAddClearedMatch
-     temp-query
-     CLEARED-VOIDED
-     QOF-QUERY-AND)
-
-    (let ((inv-query (qof-query-invert temp-query)))
-      (qof-query-merge-in-place query inv-query QOF-QUERY-AND)
-      (qof-query-destroy inv-query)
-      (qof-query-destroy temp-query))))
-
-;; utility function - ensure that a query matches only voids.  Destructive
-
-(define (gnc:query-set-match-voids-only! query book)
-  (issue-deprecation-warning
-   "gnc:query-set-match-non-voids-only! is deprecated. add CLEARED-VOIDED \
-query instead.")
-  (let ((temp-query (qof-query-create-for-splits)))
-    (qof-query-set-book temp-query book)
-
-    (xaccQueryAddClearedMatch
-     temp-query
-     CLEARED-VOIDED
-     QOF-QUERY-AND)
-
-    (qof-query-merge-in-place query temp-query QOF-QUERY-AND)
-    (qof-query-destroy temp-query)))
-
 (define (gnc:split-voided? split)
   (let ((trans (xaccSplitGetParent split)))
     (xaccTransGetVoidStatus trans)))
 
 (define (gnc:report-starting report-name)
   (gnc-window-show-progress (format #f
-				     (G_ "Building '~a' report ...")
+				     (G_ "Building '~a' report …")
 				     (G_ report-name))
 			    0))
 
 (define (gnc:report-render-starting report-name)
   (gnc-window-show-progress (format #f
-				     (G_ "Rendering '~a' report ...")
+				     (G_ "Rendering '~a' report …")
 				     (if (string-null? report-name)
 					 (G_ "Untitled")
 					 (G_ report-name)))
@@ -741,7 +666,7 @@ query instead.")
 
 ;; function to count the total number of splits to be iterated
 (define (gnc:accounts-count-splits accounts)
-  (apply + (map length (map xaccAccountGetSplitList accounts))))
+  (fold (lambda (a b) (+ b (length (xaccAccountGetSplitList a)))) 0 accounts))
 
 ;; Sums up any splits of a certain type affecting a set of accounts.
 ;; the type is an alist '((str "match me") (cased #f) (regexp #f))
@@ -987,7 +912,7 @@ query instead.")
 (define (not-APAR? s)
   (not (xaccAccountIsAPARType (xaccAccountGetType (xaccSplitGetAccount s)))))
 ;; analyse a payment transaction and return a 3-element vector:
-;; (vector invoices opposing-splits overpayment)
+;; (vector invoices overpayment opposing-splits)
 ;;
 ;; invoices: a list of (cons invoice inv-APAR-split)
 ;; opposing-splits: a list of (list pmt-APAR-split partial-amount derived?)
@@ -995,44 +920,49 @@ query instead.")
 ;;                 amount does not match the transaction amount
 ;; overpayment: a number indicating overpayment amount
 (define (gnc:payment-txn->payment-info txn)
-  (let lp ((splits (xaccTransGetSplitList txn))
-           (invoices '())
-           (overpayment 0)
-           (opposing-splits '()))
-    (match splits
-      (() (vector invoices opposing-splits overpayment))
-      (((? not-APAR? split) . rest)
-       (lp rest invoices (+ overpayment (xaccSplitGetAmount split))
-           opposing-splits))
-      ((split . rest)
-       (let* ((lot (xaccSplitGetLot split))
-              (lot-all-splits (gnc-lot-get-split-list lot)))
-         (define split=? (cut equal? <> split))
-         (match (gncInvoiceGetInvoiceFromLot lot)
-           (() (let lp1 ((lot-splits lot-all-splits)
-                         (overpayment overpayment)
-                         (opposing-splits opposing-splits))
-                 (match lot-splits
-                   (() (lp rest invoices overpayment opposing-splits))
-                   (((? split=?) . tail) (lp1 tail overpayment opposing-splits))
-                   ((s . tail)
-                    (let* ((lot-bal (gnc-lot-get-balance lot))
-                           (lot-bal (if (sign-equal? lot-bal (xaccSplitGetAmount s))
-                                        0 lot-bal))
-                           (derived? (not (zero? lot-bal)))
-                           (partial-amount
-                            (fold
-                             (lambda (a b)
-                               (if (equal? s a) b (+ b (xaccSplitGetAmount a))))
-                             (- lot-bal) lot-all-splits)))
-                      (lp1 tail (+ overpayment partial-amount)
-                           (cons (list s partial-amount derived?)
-                                 opposing-splits)))))))
-           (inv
-            (lp rest
-                (cons (cons inv split) invoices)
-                (+ overpayment (xaccSplitGetAmount split))
-                opposing-splits))))))))
+  (let* ((apar-split (xaccTransGetFirstAPARAcctSplit txn #t))
+        (apar-acct (xaccSplitGetAccount apar-split)))
+    (let lp ((splits (xaccTransGetSplitList txn))
+            (invoices '())
+            (overpayment 0)
+            (opposing-splits '()))
+      (match splits
+        (() (vector invoices opposing-splits overpayment))
+        (((? not-APAR? split) . rest)
+        (gnc:msg "next " (gnc:strify split) " overpayment " (+ overpayment (xaccSplitConvertAmount split apar-acct)))
+        (lp rest invoices (+ overpayment (xaccSplitConvertAmount split apar-acct))
+            opposing-splits))
+        ((split . rest)
+        (let* ((lot (xaccSplitGetLot split))
+                (lot-all-splits (gnc-lot-get-split-list lot)))
+          (define split=? (cut equal? <> split))
+          (match (gncInvoiceGetInvoiceFromLot lot)
+            (() (let lp1 ((lot-splits lot-all-splits)
+                          (overpayment overpayment)
+                          (opposing-splits opposing-splits))
+                  (match lot-splits
+                    (() (lp rest invoices overpayment opposing-splits))
+                    (((? split=?) . tail) (lp1 tail overpayment opposing-splits))
+                    ((s . tail)
+                      (let* ((lot-bal (gnc-lot-get-balance lot))
+                            (lot-bal (if (sign-equal? lot-bal (xaccSplitConvertAmount s apar-acct))
+                                          0 lot-bal))
+                            (derived? (not (zero? lot-bal)))
+                            (partial-amount
+                              (fold
+                              (lambda (a b)
+                                (if (equal? s a) b (+ b (xaccSplitConvertAmount a apar-acct))))
+                              (- lot-bal) lot-all-splits)))
+                        (gnc:msg "next " (gnc:strify s) " overpayment " (+ overpayment partial-amount))
+                        (lp1 tail (+ overpayment partial-amount)
+                            (cons (list s partial-amount derived?)
+                                  opposing-splits)))))))
+            (inv
+              (gnc:msg "next " (gnc:strify split) " overpayment " (+ overpayment (xaccSplitConvertAmount split apar-acct)))
+              (lp rest
+                  (cons (cons inv split) invoices)
+                  (+ overpayment (xaccSplitConvertAmount split apar-acct))
+                  opposing-splits)))))))))
 
 ;; create a stepped list, then add a date in the infinite future for
 ;; the "current" bucket
@@ -1046,7 +976,7 @@ query instead.")
 (define-public (gnc:owner-splits->aging-list splits num-buckets
                                              to-date date-type receivable?)
   (gnc:msg "processing " (qof-print-date to-date) " date-type " date-type
-           "receivable? " receivable?)
+           " receivable? " receivable?)
   (let ((bucket-dates (make-extended-interval-list to-date (- num-buckets 3)))
         (buckets (make-vector num-buckets 0)))
     (define (addbucket! idx amt)
@@ -1064,10 +994,11 @@ query instead.")
                          (xaccSplitGetParent (car splits))))
                (lot (gncInvoiceGetPostedLot invoice))
                (lot-splits (gnc-lot-get-split-list lot))
+               (apar-acct (gncInvoiceGetPostedAcc invoice))
                (bal (fold
                      (lambda (a b)
                        (if (<= (xaccTransGetDate (xaccSplitGetParent a)) to-date)
-                           (+ (xaccSplitGetAmount a) b)
+                           (+ (xaccSplitConvertAmount a apar-acct) b)
                            b))
                      0 lot-splits))
                (bal (if receivable? bal (- bal)))
@@ -1333,7 +1264,7 @@ query instead.")
     (define (maybe-date time64)         ;handle INT-MAX differently
       (if (= 9223372036854775807 time64) "?" (qof-print-date time64)))
     (define (maybe-trunc str)
-      (if (> (string-length str) 20) (string-append (substring str 0 17) "...") str))
+      (if (> (string-length str) 20) (string-append (substring str 0 17) "…") str))
     (define (inv-amt->string inv amt)
       (gnc:monetary->string
        (gnc:make-gnc-monetary

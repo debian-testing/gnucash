@@ -50,6 +50,10 @@ typedef GList GncInvoiceList;
 #include "qofbook.h"
 #include "gnc-pricedb.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define GNC_ID_INVOICE    "gncInvoice"
 
 typedef enum
@@ -268,8 +272,6 @@ GncInvoice * gncInvoiceGetInvoiceFromLot (GNCLot *lot);
 /** Return a pointer to the instance gncInvoice that is identified
  *  by the guid, and is residing in the book. Returns NULL if the
  *  instance can't be found.
- *  Equivalent function prototype is
- *  GncInvoice * gncInvoiceLookup (QofBook *book, const GncGUID *guid);
  */
 static inline GncInvoice * gncInvoiceLookup (const QofBook *book, const GncGUID *guid)
 {
@@ -315,6 +317,10 @@ QofBook *gncInvoiceGetBook (GncInvoice *x);
 
 /** Test support function used by test-dbi-business-stuff.c */
 gboolean gncInvoiceEqual (const GncInvoice *a, const GncInvoice *b);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* GNC_INVOICE_H_ */
 /** @} */

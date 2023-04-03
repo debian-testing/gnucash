@@ -24,7 +24,6 @@
 #include <glib.h>
 #include <glib/gi18n.h>
 
-extern "C" {
 #include <platform.h>
 #if PLATFORM(WINDOWS)
 #include <windows.h>
@@ -32,10 +31,10 @@ extern "C" {
 
 #include "engine-helpers.h"
 #include "gnc-ui-util.h"
-}
 
 #include <exception>
 #include <map>
+#include <optional>
 #include <string>
 #include <boost/locale.hpp>
 #include <boost/regex.hpp>
@@ -79,17 +78,17 @@ GncNumeric parse_amount_price (const std::string &str, int currency_format)
     {
     case 0:
         /* Currency locale */
-        if (!(xaccParseAmountPosSign (str_no_symbols.c_str(), TRUE, &val, &endptr, TRUE)))
+        if (!(xaccParseAmountImport (str_no_symbols.c_str(), TRUE, &val, &endptr, TRUE)))
             throw std::invalid_argument (_("Value can't be parsed into a number using the selected currency format."));
         break;
     case 1:
         /* Currency decimal period */
-        if (!(xaccParseAmountExtended (str_no_symbols.c_str(), TRUE, '-', '.', ',', "$+", &val, &endptr)))
+        if (!(xaccParseAmountExtImport (str_no_symbols.c_str(), TRUE, '-', '.', ',', "$+", &val, &endptr)))
             throw std::invalid_argument (_("Value can't be parsed into a number using the selected currency format."));
         break;
     case 2:
         /* Currency decimal comma */
-        if (!(xaccParseAmountExtended (str_no_symbols.c_str(), TRUE, '-', ',', '.', "$+", &val, &endptr)))
+        if (!(xaccParseAmountExtImport (str_no_symbols.c_str(), TRUE, '-', ',', '.', "$+", &val, &endptr)))
             throw std::invalid_argument (_("Value can't be parsed into a number using the selected currency format."));
         break;
     }
@@ -162,17 +161,17 @@ void GncImportPrice::set (GncPricePropType prop_type, const std::string& value, 
         switch (prop_type)
         {
             case GncPricePropType::DATE:
-                m_date = boost::none;
+                m_date.reset();
                 m_date = GncDate(value, GncDate::c_formats[m_date_format].m_fmt); // Throws if parsing fails
                 break;
 
             case GncPricePropType::AMOUNT:
-                m_amount = boost::none;
+                m_amount.reset();
                 m_amount = parse_amount_price (value, m_currency_format); // Throws if parsing fails
                 break;
 
             case GncPricePropType::FROM_SYMBOL:
-                m_from_symbol = boost::none;
+                m_from_symbol.reset();
 
                 if (value.empty())
                     throw std::invalid_argument (_("'From Symbol' can not be empty."));
@@ -192,7 +191,7 @@ void GncImportPrice::set (GncPricePropType prop_type, const std::string& value, 
                 break;
 
             case GncPricePropType::FROM_NAMESPACE:
-                m_from_namespace = boost::none;
+                m_from_namespace.reset();
 
                 if (value.empty())
                     throw std::invalid_argument (_("'From Namespace' can not be empty."));
@@ -215,7 +214,7 @@ void GncImportPrice::set (GncPricePropType prop_type, const std::string& value, 
                 break;
 
             case GncPricePropType::TO_CURRENCY:
-                m_to_currency = boost::none;
+                m_to_currency.reset();
                 comm = parse_commodity_price_comm (value, GNC_COMMODITY_NS_CURRENCY); // Throws if parsing fails
                 if (comm)
                 {
@@ -235,17 +234,17 @@ void GncImportPrice::set (GncPricePropType prop_type, const std::string& value, 
     }
     catch (const std::invalid_argument& e)
     {
-        auto err_str = (bl::format (bl::translate ("Column '{1}' could not be understood.\n")) %
-                        bl::translate (gnc_price_col_type_strs[prop_type])).str(gnc_get_boost_locale()) +
-                        e.what();
+        auto err_str = (bl::format (std::string{_("{1}: {2}")}) %
+                        std::string{_(gnc_price_col_type_strs[prop_type])} %
+                        e.what()).str();
         m_errors.emplace(prop_type, err_str);
         throw std::invalid_argument (err_str);
     }
     catch (const std::out_of_range& e)
     {
-        auto err_str = (bl::format (bl::translate ("Column '{1}' could not be understood.\n")) %
-                        bl::translate (gnc_price_col_type_strs[prop_type])).str(gnc_get_boost_locale()) +
-                        e.what();
+        auto err_str = (bl::format (std::string{_("{1}: {2}")}) %
+                        std::string{_(gnc_price_col_type_strs[prop_type])} %
+                        e.what()).str();
         m_errors.emplace(prop_type, err_str);
         throw std::invalid_argument (err_str);
     }
@@ -276,13 +275,13 @@ void GncImportPrice::reset (GncPricePropType prop_type)
 std::string GncImportPrice::verify_essentials (void)
 {
     /* Make sure this price has the minimum required set of properties defined */
-    if (m_date == boost::none)
+    if (!m_date)
         return _("No date column.");
-    else if (m_amount == boost::none)
+    else if (!m_amount)
         return _("No amount column.");
-    else if (m_to_currency == boost::none)
+    else if (!m_to_currency)
         return _("No 'Currency to'.");
-    else if (m_from_commodity == boost::none)
+    else if (!m_from_commodity)
         return _("No 'Commodity from'.");
     else if (gnc_commodity_equal (*m_from_commodity, *m_to_currency))
         return _("'Commodity From' can not be the same as 'Currency To'.");

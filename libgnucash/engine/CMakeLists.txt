@@ -15,6 +15,11 @@ set(engine_noinst_HEADERS
   gnc-int128.hpp
   gnc-lot.h
   gnc-lot-p.h
+  gnc-option-date.hpp
+  gnc-option-impl.hpp
+  gnc-option-ui.hpp
+  gnc-option-uitype.hpp
+  gnc-optiondb-impl.hpp
   gnc-pricedb-p.h
   policy-p.h
   qofbook-p.h
@@ -37,23 +42,30 @@ set (engine_HEADERS
   Scrub2.h
   ScrubBusiness.h
   Scrub3.h
+  ScrubBudget.h
   Split.h
   TransLog.h
   Transaction.h
   cap-gains.h
   cashobjects.h
   engine-helpers.h
+  gnc-accounting-period.h
   gnc-aqbanking-templates.h
   gnc-budget.h
   gnc-commodity.h
+  gnc-commodity.hpp
   gnc-date.h
   gnc-datetime.hpp
   gnc-engine.h
+  gnc-euro.h
   gnc-event.h
   gnc-features.h
   gnc-hooks.h
   gnc-numeric.h
   gnc-numeric.hpp
+  gnc-option.hpp
+  gnc-optiondb.h
+  gnc-optiondb.hpp
   gnc-pricedb.h
   gnc-rational.hpp
   gnc-rational-rounding.hpp
@@ -93,6 +105,7 @@ set (engine_HEADERS
   qof-backend.hpp
   qofbackend.h
   qofbook.h
+  qofbook.hpp
   qofbookslots.h
   qofchoice.h
   qofclass.h
@@ -133,23 +146,30 @@ set (engine_SOURCES
   Scrub2.c
   Scrub3.c
   ScrubBusiness.c
+  ScrubBudget.c
   Split.c
   TransLog.c
   Transaction.c
   cap-gains.c
   cashobjects.c
+  gnc-accounting-period.c
   gnc-aqbanking-templates.cpp
   gnc-budget.cpp
   gnc-commodity.c
   gnc-date.cpp
   gnc-datetime.cpp
   gnc-engine.c
+  gnc-euro.c
   gnc-event.c
-  gnc-features.c
+  gnc-features.cpp
   gnc-hooks.c
   gnc-int128.cpp
   gnc-lot.c
   gnc-numeric.cpp
+  gnc-option-date.cpp
+  gnc-option.cpp
+  gnc-option-impl.cpp
+  gnc-optiondb.cpp
   gnc-pricedb.c
   gnc-rational.cpp
   gnc-session.c
@@ -221,7 +241,7 @@ target_link_libraries(gnc-engine
     ${ICU4C_I18N_LDFLAGS}
     ${REGEX_LDFLAGS}
     ${GMODULE_LDFLAGS}
-    ${GLIB2_LDFLAGS}
+    PkgConfig::GLIB2
     ${GOBJECT_LDFLAGS}
     $<$<BOOL:${WIN32}>:bcrypt.lib>)
 
@@ -234,7 +254,6 @@ target_include_directories (gnc-engine
         ${CMAKE_CURRENT_SOURCE_DIR}
         ${CMAKE_BINARY_DIR}/common # for config.h
         ${CMAKE_SOURCE_DIR}/common # for platform.h
-        ${GLIB2_INCLUDE_DIRS}
         ${LIBINTL_INCLUDE_PATH}
         ${REGEX_INCLUDE_PATH}
         ${CMAKE_SOURCE_DIR}/borrowed/libc # for strptime.h

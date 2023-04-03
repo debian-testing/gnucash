@@ -456,7 +456,7 @@ csv_import_assistant_summary_page_prepare (GtkAssistant *assistant,
 
         buffer = gtk_text_view_get_buffer (GTK_TEXT_VIEW(info->summary_error_view));
         text = g_strdup_printf (gettext ("Import completed but with errors!\n\nThe number of Accounts added was %u and "
-                                        "%u were updated.\n\nSee below for errors..."), info->num_new, info->num_updates);
+                                        "%u were updated.\n\nSee below for errors…"), info->num_new, info->num_updates);
         errtext = g_strdup_printf ("%s", info->error);
         gtk_text_buffer_set_text (buffer, errtext, -1);
         g_free (errtext);
@@ -562,7 +562,6 @@ static GtkWidget *
 csv_import_assistant_create (CsvImportInfo *info)
 {
     GtkBuilder *builder;
-    GtkWidget *button;
     GtkCellRenderer *renderer;
     GtkTreeViewColumn *column;
     gchar *mnemonic_desc = NULL;

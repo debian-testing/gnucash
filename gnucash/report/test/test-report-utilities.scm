@@ -38,6 +38,7 @@
 (define (test-account-get-trans-type-splits-interval)
   (test-group-with-cleanup "test-account-get-trans-type-splits-interval"
   (let* ((env (create-test-env))
+         (book (gnc-get-current-book))
          (ts-now (gnc-localtime (current-time)))
          (test-day (tm:mday ts-now))
          (test-month (+ 1 (tm:mon ts-now)))
@@ -287,6 +288,7 @@
 
 (define (create-test-data)
   (let* ((env (create-test-env))
+         (book (gnc-get-current-book))
          (account-alist (env-create-account-structure-alist env (structure)))
          (asset (cdr (assoc "Asset" account-alist)))
          (bank (cdr (assoc "Bank" account-alist)))
@@ -383,30 +385,6 @@
                                              (gnc-dmy2time64 01 01 2001)
                                              #t)))
 
-      (test-equal "gnc:accounts-get-comm-total-profit"
-        '(("GBP" . 612) ("USD" . 2389))
-        (collector->list
-         (gnc:accounts-get-comm-total-profit all-accounts
-                                             (lambda (acct)
-                                               (gnc:account-get-comm-balance-at-date
-                                                acct (gnc-dmy2time64 01 01 2001) #f)))))
-
-      (test-equal "gnc:accounts-get-comm-total-income"
-        '(("GBP" . 612) ("USD" . 2573))
-        (collector->list
-         (gnc:accounts-get-comm-total-income all-accounts
-                                             (lambda (acct)
-                                               (gnc:account-get-comm-balance-at-date
-                                                acct (gnc-dmy2time64 01 01 2001) #f)))))
-
-      (test-equal "gnc:accounts-get-comm-total-expense"
-        '(("USD" . -184))
-        (collector->list
-         (gnc:accounts-get-comm-total-expense all-accounts
-                                              (lambda (acct)
-                                                (gnc:account-get-comm-balance-at-date
-                                                 acct (gnc-dmy2time64 01 01 2001) #f)))))
-
       (test-equal "gnc:accounts-get-comm-total-assets"
         '(("GBP" . 608) ("USD" . 2394))
         (collector->list
@@ -474,6 +452,10 @@
       (test-equal "gnc:accounts-count-splits"
         44
         (gnc:accounts-count-splits (list expense income)))
+
+      (test-equal "gnc:accounts-count-splits null"
+        0
+        (gnc:accounts-count-splits '()))
 
       (let ((account-balances (gnc:get-assoc-account-balances
                                (list bank gbp-bank)
@@ -613,6 +595,7 @@
 (define (test-get-account-at-dates)
   (test-group-with-cleanup "test-get-balance-at-dates"
     (let* ((env (create-test-env))
+           (book (gnc-get-current-book))
            (structure (list "Root" (list (cons 'type ACCT-TYPE-ASSET))
                             (list "Asset"
                                   (list "Bank1")

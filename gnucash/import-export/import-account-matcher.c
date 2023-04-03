@@ -57,41 +57,10 @@ typedef struct
     const char* online_id;
 } AccountOnlineMatch;
 
-static Account*
-partial_match_if_valid (AccountOnlineMatch *match)
-{
-    if (match->partial_match && match->count == 1)
-        return match->partial_match;
-    else
-        PERR("Online ID %s partially matches %d accounts and fully matches none",
-             match->online_id, match->count);
-    return NULL;
-}
-
 /*-******************************************************************\
  * Functions needed by gnc_import_select_account
  *
 \********************************************************************/
-/** Constructor for AccountPickerDialog.
- * @return Pointer to a new AccountPickerDialog
- */
-static AccountPickerDialog* gnc_import_new_account_picker(void)
-{
-    AccountPickerDialog* picker = g_new(AccountPickerDialog, 1);
-    picker->dialog = NULL;
-    picker->account_tree = NULL;
-    picker->account_tree_sw = NULL;
-    picker->auto_create = TRUE;
-    picker->account_human_description = NULL;
-    picker->account_online_id_value = NULL;
-    picker->account_online_id_label = NULL;
-    picker->new_account_default_commodity = NULL;
-    picker->new_account_default_type = 0;
-    picker->default_account = NULL;
-    picker->retAccount = NULL;
-    return picker;
-}
-
 
 /**************************************************
  * test_acct_online_id_match
@@ -276,24 +245,6 @@ show_placeholder_warning (AccountPickerDialog *picker, const gchar *name)
 }
 
 
-/***********************************************************
- * show_commodity_warning
- *
- * show the warning when account is a different commodity to that
- * required
- ************************************************************/
-static void
-show_commodity_warning (AccountPickerDialog *picker, const gchar *name)
-{
-    const gchar *com_name = gnc_commodity_get_fullname (picker->new_account_default_commodity);
-    gchar *text = g_strdup_printf (_("The account '%s' has a different commodity to the "
-                                     "one required, '%s'. Please choose a different account."),
-                                      name, com_name);
-
-    show_warning (picker, text);
-}
-
-
 /*******************************************************
  * account_tree_row_changed_cb
  *
@@ -305,31 +256,16 @@ account_tree_row_changed_cb (GtkTreeSelection *selection,
 {
     Account *sel_account = gnc_tree_view_account_get_selected_account (picker->account_tree);
 
-    if (!sel_account)
-    {
-        gtk_widget_hide (GTK_WIDGET(picker->whbox)); // hide the warning
-        gtk_widget_set_sensitive (picker->ok_button, FALSE); // disable OK button
-        return;
-    }
-
-    gtk_widget_set_sensitive (picker->ok_button, TRUE); // enable OK button
+    /* Reset buttons and warnings */
+    gtk_widget_hide (GTK_WIDGET(picker->whbox));
+    gtk_widget_set_sensitive (picker->ok_button, (sel_account != NULL));
 
     /* See if the selected account is a placeholder. */
     if (sel_account && xaccAccountGetPlaceholder (sel_account))
     {
         const gchar *retval_name = xaccAccountGetName (sel_account);
-
         show_placeholder_warning (picker, retval_name);
     }
-    else if (picker->new_account_default_commodity &&
-                (!gnc_commodity_equal (xaccAccountGetCommodity (sel_account),
-                 picker->new_account_default_commodity))) // check commodity
-    {
-        const gchar *retval_name = xaccAccountGetName (sel_account);
-        show_commodity_warning (picker, retval_name);
-    }
-    else
-        gtk_widget_hide (GTK_WIDGET(picker->whbox)); // hide the warning
 }
 
 static gboolean
@@ -402,7 +338,7 @@ account_tree_row_activated_cb(GtkTreeView *view, GtkTreePath *path,
  *******************************************************/
 Account * gnc_import_select_account(GtkWidget *parent,
                                     const gchar * account_online_id_value,
-                                    gboolean auto_create,
+                                    gboolean prompt_on_no_match,
                                     const gchar * account_human_description,
                                     const gnc_commodity * new_account_default_commodity,
                                     GNCAccountType new_account_default_type,
@@ -424,13 +360,12 @@ Account * gnc_import_select_account(GtkWidget *parent,
     DEBUG("Default account type received: %s", xaccAccountGetTypeStr( new_account_default_type));
     picker = g_new0(AccountPickerDialog, 1);
 
-    picker->account_online_id_value = account_online_id_value;
     picker->account_human_description =  account_human_description;
     picker->new_account_default_commodity = new_account_default_commodity;
     picker->new_account_default_type = new_account_default_type;
 
     /*DEBUG("Looking for account with online_id: \"%s\"", account_online_id_value);*/
-    if (account_online_id_value != NULL)
+    if (account_online_id_value)
     {
         AccountOnlineMatch match = {NULL, 0, account_online_id_value};
         retval =
@@ -441,7 +376,7 @@ Account * gnc_import_select_account(GtkWidget *parent,
             new_account_default_type == ACCT_TYPE_NONE)
             retval = match.partial_match;
     }
-    if (retval == NULL && auto_create != 0)
+    if (!retval && prompt_on_no_match)
     {
         /* load the interface */
         builder = gtk_builder_new();
@@ -456,6 +391,10 @@ Account * gnc_import_select_account(GtkWidget *parent,
         picker->whbox = GTK_WIDGET(gtk_builder_get_object (builder, "warning_hbox"));
         picker->warning = GTK_WIDGET(gtk_builder_get_object (builder, "warning_label"));
         picker->ok_button = GTK_WIDGET(gtk_builder_get_object (builder, "okbutton"));
+
+        // Set the name for this dialog so it can be easily manipulated with css
+        gtk_widget_set_name (GTK_WIDGET(picker->dialog), "gnc-id-import-account-picker");
+        gnc_widget_style_context_add_class (GTK_WIDGET(picker->dialog), "gnc-class-imports");
 
         if (parent)
             gtk_window_set_transient_for (GTK_WINDOW (picker->dialog),
@@ -513,16 +452,13 @@ Account * gnc_import_select_account(GtkWidget *parent,
 
             case GTK_RESPONSE_OK:
                 retval = gnc_tree_view_account_get_selected_account(picker->account_tree);
-                if (retval == NULL)
+                if (!retval)
                 {
                     response = GNC_RESPONSE_NEW;
                     break;
                 }
-                if (retval)
-                    retval_name = xaccAccountGetName(retval);
-                if (!retval_name)
-                    retval_name = "(null)";
-                DEBUG("Selected account %p, %s", retval, retval_name);
+                retval_name = xaccAccountGetName(retval);
+                DEBUG("Selected account %p, %s", retval, retval_name ? retval_name : "(null)");
 
                 /* See if the selected account is a placeholder. */
                 if (retval && xaccAccountGetPlaceholder (retval))
@@ -531,16 +467,8 @@ Account * gnc_import_select_account(GtkWidget *parent,
                     response = GNC_RESPONSE_NEW;
                     break;
                 }
-                else if (picker->new_account_default_commodity &&
-                            (!gnc_commodity_equal (xaccAccountGetCommodity (retval),
-                             picker->new_account_default_commodity))) // check commodity
-                {
-                    show_commodity_warning (picker, retval_name);
-                    response = GNC_RESPONSE_NEW;
-                    break;
-                }
 
-                if ( account_online_id_value != NULL)
+                if (account_online_id_value)
                 {
                     gnc_import_set_acc_online_id(retval, account_online_id_value);
                 }

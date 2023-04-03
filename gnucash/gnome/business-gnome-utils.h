@@ -30,6 +30,10 @@
 #include "gncTaxTable.h"
 #include "gncInvoice.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 
 #define GNC_PREFS_GROUP_INVOICE "dialogs.business.invoice"
 #define GNC_PREFS_GROUP_BILL    "dialogs.business.bill"
@@ -37,6 +41,35 @@
 
 #define GNC_PREF_AUTO_PAY "auto-pay"
 
+/** Retrieve the buitin guid for the Invoice Report to be
+ *  used as the default to print Invoices
+ *
+ * @return The guid of the saved Invoice Report
+ */
+const char *gnc_get_builtin_default_invoice_print_report (void);
+
+/** Migrate the Default Invoice Report from prefs to book properties
+ *  used to print Invoices
+ *
+ * @return The guid of the saved Invoice Report
+ */
+const char * gnc_migrate_default_invoice_print_report (void);
+
+/** Retrieve the guid of the Invoice Report to be used to
+ *  print Invoices
+ *
+ * @return The guid of the saved Invoice Report
+ */
+char *gnc_get_default_invoice_print_report (void);
+
+/** Create a report combo to show a list of Invoice reports so that
+ *  a default Invoice Report can be selected.
+ *
+ *  @param guid_scm_function The SCM function to create the report list
+ *
+ *  @return The Widget for the report combo
+ */
+GtkWidget * gnc_default_invoice_report_combo (const char* guid_scm_function);
 
 GtkWidget * gnc_owner_select_create (GtkWidget *label, GtkWidget *hbox,
                                      QofBook *book, GncOwner *owner);
@@ -45,7 +78,7 @@ GtkWidget * gnc_owner_edit_create (GtkWidget *label, GtkWidget *hbox,
                                    QofBook *book, GncOwner *owner);
 
 void gnc_owner_get_owner (GtkWidget *widget, GncOwner *owner);
-void gnc_owner_set_owner (GtkWidget *widget, GncOwner *owner);
+void gnc_owner_set_owner (GtkWidget *widget, const GncOwner *owner);
 
 
 /* An invoice select widget..
@@ -105,5 +138,9 @@ gpointer gnc_simple_combo_get_value (GtkComboBox *cbox);
  *  and make it the active item. */
 void gnc_simple_combo_set_value (GtkComboBox *cbox, gpointer data);
 
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* GNC_BUSINESS_GNOME_UTILS_H_ */

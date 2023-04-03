@@ -32,59 +32,44 @@
 #include "gnc-tree-model-budget.h"
 
 #include "qof.h"
+#include "gnc-features.h"
 #include "gnc-ui-util.h"
 #include "gnc-ui.h"
 #include "gnc-component-manager.h"
 
 #define PLUGIN_ACTIONS_NAME "gnc-plugin-budget-actions"
-#define PLUGIN_UI_FILENAME  "gnc-plugin-budget-ui.xml"
+#define PLUGIN_UI_FILENAME  "gnc-plugin-budget.ui"
 
 static QofLogModule log_module = GNC_MOD_GUI;
 
 static void gnc_plugin_budget_class_init (GncPluginBudgetClass *klass);
 static void gnc_plugin_budget_init (GncPluginBudget *plugin);
 static void gnc_plugin_budget_finalize (GObject *object);
-static void gnc_plugin_budget_add_to_window (GncPlugin *plugin,
-                                             GncMainWindow *window, GQuark type);
 
 /* Command Callbacks */
-static void gnc_plugin_budget_cmd_new_budget (GtkAction *action,
-        GncMainWindowActionData *data);
-static void gnc_plugin_budget_cmd_open_budget (GtkAction *action,
-        GncMainWindowActionData *data);
-static void gnc_plugin_budget_cmd_copy_budget (GtkAction *action,
-        GncMainWindowActionData *data);
-static void gnc_plugin_budget_cmd_delete_budget (GtkAction *action,
-        GncMainWindowActionData *data);
+static void gnc_plugin_budget_cmd_new_budget (GSimpleAction *simple, GVariant *parameter, gpointer user_data);
+static void gnc_plugin_budget_cmd_open_budget (GSimpleAction *simple, GVariant *parameter, gpointer user_data);
+static void gnc_plugin_budget_cmd_copy_budget (GSimpleAction *simple, GVariant *parameter, gpointer user_data);
+static void gnc_plugin_budget_cmd_delete_budget (GSimpleAction *simple, GVariant *parameter, gpointer user_data);
 
-static GtkActionEntry gnc_plugin_actions [] =
+static GActionEntry gnc_plugin_actions [] =
 {
-    {
-        "NewBudgetAction", NULL, N_("_New Budget"), NULL,
-        N_("Create a new Budget."),
-        G_CALLBACK(gnc_plugin_budget_cmd_new_budget)
-    },
-
-    {
-        "OpenBudgetAction", NULL, N_("_Open Budget"), NULL,
-        N_("Open an existing Budget in a new tab. If none exists a new budget will be created."),
-        G_CALLBACK(gnc_plugin_budget_cmd_open_budget)
-    },
-
-    {
-        "CopyBudgetAction", NULL, N_("_Copy Budget"), NULL,
-        N_("Copy an existing Budget."),
-        G_CALLBACK(gnc_plugin_budget_cmd_copy_budget)
-    },
-    {
-        "DeleteBudgetAction", NULL, N_("_Delete Budget"), NULL,
-        N_("Delete an existing Budget."),
-        G_CALLBACK(gnc_plugin_budget_cmd_delete_budget)
-    },
+    { "ActionsBudgetAction", NULL, NULL, NULL, NULL },
+    { "NewBudgetAction", gnc_plugin_budget_cmd_new_budget, NULL, NULL, NULL },
+    { "OpenBudgetAction", gnc_plugin_budget_cmd_open_budget, NULL, NULL, NULL },
+    { "CopyBudgetAction", gnc_plugin_budget_cmd_copy_budget, NULL, NULL, NULL },
+    { "DeleteBudgetAction", gnc_plugin_budget_cmd_delete_budget, NULL, NULL, NULL },
 
 };
-static guint gnc_plugin_n_actions = G_N_ELEMENTS (gnc_plugin_actions);
+/** The number of actions provided by this plugin. */
+static guint gnc_plugin_n_actions = G_N_ELEMENTS(gnc_plugin_actions);
 
+/** The default menu items that need to be add to the menu */
+static const gchar *gnc_plugin_load_ui_items [] =
+{
+    "ActionsPlaceholder3",
+    NULL,
+};
 
 static const gchar *plugin_writeable_actions[] =
 {
@@ -105,7 +90,8 @@ typedef struct GncPluginBudgetPrivate
 
 static GObjectClass *parent_class = NULL;
 
-GncPlugin * gnc_plugin_budget_new (void)
+GncPlugin * 
+gnc_plugin_budget_new (void)
 {
     GncPluginBudget *plugin;
     ENTER(" ");
@@ -119,23 +105,25 @@ GncPlugin * gnc_plugin_budget_new (void)
     return GNC_PLUGIN(plugin);
 }
 
-static void page_changed (GncMainWindow *window, GncPluginPage *page,
-                          gpointer user_data)
+static void
+page_changed (GncMainWindow *window, GncPluginPage *page, gpointer user_data)
 {
-    GtkActionGroup *action_group =
+    GSimpleActionGroup *simple_action_group =
         gnc_main_window_get_action_group (window, PLUGIN_ACTIONS_NAME);
 
     if (qof_book_is_readonly (gnc_get_current_book()))
-        gnc_plugin_update_actions (action_group, plugin_writeable_actions,
-                                   "sensitive", FALSE);
+        gnc_plugin_set_actions_enabled (G_ACTION_MAP(simple_action_group), plugin_writeable_actions,
+                                        FALSE);
 }
 
-static void add_to_window (GncPlugin *plugin, GncMainWindow *mainwindow, GQuark type)
+static void
+add_to_window (GncPlugin *plugin, GncMainWindow *mainwindow, GQuark type)
 {
     g_signal_connect (mainwindow, "page_changed", G_CALLBACK (page_changed), plugin);
 }
 
-static void remove_from_window (GncPlugin *plugin, GncMainWindow *window, GQuark type)
+static void
+remove_from_window (GncPlugin *plugin, GncMainWindow *window, GQuark type)
 {
     g_signal_handlers_disconnect_by_func (window, G_CALLBACK(page_changed), plugin);
 }
@@ -152,12 +140,13 @@ gnc_plugin_budget_class_init (GncPluginBudgetClass *klass)
     parent_class = g_type_class_peek_parent (klass);
     object_class->finalize = gnc_plugin_budget_finalize;
 
-    plugin_class->plugin_name  = GNC_PLUGIN_BUDGET_NAME;
-    plugin_class->actions_name = PLUGIN_ACTIONS_NAME;
-    plugin_class->actions      = gnc_plugin_actions;
-    plugin_class->n_actions    = gnc_plugin_n_actions;
-    plugin_class->ui_filename  = PLUGIN_UI_FILENAME;
-    plugin_class->add_to_window = add_to_window;
+    plugin_class->plugin_name        = GNC_PLUGIN_BUDGET_NAME;
+    plugin_class->actions_name       = PLUGIN_ACTIONS_NAME;
+    plugin_class->actions            = gnc_plugin_actions;
+    plugin_class->n_actions          = gnc_plugin_n_actions;
+    plugin_class->ui_filename        = PLUGIN_UI_FILENAME;
+    plugin_class->ui_updates         = gnc_plugin_load_ui_items;
+    plugin_class->add_to_window      = add_to_window;
     plugin_class->remove_from_window = remove_from_window;
 
     LEAVE (" ");
@@ -185,14 +174,24 @@ gnc_plugin_budget_finalize (GObject *object)
 
 /* Make a new budget; put it in a page; open the page. */
 static void
-gnc_plugin_budget_cmd_new_budget (GtkAction *action,
-                                  GncMainWindowActionData *user_data)
+gnc_plugin_budget_cmd_new_budget (GSimpleAction *simple,
+                                  GVariant      *parameter,
+                                  gpointer       user_data)
 {
+    GncMainWindowActionData *data = user_data;
     GncBudget *budget;
     GncPluginPage *page;
     gchar *description, *date;
+    QofBook *book = gnc_get_current_book();
 
-    g_return_if_fail (user_data != NULL);
+    g_return_if_fail (data != NULL);
+
+    if (!gnc_features_check_used (book, GNC_FEATURE_BUDGET_UNREVERSED))
+    {
+        gnc_features_set_used (book, GNC_FEATURE_BUDGET_UNREVERSED);
+        PWARN ("Setting feature BUDGET_UNREVERSED. This book now requires \
+GnuCash 3.8 or later.");
+    }
 
     budget = gnc_budget_new (gnc_get_current_book());
     page = gnc_plugin_page_budget_new (budget);
@@ -203,19 +202,22 @@ gnc_plugin_budget_cmd_new_budget (GtkAction *action,
     g_free (description);
     g_free (date);
 
-    gnc_main_window_open_page (user_data->window, page);
+    gnc_main_window_open_page (data->window, page);
 }
 
 /* If only one budget exists, open it; otherwise user selects one to open */
 static void
-gnc_plugin_budget_cmd_open_budget (GtkAction *action,
-                                   GncMainWindowActionData *user_data)
+gnc_plugin_budget_cmd_open_budget (GSimpleAction *simple,
+                                   GVariant      *parameter,
+                                   gpointer       user_data)
 {
+    GncMainWindowActionData *data = user_data;
     guint count;
     QofBook *book;
     GncBudget *bgt = NULL;
     QofCollection *col;
-    g_return_if_fail (user_data != NULL);
+
+    g_return_if_fail (data != NULL);
 
     book = gnc_get_current_book ();
     col = qof_book_get_collection (book, GNC_ID_BUDGET);
@@ -225,26 +227,29 @@ gnc_plugin_budget_cmd_open_budget (GtkAction *action,
         if (count == 1)
             bgt = gnc_budget_get_default (book);
         else
-            bgt = gnc_budget_gui_select_budget (GTK_WINDOW(user_data->window), book);
+            bgt = gnc_budget_gui_select_budget (GTK_WINDOW(data->window), book);
 
         if (bgt)
-           gnc_main_window_open_page (user_data->window,
+           gnc_main_window_open_page (data->window,
                                       gnc_plugin_page_budget_new (bgt));
     }
     else     /* if no budgets exist yet, just open a new budget */
-        gnc_plugin_budget_cmd_new_budget (action, user_data);
+        gnc_plugin_budget_cmd_new_budget (simple, parameter, user_data);
 }
 
 /* If only one budget exists, create a copy of it; otherwise user selects one to copy */
 static void
-gnc_plugin_budget_cmd_copy_budget (GtkAction *action,
-                                   GncMainWindowActionData *user_data)
+gnc_plugin_budget_cmd_copy_budget (GSimpleAction *simple,
+                                   GVariant      *parameter,
+                                   gpointer       user_data)
 {
+    GncMainWindowActionData *data = user_data;
     guint count;
     QofBook *book;
     GncBudget *bgt = NULL;
     QofCollection *col;
-    g_return_if_fail (user_data != NULL);
+
+    g_return_if_fail (data != NULL);
 
     book = gnc_get_current_book ();
     col = qof_book_get_collection (book, GNC_ID_BUDGET);
@@ -254,7 +259,7 @@ gnc_plugin_budget_cmd_copy_budget (GtkAction *action,
         if (count == 1)
             bgt = gnc_budget_get_default(book);
         else
-            bgt = gnc_budget_gui_select_budget (GTK_WINDOW(user_data->window), book);
+            bgt = gnc_budget_gui_select_budget (GTK_WINDOW(data->window), book);
 
         if (bgt)
         {
@@ -266,29 +271,31 @@ gnc_plugin_budget_cmd_copy_budget (GtkAction *action,
             gnc_budget_set_name (copy, name);
             g_free (name);
 
-            gnc_main_window_open_page (user_data->window,
+            gnc_main_window_open_page (data->window,
                                        gnc_plugin_page_budget_new (copy));
         }
     }
     else     /* if no budgets exist yet, just open a new budget */
-        gnc_plugin_budget_cmd_new_budget (action, user_data);
+        gnc_plugin_budget_cmd_new_budget (simple, parameter, user_data);
 }
 
 /* user selects budget to delete */
 static void
-gnc_plugin_budget_cmd_delete_budget (GtkAction *action,
-                                     GncMainWindowActionData *user_data)
+gnc_plugin_budget_cmd_delete_budget (GSimpleAction *simple,
+                                     GVariant      *parameter,
+                                     gpointer       user_data)
 {
+    GncMainWindowActionData *data = user_data;
     GncBudget *bgt;
     QofBook *book;
 
-    g_return_if_fail (user_data != NULL);
+    g_return_if_fail (data != NULL);
 
     book = gnc_get_current_book ();
     if (qof_collection_count (qof_book_get_collection (book, GNC_ID_BUDGET)) == 0)
         return;
 
-    bgt = gnc_budget_gui_select_budget (GTK_WINDOW(user_data->window), book);
+    bgt = gnc_budget_gui_select_budget (GTK_WINDOW(data->window), book);
     if (!bgt) return;
 
     gnc_budget_gui_delete_budget (bgt);
@@ -336,7 +343,11 @@ gnc_budget_gui_select_budget (GtkWindow *parent, QofBook *book)
     bgt = gnc_budget_get_default (book);
 
     if (bgt && gnc_tree_model_budget_get_iter_for_budget (tm, &iter, bgt))
-        gtk_tree_view_set_cursor (tv, gtk_tree_model_get_path (tm, &iter), NULL, FALSE);
+    {
+        GtkTreePath *path = gtk_tree_model_get_path (tm, &iter);
+        gtk_tree_view_set_cursor (tv, path, NULL, FALSE);
+        gtk_tree_path_free (path);
+    }
 
     bgt = NULL;
     response = gtk_dialog_run (dlg);

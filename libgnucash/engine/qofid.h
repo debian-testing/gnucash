@@ -23,11 +23,6 @@
 #ifndef QOF_ID_H
 #define QOF_ID_H
 
-#ifdef __cplusplus
-extern "C"
-{
-#endif
-
 /** @addtogroup Entity
     @{ */
 /** @addtogroup Entities
@@ -89,6 +84,11 @@ typedef const gchar * QofIdTypeConst;
 typedef struct QofCollection_s QofCollection;
 
 #include "qofinstance.h"
+
+#ifdef __cplusplus
+extern "C"
+{
+#endif
 
 #define QOF_ID_NONE           NULL
 #define QOF_ID_NULL           "null"

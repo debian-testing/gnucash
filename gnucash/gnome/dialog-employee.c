@@ -26,6 +26,8 @@
 #include <gtk/gtk.h>
 #include <glib/gi18n.h>
 
+#include <stdbool.h>
+
 #include "dialog-utils.h"
 #include "gnc-amount-edit.h"
 #include "gnc-currency-edit.h"
@@ -250,7 +252,7 @@ void
 gnc_employee_window_help_cb (GtkWidget *widget, gpointer data)
 {
     EmployeeWindow *ew = data;
-    gnc_gnome_help (GTK_WINDOW(ew->dialog), HF_HELP, HL_USAGE_EMPLOYEE);
+    gnc_gnome_help (GTK_WINDOW(ew->dialog), DF_MANUAL, DL_USAGE_EMPLOYEE);
 }
 
 void
@@ -278,28 +280,26 @@ void
 gnc_employee_name_changed_cb (GtkWidget *widget, gpointer data)
 {
     EmployeeWindow *ew = data;
-    char *fullname, *title;
-    const char *name, *id;
+    char *title;
 
     if (!ew)
         return;
 
-    name = gtk_entry_get_text (GTK_ENTRY (ew->name_entry));
+    const char *header = (ew->dialog_type == EDIT_EMPLOYEE) ?
+        _("Edit Employee") : _("New Employee");
+
+    const char *name = gtk_entry_get_text (GTK_ENTRY (ew->name_entry));
     if (!name || *name == '\0')
         name = _("<No name>");
 
-    id = gtk_entry_get_text (GTK_ENTRY (ew->id_entry));
-
-    fullname = g_strconcat (name, " (", id, ")", (char *)NULL);
-
-    if (ew->dialog_type == EDIT_EMPLOYEE)
-        title = g_strconcat (_("Edit Employee"), " - ", fullname, (char *)NULL);
+    const char *id = gtk_entry_get_text (GTK_ENTRY (ew->id_entry));
+    if (id && *id)
+        title = g_strdup_printf ("%s - %s (%s)", header, name, id);
     else
-        title = g_strconcat (_("New Employee"), " - ", fullname, (char *)NULL);
+        title = g_strdup_printf ("%s - %s", header, name);
 
     gtk_window_set_title (GTK_WINDOW (ew->dialog), title);
 
-    g_free (fullname);
     g_free (title);
 }
 
@@ -311,16 +311,8 @@ gnc_employee_ccard_acct_toggled_cb (GtkToggleButton *button, gpointer data)
     if (!ew)
         return;
 
-    if (gtk_toggle_button_get_active (button))
-    {
-        gtk_widget_set_sensitive (ew->ccard_acct_sel, TRUE);
-        gtk_widget_show (ew->ccard_acct_sel);
-    }
-    else
-    {
-        gtk_widget_set_sensitive (ew->ccard_acct_sel, TRUE);
-        gtk_widget_hide (ew->ccard_acct_sel);
-    }
+    bool active = gtk_toggle_button_get_active (button);
+    gtk_widget_set_sensitive (ew->ccard_acct_sel, active);
 }
 
 static void
@@ -479,7 +471,6 @@ gnc_employee_new_window (GtkWindow *parent,
     edit = gnc_account_sel_new();
     acct_types = g_list_prepend(NULL, (gpointer)ACCT_TYPE_CREDIT);
     gnc_account_sel_set_acct_filters (GNC_ACCOUNT_SEL(edit), acct_types, NULL);
-    gnc_account_sel_set_hexpand (GNC_ACCOUNT_SEL(edit), TRUE);
     g_list_free (acct_types);
 
     ew->ccard_acct_sel = edit;
@@ -568,9 +559,6 @@ gnc_employee_new_window (GtkWindow *parent,
                                          QOF_EVENT_MODIFY | QOF_EVENT_DESTROY);
 
     gtk_widget_show_all (ew->dialog);
-
-    if (ccard_acct == NULL)
-        gtk_widget_hide (ew->ccard_acct_sel);
 
     g_object_unref(G_OBJECT(builder));
 

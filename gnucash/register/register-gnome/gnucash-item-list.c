@@ -224,7 +224,6 @@ gnc_item_list_show_selected (GncItemList* item_list)
 {
     GtkTreeSelection* selection;
     GtkTreeIter iter;
-    GtkTreePath* path;
     GtkTreeModel* model;
 
     g_return_if_fail (item_list != NULL);
@@ -234,10 +233,11 @@ gnc_item_list_show_selected (GncItemList* item_list)
 
     if (gtk_tree_selection_get_selected (selection, &model, &iter))
     {
-        path = gtk_tree_model_get_path (model, &iter);
+        GtkTreePath* path = gtk_tree_model_get_path (model, &iter);
 
         gtk_tree_view_scroll_to_cell (item_list->tree_view,
                                       path, NULL, TRUE, 0.5, 0.0);
+        gtk_tree_path_free (path);
     }
 }
 
@@ -247,7 +247,7 @@ gnc_item_list_autosize (GncItemList* item_list)
     g_return_val_if_fail (item_list != NULL, 0);
     g_return_val_if_fail (IS_GNC_ITEM_LIST (item_list), 0);
 
-    return 100;
+    return 150;
 }
 
 void

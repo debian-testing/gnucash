@@ -1009,7 +1009,6 @@ gnc_split_register_paste_current (SplitRegister* reg)
                                 "Are you sure you want to do that?");
         Account * copied_leader;
         Account * default_account;
-        const GncGUID *new_guid;
         int trans_split_index;
         int split_index;
         int num_splits;
@@ -2666,6 +2665,11 @@ gnc_split_register_config_cells (SplitRegister* reg)
         ((ComboCell*)
          gnc_table_layout_get_cell (reg->table->layout, ACTN_CELL), TRUE);
 
+    /* the description cell */
+    gnc_combo_cell_set_autosize
+        ((ComboCell*)
+         gnc_table_layout_get_cell (reg->table->layout, DESC_CELL), TRUE);
+
     /* Use GNC_COMMODITY_MAX_FRACTION for prices and "exchange rates"  */
     gnc_price_cell_set_fraction
         ((PriceCell*)
@@ -2692,6 +2696,11 @@ gnc_split_register_config_cells (SplitRegister* reg)
     gnc_combo_cell_set_strict
         ((ComboCell*)
          gnc_table_layout_get_cell (reg->table->layout, ACTN_CELL), FALSE);
+
+    /* The description cell should accept strings not in the list */
+    gnc_combo_cell_set_strict
+        ((ComboCell*)
+         gnc_table_layout_get_cell (reg->table->layout, DESC_CELL), FALSE);
 
     /* number format for share quantities in stock ledgers */
     switch (reg->type)
@@ -2940,6 +2949,13 @@ gnc_split_register_config (SplitRegister* reg,
     reg->use_double_line = use_double_line;
 
     gnc_table_realize_gui (reg->table);
+}
+
+void
+gnc_split_register_set_reverse_sort (SplitRegister* reg, gboolean reverse_sort)
+{
+    g_return_if_fail (reg);
+    gnc_table_model_set_reverse_sort (reg->table->model, reverse_sort);
 }
 
 void

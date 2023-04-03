@@ -37,7 +37,6 @@
 #include "dialog-commodity.h"
 #include "dialog-invoice.h"
 #include "dialog-preferences.h"
-#include "dialog-options.h"
 #include "dialog-sx-editor.h"
 #include "dialog-transfer.h"
 #include "dialog-totd.h"
@@ -56,11 +55,9 @@
 #include "gnc-plugin-basic-commands.h" /* FIXME Remove this line*/
 #include "gnc-plugin-file-history.h" /* FIXME Remove this line*/
 #include "gnc-plugin-register.h" /* FIXME Remove this line*/
-#include "gnc-plugin-register2.h" /* FIXME Remove this line*/
 #include "gnc-plugin-budget.h"
 #include "gnc-plugin-business.h"
 #include "gnc-plugin-page-register.h"
-#include "gnc-plugin-page-register2.h"
 #include "gnc-plugin-manager.h" /* FIXME Remove this line*/
 #include "gnc-html.h"
 #include "gnc-gnome-utils.h"
@@ -434,8 +431,6 @@ gnc_main_gui_init (void)
         gnc_plugin_manager_get (), gnc_plugin_menu_additions_new ());
     gnc_plugin_manager_add_plugin (
         gnc_plugin_manager_get (), gnc_plugin_register_new ());
-    gnc_plugin_manager_add_plugin (
-        gnc_plugin_manager_get (), gnc_plugin_register2_new ());
     gnc_plugin_manager_add_plugin (
         gnc_plugin_manager_get (), gnc_plugin_business_new ());
     /* I'm not sure why the FIXME note says to remove this.  Maybe

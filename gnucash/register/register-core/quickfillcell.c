@@ -168,10 +168,7 @@ gnc_quickfill_cell_modify_verify (BasicCell *_cell,
     QuickFill *match;
 
     glong newval_chars;
-    glong change_chars;
-
     newval_chars = g_utf8_strlen(newval, newval_len);
-    change_chars = g_utf8_strlen(change, change_len);
 
     /* If deleting, just accept */
     if (change == NULL)
@@ -239,7 +236,6 @@ gnc_quickfill_cell_modify_verify (BasicCell *_cell,
 
     *start_selection = newval_chars;
     *end_selection = -1;
-    *cursor_position += change_chars;
 
     gnc_basic_cell_set_value_internal (&cell->cell, match_str);
 }

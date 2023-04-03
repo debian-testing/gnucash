@@ -23,6 +23,7 @@
  * Boston, MA  02110-1301,  USA       gnu@gnu.org
  */
 
+#include <assert.h>
 #include <config.h>
 
 #include <gtk/gtk.h>
@@ -42,6 +43,7 @@
 
 #include "gnc-general-search.h"
 #include "qof.h"
+#include "qofbook.h"
 #include "business-gnome-utils.h"
 #include "dialog-customer.h"
 #include "dialog-job.h"
@@ -49,13 +51,133 @@
 #include "dialog-employee.h"
 #include "dialog-invoice.h"
 
+#include "guile-mappings.h"
+#include "gnc-guile-utils.h"
+#include "gnc-prefs.h"
 #include "gnc-commodity.h"
+#include "gnc-report-combo.h"
+#include "qofinstance.h"
+#include "qoflog.h"
+
+static const QofLogModule log_module = G_LOG_DOMAIN;
 
 typedef enum
 {
     GNCSEARCH_TYPE_SELECT,
     GNCSEARCH_TYPE_EDIT
 } GNCSearchType;
+
+enum
+{
+    COL_INV_NAME = 0,
+    COL_INV_GUID,
+    COL_INV_MISSING,
+    NUM_INV_COLS
+};
+
+#define PRINTABLE_INVOICE_GUID "5123a759ceb9483abf2182d01c140e8d"
+#define TAX_INVOICE_GUID       "0769e242be474010b4acf264a5512e6e"
+#define EASY_INVOICE_GUID      "67112f318bef4fc496bdc27d106bbda4"
+#define FANCY_INVOICE_GUID     "3ce293441e894423a2425d7a22dd1ac6"
+
+enum
+{
+    PRINTABLE_INVOICE_PREF_NUM = 0,
+    TAX_INVOICE_PREF_NUM,
+    EASY_INVOICE_PREF_NUM,
+    FANCY_INVOICE_PREF_NUM,
+};
+
+static const char* invoice_printreport_values[] =
+{
+    /* The list below are the guids of reports that can
+     * be used to print an invoice.
+     *
+     * Important: This list matches the order of existing saved
+     * preference entries.
+     */
+    PRINTABLE_INVOICE_GUID,
+    TAX_INVOICE_GUID,
+    EASY_INVOICE_GUID,
+    FANCY_INVOICE_GUID,
+    NULL
+};
+
+#define GNC_PREFS_GROUP_INVOICE    "dialogs.business.invoice"
+#define GNC_PREF_INV_PRINT_RPT     "invoice-printreport"
+
+const char *
+gnc_get_builtin_default_invoice_print_report (void)
+{
+    return PRINTABLE_INVOICE_GUID;
+}
+
+const char *
+gnc_migrate_default_invoice_print_report (void)
+{
+    QofBook *book = gnc_get_current_book ();
+    int old_style_value = gnc_prefs_get_int (GNC_PREFS_GROUP_INVOICE,
+                                             GNC_PREF_INV_PRINT_RPT);
+
+    if (old_style_value >= TAX_INVOICE_PREF_NUM &&
+        old_style_value <= FANCY_INVOICE_PREF_NUM)
+    {
+        const gchar *ret = invoice_printreport_values[old_style_value];
+        qof_book_set_default_invoice_report (book, ret, " ");
+        return ret;
+    }
+    else
+        return gnc_get_builtin_default_invoice_print_report ();
+}
+
+char *
+gnc_get_default_invoice_print_report (void)
+{
+    QofBook *book = gnc_get_current_book ();
+    gchar *default_guid = qof_book_get_default_invoice_report_guid (book);
+
+    if (!default_guid)
+        return g_strdup (gnc_migrate_default_invoice_print_report ());
+
+    return default_guid;
+}
+
+GtkWidget *
+gnc_default_invoice_report_combo (const char* guid_scm_function)
+{
+    GSList *invoice_list = NULL;
+    SCM template_menu_name = scm_c_eval_string ("gnc:report-template-menu-name/report-guid");
+    SCM get_rpt_guids = scm_c_eval_string (guid_scm_function);
+    SCM reportlist;
+    SCM rpt_guids;
+
+    if (!scm_is_procedure (get_rpt_guids))
+        return NULL;
+
+    reportlist = scm_call_0 (get_rpt_guids);
+    rpt_guids = reportlist;
+
+    if (scm_is_list (rpt_guids))
+    {
+        while (!scm_is_null (rpt_guids))
+        {
+            gchar *guid_str = scm_to_utf8_string (SCM_CAR(rpt_guids));
+            gchar *name = gnc_scm_to_utf8_string (scm_call_2(template_menu_name,
+                                                  SCM_CAR(rpt_guids), SCM_BOOL_F));
+
+            // Note: invoice_list and entries freed in report combo
+            ReportListEntry *rle = g_new0 (ReportListEntry, 1);
+
+            rle->report_guid = guid_str;
+            rle->report_name = name;
+
+            invoice_list = g_slist_append (invoice_list, rle);
+
+            rpt_guids = SCM_CDR(rpt_guids);
+        }
+    }
+    return gnc_report_combo_new (invoice_list);
+}
 
 static GtkWidget * gnc_owner_new (GtkWidget *label, GtkWidget *hbox,
                                   QofBook *book, GncOwner *owner,
@@ -70,11 +192,11 @@ static GtkWidget * gnc_owner_new (GtkWidget *label, GtkWidget *hbox,
     switch (type)
     {
     case GNCSEARCH_TYPE_SELECT:
-        text = _("Select...");
+        text = _("Select…");
         text_editable = TRUE;
         break;
     case GNCSEARCH_TYPE_EDIT:
-        text = _("Edit...");
+        text = _("Edit…");
         text_editable = FALSE;
         break;
     };
@@ -160,14 +282,24 @@ void gnc_owner_get_owner (GtkWidget *widget, GncOwner *owner)
     g_return_if_fail (widget != NULL);
     g_return_if_fail (owner != NULL);
 
-    /* We'll assume that the owner has the proper 'type' because we
-     * can't change it here.  Hopefully the caller has it set properly
-     */
-    owner->owner.undefined =
+    QofInstance *instance =
         gnc_general_search_get_selected (GNC_GENERAL_SEARCH (widget));
+
+    if (!instance)
+        return;
+
+    if (owner->type == GNC_OWNER_NONE ||
+        g_strcmp0(instance->e_type, qofOwnerGetType(owner)) == 0)
+        qofOwnerSetEntity(owner, instance);
+    else
+    {
+        PWARN("Owner type mismatch: Instance %s, Owner %s",
+              instance->e_type, qofOwnerGetType(owner));
+        owner->owner.undefined = instance;
+    }
 }
 
-void gnc_owner_set_owner (GtkWidget *widget, GncOwner *owner)
+void gnc_owner_set_owner (GtkWidget *widget, const GncOwner *owner)
 {
     g_return_if_fail (widget != NULL);
     g_return_if_fail (owner != NULL);
@@ -257,7 +389,7 @@ GtkWidget * gnc_invoice_select_create (GtkWidget *hbox, QofBook *book,
     isi->book = book;
     isi->label = label;
 
-    edit = gnc_general_search_new (GNC_INVOICE_MODULE_NAME, _("Select..."),
+    edit = gnc_general_search_new (GNC_INVOICE_MODULE_NAME, _("Select…"),
                                    TRUE, gnc_invoice_select_search_cb, isi, isi->book);
     if (!edit)
     {

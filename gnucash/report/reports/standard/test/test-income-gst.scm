@@ -43,10 +43,9 @@
   (gnc:options->sxml rpt-uuid options "test-gstr" test-title))
 
 (define (set-option! options section name value)
-  (let ((option (gnc:lookup-option options section name)))
-    (if option
-        (gnc:option-set-value option value)
-        (test-assert (format #f "wrong-option ~a ~a" section name) #f))))
+  (if (gnc-lookup-option options section name)
+      (gnc-set-option options section name value)
+      (test-assert (format #f "wrong-option ~a ~a" section name) #f)))
 
 (define* (create-txn d m y desc splits #:optional txn-type)
   (let* ((splits (map (lambda (s) (vector (cdr s) (car s) (car s))) splits))
@@ -76,6 +75,7 @@
           (list "Expenses" (list (cons 'type ACCT-TYPE-EXPENSE)))))
   ;; This function will perform implementation testing on the GST report.
   (let* ((env (create-test-env))
+         (book (gnc-get-current-book))
          (account-alist (env-create-account-structure-alist env structure))
          (bank (cdr (assoc "Bank" account-alist)))
          (income (cdr (assoc "Income" account-alist)))
@@ -224,6 +224,7 @@
                 (list "EU Reverse VAT Expenses"))))
   ;; This function will perform implementation testing on the VAT report.
   (let* ((env (create-test-env))
+         (book (gnc-get-current-book))
          (account-alist (env-create-account-structure-alist env structure))
          (YEAR (gnc:time64-get-year (gnc:get-today))))
 

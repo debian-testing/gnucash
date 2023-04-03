@@ -48,7 +48,6 @@
  * It is tied from this C #define in
  *   src/app-utils/app-utils.scm
  * and is extensively used in
- *   src/app-utils/option-util.c
  *   src/gnome-utils/gnome-utils.scm
  *   various reports
  */
@@ -64,15 +63,16 @@
 
 #define OPTION_SECTION_ACCOUNTS        N_("Accounts")
 #define OPTION_NAME_TRADING_ACCOUNTS   N_("Use Trading Accounts")
-#define OPTION_NAME_CURRENCY_ACCOUNTING   N_("Currency Accounting")
-#define OPTION_NAME_BOOK_CURRENCY      N_("Book Currency")
-#define OPTION_NAME_DEFAULT_GAINS_POLICY      N_("Default Gains Policy")
-#define OPTION_NAME_DEFAULT_GAINS_LOSS_ACCT_GUID      N_("Default Gain or Loss Account")
 #define OPTION_NAME_AUTO_READONLY_DAYS N_("Day Threshold for Read-Only Transactions (red line)")
 #define OPTION_NAME_NUM_FIELD_SOURCE   N_("Use Split Action Field for Number")
 
 #define OPTION_SECTION_BUDGETING       N_("Budgeting")
 #define OPTION_NAME_DEFAULT_BUDGET     N_("Default Budget")
+
+#define OPTION_SECTION_BUSINESS        N_("Business")
+
+#define OPTION_NAME_DEFAULT_INVOICE_REPORT  N_("Default Invoice Report")
+#define OPTION_NAME_DEFAULT_INVOICE_REPORT_TIMEOUT N_("Default Invoice Report Timeout")
 
 /** @} */
 
@@ -80,11 +80,6 @@
  * KVP-OPTION-PATH
  * OPTION-SECTION-ACCOUNTS
  * OPTION-NAME-TRADING-ACCOUNTS
- * OPTION-NAME-CURRENCY-ACCOUNTING
- * OPTION-NAME-BOOK-CURRENCY
- * OPTION_NAME_DEFAULT_GAINS_POLICY
- * OPTION_NAME_DEFAULT_GAINS_LOSS_ACCT_GUID
- * OPTION-NAME-AUTO-READONLY-DAYS
  * OPTION-NAME_NUM-FIELD-SOURCE
  * OPTION-SECTION-BUDGETING
  * OPTION-NAME-DEFAULT-BUDGET

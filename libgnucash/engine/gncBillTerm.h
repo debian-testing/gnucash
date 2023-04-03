@@ -37,6 +37,10 @@ typedef struct _gncBillTermClass GncBillTermClass;
 #include "qof.h"
 #include "gncBusiness.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define GNC_ID_BILLTERM       "gncBillTerm"
 
 /* --- type macros --- */
@@ -115,8 +119,6 @@ void gncBillTermSetCutoff (GncBillTerm *term, gint cutoff);
 /** Return a pointer to the instance gncBillTerm that is identified
  *  by the guid, and is residing in the book. Returns NULL if the
  *  instance can't be found.
- *  Equivalent function prototype is
- *  GncBillTerm * gncBillTermLookup (QofBook *book, const GncGUID *guid);
  */
 static inline GncBillTerm * gncBillTermLookup (const QofBook *book, const GncGUID *guid)
 {
@@ -167,6 +169,10 @@ time64 gncBillTermComputeDueDate (const GncBillTerm *term, time64 post_date);
 
 /* deprecated */
 #define gncBillTermGetGUID(x) qof_instance_get_guid (QOF_INSTANCE(x))
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* GNC_BILLTERM_H_ */
 /** @} */

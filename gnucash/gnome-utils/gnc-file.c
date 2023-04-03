@@ -46,6 +46,7 @@
 #include "gnc-plugin-file-history.h"
 #include "qof.h"
 #include "Scrub.h"
+#include "ScrubBudget.h"
 #include "TransLog.h"
 #include "gnc-session.h"
 #include "gnc-state.h"
@@ -71,7 +72,6 @@ gnc_file_dialog_int (GtkWindow *parent,
                      )
 {
     GtkWidget *file_box;
-    const char *internal_name;
     char *file_name = NULL;
     gchar * okbutton = NULL;
     const gchar *ok_icon = NULL;
@@ -171,17 +171,17 @@ gnc_file_dialog_int (GtkWindow *parent,
         else
         {
             /* look for constructs like postgres://foo */
-            internal_name = gtk_file_chooser_get_uri(GTK_FILE_CHOOSER (file_box));
-            if (internal_name != NULL)
+            file_name = gtk_file_chooser_get_uri(GTK_FILE_CHOOSER (file_box));
+            if (file_name != NULL)
             {
-                if (strstr (internal_name, "file://") == internal_name)
+                if (strstr (file_name, "file://") == file_name)
                 {
+                    g_free (file_name);
                     /* nope, a local file name */
-                    internal_name = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER (file_box));
+                    file_name = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER (file_box));
                 }
-                file_name = g_strdup(internal_name);
+                file_name_list = g_slist_append (file_name_list, file_name);
             }
-            file_name_list = g_slist_append (file_name_list, file_name);
         }
     }
     gtk_widget_destroy(GTK_WIDGET(file_box));
@@ -701,6 +701,28 @@ gnc_file_query_save (GtkWindow *parent, gboolean can_cancel)
 #define RESPONSE_READONLY 4
 #define RESPONSE_FILE 5
 
+/* This function is called after loading datafile. It's meant to
+   collect all scrubbing routines. */
+static void
+run_post_load_scrubs (GtkWindow *parent, QofBook *book)
+{
+    qof_event_suspend();
+
+    /* If feature GNC_FEATURE_BUDGET_UNREVERSED is not set, and there
+       are budgets, fix signs */
+    if (gnc_maybe_scrub_all_budget_signs (book))
+        gnc_info_dialog (parent, "%s", _(
+                             "This book has budgets. The internal representation of "
+                             "budget amounts no longer depends on the Reverse Balanced "
+                             "Accounts preference. Please review the budgets and amend "
+                             "signs if necessary."));
+
+    // Fix account color slots being set to 'Not Set', should run once on a book
+    xaccAccountScrubColorNotSet (book);
+
+    qof_event_resume();
+}
+
 static gboolean
 gnc_post_file_open (GtkWindow *parent, const char * filename, gboolean is_readonly)
 {
@@ -948,7 +970,7 @@ RESTART:
                                        path, username, password );
 
         xaccLogDisable();
-        gnc_window_show_progress(_("Loading user data..."), 0.0);
+        gnc_window_show_progress(_("Loading user data…"), 0.0);
         qof_session_load (new_session, gnc_window_show_progress);
         gnc_window_show_progress(NULL, -1.0);
         xaccLogEnable();
@@ -968,7 +990,7 @@ RESTART:
             if (gnc_xml_convert_single_file (newfile))
             {
                 /* try to load once again */
-                gnc_window_show_progress(_("Loading user data..."), 0.0);
+                gnc_window_show_progress(_("Loading user data…"), 0.0);
                 qof_session_load (new_session, gnc_window_show_progress);
                 gnc_window_show_progress(NULL, -1.0);
                 xaccLogEnable();
@@ -984,7 +1006,7 @@ RESTART:
         /* Attempt to update the database if it's too old */
         if ( !uh_oh && io_err == ERR_SQL_DB_TOO_OLD )
         {
-            gnc_window_show_progress(_("Re-saving user data..."), 0.0);
+            gnc_window_show_progress(_("Re-saving user data…"), 0.0);
             qof_session_safe_save(new_session, gnc_window_show_progress);
             io_err = qof_session_get_error(new_session);
             uh_oh = show_session_error(parent, io_err, newfile, GNC_FILE_DIALOG_SAVE);
@@ -1104,10 +1126,7 @@ RESTART:
         g_list_free_full (invalid_account_names, g_free);
     }
 
-    // Fix account color slots being set to 'Not Set', should run once on a book
-    qof_event_suspend();
-    xaccAccountScrubColorNotSet (gnc_get_current_book());
-    qof_event_resume();
+    run_post_load_scrubs (parent, new_book);
 
     return TRUE;
 }
@@ -1347,7 +1366,7 @@ gnc_file_do_export(GtkWindow *parent, const char * filename)
 
     /* use the current session to save to file */
     gnc_set_busy_cursor (NULL, TRUE);
-    gnc_window_show_progress(_("Exporting file..."), 0.0);
+    gnc_window_show_progress(_("Exporting file…"), 0.0);
     ok = qof_session_export (new_session, current_session,
                              gnc_window_show_progress);
     gnc_window_show_progress(NULL, -1.0);
@@ -1407,7 +1426,7 @@ gnc_file_save (GtkWindow *parent)
     /* use the current session to save to file */
     save_in_progress++;
     gnc_set_busy_cursor (NULL, TRUE);
-    gnc_window_show_progress(_("Writing file..."), 0.0);
+    gnc_window_show_progress(_("Writing file…"), 0.0);
     qof_session_save (session, gnc_window_show_progress);
     gnc_window_show_progress(NULL, -1.0);
     gnc_unset_busy_cursor (NULL);
@@ -1646,7 +1665,7 @@ gnc_file_do_save_as (GtkWindow *parent, const char* filename)
 
 
     gnc_set_busy_cursor (NULL, TRUE);
-    gnc_window_show_progress(_("Writing file..."), 0.0);
+    gnc_window_show_progress(_("Writing file…"), 0.0);
     qof_session_save (new_session, gnc_window_show_progress);
     gnc_window_show_progress(NULL, -1.0);
     gnc_unset_busy_cursor (NULL);

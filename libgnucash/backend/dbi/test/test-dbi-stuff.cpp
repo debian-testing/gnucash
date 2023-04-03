@@ -22,8 +22,6 @@
  *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
  *  02110-1301, USA.
  */
-extern "C"
-{
 #include <config.h>
 #include <qof.h>
 #include <cashobjects.h>
@@ -36,17 +34,11 @@ extern "C"
 #include <gnc-commodity.h>
 #include <SX-book.h>
 #include <gnc-lot.h>
-}
 
 #include <kvp-frame.hpp>
 #include "../gnc-backend-dbi.hpp"
 
 G_GNUC_UNUSED static QofLogModule log_module = "test-dbi";
-
-/* Placeholder for some old functions that need to be re-written and enabled */
-static void do_test (G_GNUC_UNUSED gboolean foo, G_GNUC_UNUSED gchar* bar)
-{
-}
 
 void
 do_compare (QofBook* book_1, QofBook* book_2, const gchar* id,

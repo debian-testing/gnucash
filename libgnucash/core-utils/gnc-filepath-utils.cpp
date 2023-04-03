@@ -1,5 +1,5 @@
 /********************************************************************\
- * gnc-filepath-utils.c -- file path resolutin utilitie             *
+ * gnc-filepath-utils.c -- file path resolution utility             *
  *                                                                  *
  * This program is free software; you can redistribute it and/or    *
  * modify it under the terms of the GNU General Public License as   *
@@ -31,7 +31,6 @@
 #include <glib/gprintf.h>
 #include <glib/gstdio.h>
 
-extern "C" {
 #include <config.h>
 
 #include <platform.h>
@@ -63,11 +62,11 @@ extern "C" {
 #ifdef MAC_INTEGRATION
 #include <Foundation/Foundation.h>
 #endif
-}
 
 #include "gnc-locale-utils.hpp"
 #include <boost/filesystem.hpp>
 #include <boost/locale.hpp>
+#include <regex>
 #include <iostream>
 #include <numeric>
 
@@ -212,7 +211,10 @@ gchar *gnc_file_path_relative_part (const gchar *prefix, const gchar *path)
 {
     std::string p{path};
     if (p.find(prefix) == 0)
-        return g_strdup(p.substr(strlen(prefix)).c_str());
+    {
+        auto str = p.substr(strlen(prefix));
+        return g_strdup(str.c_str());
+    }
     return g_strdup(path);
 }
 
@@ -502,7 +504,6 @@ get_user_data_dir ()
 static bfs::path
 get_user_data_dir()
 {
-    char *retval = NULL;
     NSFileManager*fm = [NSFileManager defaultManager];
     NSArray* appSupportDir = [fm URLsForDirectory:NSApplicationSupportDirectory
     inDomains:NSUserDomainMask];
@@ -586,7 +587,6 @@ get_userconfig_home(void)
 
 static std::string migrate_gnc_datahome()
 {
-    auto success = false;
     // Specify location of dictionaries
     bfs::path old_dir(g_get_home_dir(), cvt);
     old_dir /= ".gnucash";
@@ -671,59 +671,59 @@ static std::string migrate_gnc_datahome()
 
     /* Step 3: inform the user of additional changes */
     if (full_copy || !succeeded.empty() || !conf_exist_vec.empty() || !failed.empty())
-        migration_msg << bl::translate ("Notice") << std::endl << std::endl;
+        migration_msg << _("Notice") << std::endl << std::endl;
 
     if (full_copy)
     {
         migration_msg
-        << bl::translate ("Your gnucash metadata has been migrated.") << std::endl << std::endl
+        << _("Your gnucash metadata has been migrated.") << std::endl << std::endl
         /* Translators: this refers to a directory name. */
-        << bl::translate ("Old location:") << " " << old_dir.string() << std::endl
+        << _("Old location:") << " " << old_dir.string() << std::endl
         /* Translators: this refers to a directory name. */
-        << bl::translate ("New location:") << " " << gnc_userdata_home.string() << std::endl << std::endl
+        << _("New location:") << " " << gnc_userdata_home.string() << std::endl << std::endl
         // Translators {1} will be replaced with the package name (typically Gnucash) at runtime
-        << bl::format (bl::translate ("If you no longer intend to run {1} 2.6.x or older on this system you can safely remove the old directory."))
+        << bl::format (std::string{_("If you no longer intend to run {1} 2.6.x or older on this system you can safely remove the old directory.")})
         % PACKAGE_NAME;
     }
 
     if (full_copy &&
         (!succeeded.empty() || !conf_exist_vec.empty() || !failed.empty()))
         migration_msg << std::endl << std::endl
-                        << bl::translate ("In addition:");
+                        << _("In addition:");
 
     if (!succeeded.empty())
     {
         migration_msg << std::endl << std::endl;
         if (full_copy)
-            migration_msg << bl::format (bl::translate ("The following file has been copied to {1} instead:",
+            migration_msg << bl::format (std::string{ngettext("The following file has been copied to {1} instead:",
                                                         "The following files have been copied to {1} instead:",
-                                                        succeeded.size())) % gnc_userconfig_home.string().c_str();
+                                                       succeeded.size())}) % gnc_userconfig_home.string().c_str();
         else
-            migration_msg << bl::format (bl::translate ("The following file in {1} has been renamed:"))
+            migration_msg << bl::format (std::string{_("The following file in {1} has been renamed:")})
                                          % gnc_userconfig_home.string().c_str();
 
         migration_msg << std::endl;
-        for (auto success_file : succeeded)
+        for (const auto& success_file : succeeded)
             migration_msg << "- " << success_file << std::endl;
     }
     if (!conf_exist_vec.empty())
     {
-        migration_msg << std::endl << std::endl
-                      << bl::translate ("The following file has become obsolete and will be ignored:",
+        migration_msg << "\n\n" 
+                      << ngettext("The following file has become obsolete and will be ignored:",
                                         "The following files have become obsolete and will be ignored:",
                                         conf_exist_vec.size())
                       << std::endl;
-        for (auto obs_file : conf_exist_vec)
+        for (const auto& obs_file : conf_exist_vec)
             migration_msg << "- " << obs_file << std::endl;
     }
     if (!failed.empty())
     {
         migration_msg << std::endl << std::endl
-                      << bl::format (bl::translate ("The following file could not be moved to {1}:",
+                      << bl::format (std::string{ngettext("The following file could not be moved to {1}:",
                                                     "The following files could not be moved to {1}:",
-                                                    failed.size())) % gnc_userconfig_home.string().c_str()
+                                                          failed.size())}) % gnc_userconfig_home.string().c_str()
                       << std::endl;
-        for (auto failed_file : failed)
+        for (const auto& failed_file : failed)
             migration_msg << "- " << failed_file << std::endl;
     }
 
@@ -1328,6 +1328,23 @@ gnc_list_all_paths (void)
         return g_list_prepend (a, ep);
     };
     return std::accumulate (paths.rbegin(), paths.rend(), (GList*) nullptr, accum);
+}
+
+static const std::regex
+backup_regex (".*[.](?:xac|gnucash)[.][0-9]{14}[.](?:xac|gnucash)$");
+
+gboolean gnc_filename_is_backup (const char *filename)
+{
+    return std::regex_match (filename, backup_regex);
+}
+
+static const std::regex
+datafile_regex (".*[.](?:xac|gnucash)$");
+
+gboolean gnc_filename_is_datafile (const char *filename)
+{
+    return !gnc_filename_is_backup (filename) &&
+        std::regex_match (filename, datafile_regex);
 }
 
 /* =============================== END OF FILE ========================== */

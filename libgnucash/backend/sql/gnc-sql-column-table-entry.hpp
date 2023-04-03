@@ -24,10 +24,7 @@
 #ifndef __GNC_SQL_COLUMN_TABLE_ENTRY_HPP__
 #define __GNC_SQL_COLUMN_TABLE_ENTRY_HPP__
 
-extern "C"
-{
 #include <qof.h>
-}
 #include <memory>
 #include <vector>
 #include <iostream>
@@ -187,6 +184,7 @@ public:
                                                  void* pObject, T get_ref)
         const noexcept
         {
+            static QofLogModule log_module = G_LOG_DOMAIN;
             g_return_if_fail (pObject != NULL);
 
             try
@@ -199,9 +197,19 @@ public:
                     if (target != nullptr)
                         set_parameter (pObject, target, get_setter(obj_name),
                                        m_gobj_param_name);
+                    else
+                        DEBUG("GUID %s returned null %s reference.",
+                             val.c_str(), m_gobj_param_name);
+                }
+                else
+                {
+                    if (val.empty()) DEBUG("Can't load empty guid string for column %s", m_col_name);
+                    else DEBUG("Invalid GUID %s for column %s", val.c_str(), m_col_name);
                 }
             }
-            catch (std::invalid_argument&) {}
+            catch (std::invalid_argument& err) {
+                DEBUG("set_parameter threw %s for column %s", err.what(), m_col_name);
+            }
         }
 
 

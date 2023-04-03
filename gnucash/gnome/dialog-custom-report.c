@@ -28,16 +28,16 @@
 #include <libguile.h>
 #include "swig-runtime.h"
 
+#include "business-gnome-utils.h"
 #include "dialog-custom-report.h"
-#include "dialog-options.h"
 #include "dialog-utils.h"
 #include "gnc-main-window.h"
-#include "option-util.h"
 #include "window-report.h"
 #include "guile-mappings.h"
 #include "gnc-guile-utils.h"
 #include "gnc-gui-query.h"
 #include "gnc-ui.h"
+#include "gnc-ui-util.h"
 #include "gnc-report.h"
 #include "gnc-plugin-page-report.h"
 
@@ -133,7 +133,7 @@ void
 custom_report_help_cb (GtkWidget *widget, gpointer data)
 {
     CustomReportDialog *crd = data;
-    gnc_gnome_help (GTK_WINDOW(crd->dialog), HF_HELP, HL_USAGE_CUSTOMREP);
+    gnc_gnome_help (GTK_WINDOW(crd->dialog), DF_MANUAL, DL_USAGE_CUSTOMREP);
 }
 
 void
@@ -155,7 +155,6 @@ update_report_list(GtkListStore *store, CustomReportDialog *crd)
     SCM get_rpt_guids = scm_c_eval_string("gnc:custom-report-template-guids");
     SCM template_menu_name = scm_c_eval_string("gnc:report-template-menu-name/report-guid");
     SCM rpt_guids;
-    int i;
     GtkTreeIter iter;
     GtkTreeModel *model = GTK_TREE_MODEL (store);
 
@@ -170,7 +169,7 @@ update_report_list(GtkListStore *store, CustomReportDialog *crd)
     {
         /* for all the report guids in the list, store them, with a reference,
              in the gtkliststore */
-        for (i = 0; !scm_is_null(rpt_guids); i++)
+        while ( !scm_is_null(rpt_guids) )
         {
             GncGUID *guid = guid_malloc ();
             gchar *guid_str = scm_to_utf8_string (SCM_CAR(rpt_guids));
@@ -471,7 +470,23 @@ custom_report_name_edited_cb(GtkCellRendererText *renderer, gchar *path, gchar *
         return;
 
     if (scm_is_true (scm_call_2 (unique_name_func, guid, new_name_scm)))
+    {
+        gchar *default_guid = gnc_get_default_invoice_print_report ();
+
         custom_report_edit_report_name (guid, crd, new_text);
+
+        // check to see if default report name has been changed
+        if (g_strcmp0 (default_guid, scm_to_utf8_string (guid)) == 0)
+        {
+            QofBook *book = gnc_get_current_book ();
+            gchar *default_name = qof_book_get_default_invoice_report_name (book);
+
+            if (g_strcmp0 (default_name, new_text) != 0)
+                qof_book_set_default_invoice_report (book, default_guid, new_text);
+            g_free (default_name);
+        }
+        g_free (default_guid);
+    }
     else
         gnc_error_dialog (GTK_WINDOW (crd->dialog), "%s",
                           _("A saved report configuration with this name already exists, please choose another name.") );

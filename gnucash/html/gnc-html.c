@@ -359,7 +359,7 @@ gnc_html_show_url( GncHtml* self, URLType type,
                    const gchar* location, const gchar* label,
                    gboolean new_window_hint )
 {
-    URLType lc_type = NULL;
+    char* lc_type = NULL;
 
     g_return_if_fail( self != NULL );
     g_return_if_fail( GNC_IS_HTML(self) );
@@ -629,7 +629,7 @@ gnc_html_set_parent( GncHtml* self, GtkWindow* parent )
 gboolean
 gnc_html_register_urltype( URLType type, const char *protocol )
 {
-    URLType  lc_type  = NULL;
+    char*  lc_type  = NULL;
     char    *lc_proto = NULL;
 
     if (!gnc_html_type_to_proto_hash)
@@ -697,7 +697,7 @@ gnc_html_initialize( void )
 gchar*
 gnc_build_url( URLType type, const gchar* location, const gchar* label )
 {
-    URLType  lc_type  = NULL;
+    char*  lc_type  = NULL;
     char * type_name;
 
     DEBUG(" ");
@@ -736,7 +736,8 @@ gnc_html_encode_string(const char * str)
     static gchar *safe = "$-._!*(),"; /* RFC 1738 */
     unsigned pos      = 0;
     GString *encoded  = g_string_new ("");
-    gchar buffer[5], *ptr;
+    static const size_t buf_size = 5;
+    gchar buffer[buf_size], *ptr;
     guchar c;
 
     if (!str) return NULL;
@@ -762,15 +763,13 @@ gnc_html_encode_string(const char * str)
         }
         else if ( c != '\r' )
         {
-            sprintf( buffer, "%%%02X", (int)c );
+            snprintf( buffer, buf_size, "%%%02X", (int)c );
             encoded = g_string_append (encoded, buffer);
         }
         pos++;
     }
 
-    ptr = encoded->str;
-
-    g_string_free (encoded, FALSE);
+    ptr = g_string_free (encoded, FALSE);
 
     return (char *)ptr;
 }
@@ -818,8 +817,7 @@ gnc_html_decode_string(const char * str)
         }
         ptr++;
     }
-    ptr = decoded->str;
-    g_string_free (decoded, FALSE);
+    ptr = g_string_free (decoded, FALSE);
 
     return (char *)ptr;
 }
@@ -850,8 +848,7 @@ gnc_html_unescape_newlines(const gchar * in)
     }
 
     g_string_append_c(rv, 0);
-    cstr = rv->str;
-    g_string_free(rv, FALSE);
+    cstr = g_string_free (rv, FALSE);
     return cstr;
 }
 
@@ -874,8 +871,7 @@ gnc_html_escape_newlines(const gchar * in)
         }
     }
     g_string_append_c(escaped, 0);
-    out = escaped->str;
-    g_string_free(escaped, FALSE);
+    out = g_string_free (escaped, FALSE);
     return out;
 }
 
@@ -931,7 +927,7 @@ gnc_html_register_stream_handler( URLType url_type, GncHTMLStreamCB hand )
     gnc_html_unregister_stream_handler( url_type );
     if ( hand != NULL )
     {
-        URLType  lc_type  = g_ascii_strdown (url_type, -1);
+        char*  lc_type  = g_ascii_strdown (url_type, -1);
         g_hash_table_insert( gnc_html_stream_handlers, lc_type, hand );
     }
 }
@@ -939,7 +935,7 @@ gnc_html_register_stream_handler( URLType url_type, GncHTMLStreamCB hand )
 void
 gnc_html_unregister_stream_handler( URLType url_type )
 {
-    URLType  lc_type = g_ascii_strdown (url_type, -1);
+    char*  lc_type = g_ascii_strdown (url_type, -1);
     g_hash_table_remove( gnc_html_stream_handlers, lc_type );
     g_free(lc_type);
 }
@@ -957,7 +953,7 @@ gnc_html_register_url_handler( URLType url_type, GncHTMLUrlCB hand )
     gnc_html_unregister_url_handler( url_type );
     if ( hand != NULL )
     {
-        URLType lc_type = g_ascii_strdown (url_type, -1);
+        char* lc_type = g_ascii_strdown (url_type, -1);
         g_hash_table_insert( gnc_html_url_handlers, lc_type, hand );
     }
 }
@@ -965,7 +961,7 @@ gnc_html_register_url_handler( URLType url_type, GncHTMLUrlCB hand )
 void
 gnc_html_unregister_url_handler( URLType url_type )
 {
-    URLType lc_type = g_ascii_strdown (url_type, -1);
+    char* lc_type = g_ascii_strdown (url_type, -1);
     g_hash_table_remove( gnc_html_url_handlers, lc_type );
     g_free(lc_type);
 }

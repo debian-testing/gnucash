@@ -103,7 +103,7 @@ enum
 };
 
 /* GObject Initialization */
-G_DEFINE_TYPE(GncCustomer, gnc_customer, QOF_TYPE_INSTANCE);
+G_DEFINE_TYPE(GncCustomer, gnc_customer, QOF_TYPE_INSTANCE)
 
 static void
 gnc_customer_init(GncCustomer* cust)
@@ -129,7 +129,6 @@ gnc_customer_get_property (GObject         *object,
                            GParamSpec      *pspec)
 {
     GncCustomer *cust;
-    gchar *key;
     g_return_if_fail(GNC_IS_CUSTOMER(object));
 
     cust = GNC_CUSTOMER(object);
@@ -160,7 +159,6 @@ gnc_customer_set_property (GObject         *object,
                            GParamSpec      *pspec)
 {
     GncCustomer *cust;
-    gchar *key;
 
     g_return_if_fail(GNC_IS_CUSTOMER(object));
 
@@ -353,14 +351,17 @@ static void gncCustomerFree (GncCustomer *cust)
     gncAddressDestroy (cust->addr);
     gncAddressBeginEdit (cust->shipaddr);
     gncAddressDestroy (cust->shipaddr);
+
+    gncJobFreeList (cust->jobs);
     g_list_free (cust->jobs);
     g_free (cust->balance);
 
-    if (cust->terms)
-        gncBillTermDecRef (cust->terms);
-    if (cust->taxtable)
+    if (!qof_book_shutting_down (qof_instance_get_book (QOF_INSTANCE(cust))))
     {
-        gncTaxTableDecRef (cust->taxtable);
+        if (cust->terms)
+            gncBillTermDecRef (cust->terms);
+        if (cust->taxtable)
+            gncTaxTableDecRef (cust->taxtable);
     }
 
     /* qof_instance_release (&cust->inst); */

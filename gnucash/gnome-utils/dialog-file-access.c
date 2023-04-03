@@ -22,6 +22,7 @@
  * Boston, MA  02110-1301,  USA       gnu@gnu.org                   *
 \********************************************************************/
 
+#include <stdbool.h>
 #include <config.h>
 
 #include <gtk/gtk.h>
@@ -33,13 +34,14 @@
 #include "dialog-utils.h"
 #include "dialog-file-access.h"
 #include "gnc-file.h"
+#include "gnc-filepath-utils.h"
 #include "gnc-plugin-file-history.h"
 #include "gnc-session.h"
 
 static QofLogModule log_module = GNC_MOD_GUI;
 
 #define DEFAULT_HOST "localhost"
-#define DEFAULT_DATABASE "gnucash"
+#define DEFAULT_DATABASE PROJECT_NAME
 #define FILE_ACCESS_OPEN    0
 #define FILE_ACCESS_SAVE_AS 1
 #define FILE_ACCESS_EXPORT  2
@@ -72,7 +74,6 @@ geturl( FileAccessWindow* faw )
 {
     gchar* url = NULL;
     const gchar* host = NULL;
-    const gchar* database = NULL;
     const gchar* username = NULL;
     const gchar* password = NULL;
     /* Not const as return value of gtk_combo_box_text_get_active_text must be freed */
@@ -85,7 +86,10 @@ geturl( FileAccessWindow* faw )
     {
         path = gtk_file_chooser_get_filename (faw->fileChooser);
         if ( !path ) /* file protocol was chosen but no filename was set */
+        {
+            g_free (type);
             return NULL;
+        }
     }
     else                    /* db protocol was chosen */
     {
@@ -125,7 +129,7 @@ gnc_ui_file_access_response_cb(GtkDialog *dialog, gint response, GtkDialog *unus
     switch ( response )
     {
     case GTK_RESPONSE_HELP:
-        gnc_gnome_help (GTK_WINDOW(dialog), HF_HELP, HL_GLOBPREFS );
+        gnc_gnome_help (GTK_WINDOW(dialog), DF_MANUAL, DL_GLOBPREFS );
         break;
 
     case GTK_RESPONSE_OK:
@@ -244,6 +248,21 @@ get_default_database( void )
     return default_db;
 }
 
+typedef bool (*CharToBool)(const char*);
+
+static bool datafile_filter (const GtkFileFilterInfo* filter_info,
+                             CharToBool filename_checker)
+{
+    return filter_info && filter_info->filename &&
+        filename_checker (filter_info->filename);
+}
+
+static void free_file_access_window (FileAccessWindow *faw)
+{
+    g_free (faw->starting_dir);
+    g_free (faw);
+}
+
 static void
 gnc_ui_file_access (GtkWindow *parent, int type)
 {
@@ -281,7 +300,8 @@ gnc_ui_file_access (GtkWindow *parent, int type)
     gnc_builder_add_from_file (builder, "dialog-file-access.glade", "file_access_dialog" );
     faw->dialog = GTK_WIDGET(gtk_builder_get_object (builder, "file_access_dialog" ));
     gtk_window_set_transient_for (GTK_WINDOW (faw->dialog), parent);
-    g_object_set_data_full( G_OBJECT(faw->dialog), "FileAccessWindow", faw, g_free );
+    g_object_set_data_full (G_OBJECT(faw->dialog), "FileAccessWindow", faw,
+                            (GDestroyNotify)free_file_access_window);
 
     // Set the name for this dialog so it can be easily manipulated with css
     gtk_widget_set_name (GTK_WIDGET(faw->dialog), "gnc-id-file-access");
@@ -300,14 +320,14 @@ gnc_ui_file_access (GtkWindow *parent, int type)
     switch ( type )
     {
     case FILE_ACCESS_OPEN:
-        gtk_window_set_title(GTK_WINDOW(faw->dialog), _("Open..."));
+        gtk_window_set_title(GTK_WINDOW(faw->dialog), _("Open…"));
         button_label = _("_Open");
         fileChooserAction = GTK_FILE_CHOOSER_ACTION_OPEN;
         settings_section = GNC_PREFS_GROUP_OPEN_SAVE;
         break;
 
     case FILE_ACCESS_SAVE_AS:
-        gtk_window_set_title(GTK_WINDOW(faw->dialog), _("Save As..."));
+        gtk_window_set_title(GTK_WINDOW(faw->dialog), _("Save As…"));
         button_label = _("_Save As");
         fileChooserAction = GTK_FILE_CHOOSER_ACTION_SAVE;
         settings_section = GNC_PREFS_GROUP_OPEN_SAVE;
@@ -334,11 +354,36 @@ gnc_ui_file_access (GtkWindow *parent, int type)
     faw->fileChooser = GTK_FILE_CHOOSER(fileChooser);
     gtk_box_pack_start( GTK_BOX(file_chooser), GTK_WIDGET(fileChooser), TRUE, TRUE, 6 );
 
+    /* set up .gnucash filters for Datafile operations */
+    GtkFileFilter *filter = gtk_file_filter_new ();
+    gtk_file_filter_set_name (filter, _("All files"));
+    gtk_file_filter_add_pattern (filter, "*");
+    gtk_file_chooser_add_filter (faw->fileChooser, filter);
+
+    filter = gtk_file_filter_new ();
+    /* Translators: *.gnucash and *.xac are file patterns and must not
+       be translated*/
+    gtk_file_filter_set_name (filter, _("Datafiles only (*.gnucash, *.xac)"));
+    gtk_file_filter_add_custom (filter, GTK_FILE_FILTER_FILENAME,
+                                (GtkFileFilterFunc)datafile_filter,
+                                gnc_filename_is_datafile, NULL);
+    gtk_file_chooser_add_filter (faw->fileChooser, filter);
+    gtk_file_chooser_set_filter (faw->fileChooser, filter);
+
+    filter = gtk_file_filter_new ();
+    /* Translators: *.gnucash.*.gnucash, *.xac.*.xac are file
+       patterns and must not be translated*/
+    gtk_file_filter_set_name (filter, _("Backups only (*.gnucash.*.gnucash, *.xac.*.xac)"));
+    gtk_file_filter_add_custom (filter, GTK_FILE_FILTER_FILENAME,
+                                (GtkFileFilterFunc)datafile_filter,
+                                gnc_filename_is_backup, NULL);
+    gtk_file_chooser_add_filter (faw->fileChooser, filter);
+
     /* Set the default directory */
     if (type == FILE_ACCESS_OPEN || type == FILE_ACCESS_SAVE_AS)
     {
         last = gnc_history_get_last();
-        if ( last && gnc_uri_targets_local_fs (last))
+        if ( last && *last && gnc_uri_targets_local_fs (last))
         {
             gchar *filepath = gnc_uri_get_path ( last );
             faw->starting_dir = g_path_get_dirname( filepath );

@@ -146,19 +146,6 @@ gnucash_sheet_set_position (GnucashSheet* sheet, int pos)
 }
 
 static inline void
-gnucash_sheet_get_selection (GnucashSheet *sheet, int *start, int *end)
-{
-    *start = sheet->pos;
-    *end = sheet->bound;
-}
-
-static inline void
-gnucash_sheet_clear_selection (GnucashSheet *sheet)
-{
-    gnucash_sheet_set_selection (sheet, sheet->pos, sheet->pos);
-}
-
-static inline void
 gnucash_sheet_set_entry_value (GnucashSheet *sheet, const char* value)
 {
     g_signal_handler_block (G_OBJECT(sheet->entry),
@@ -362,7 +349,6 @@ gnucash_sheet_activate_cursor_cell (GnucashSheet *sheet,
     Table *table = sheet->table;
     VirtualLocation virt_loc;
     SheetBlockStyle *style;
-    GtkEditable *editable;
     int cursor_pos, start_sel, end_sel;
     gboolean allow_edits;
 
@@ -383,8 +369,6 @@ gnucash_sheet_activate_cursor_cell (GnucashSheet *sheet,
     style = gnucash_sheet_get_style (sheet, virt_loc.vcell_loc);
     if (strcmp (style->cursor->cursor_name, CURSOR_HEADER) == 0)
         return;
-
-    editable = GTK_EDITABLE(sheet->entry);
 
     cursor_pos = -1;
     start_sel = 0;
@@ -421,7 +405,6 @@ gnucash_sheet_activate_cursor_cell (GnucashSheet *sheet,
             GdkRectangle rect;
             gint x, y, width, height;
             gint index = 0, trailing = 0;
-            gboolean result;
             gint x_offset = 0;
 
             if (text && *text)
@@ -1379,7 +1362,6 @@ gnucash_scroll_event (GtkWidget *widget, GdkEventScroll *event)
     GnucashSheet *sheet;
     GtkAdjustment *vadj;
     gfloat h_value, v_value;
-    int direction;
 
     g_return_val_if_fail (widget != NULL, TRUE);
     g_return_val_if_fail (GNUCASH_IS_SHEET(widget), TRUE);
@@ -1410,7 +1392,7 @@ gnucash_scroll_event (GtkWidget *widget, GdkEventScroll *event)
 #if defined MAC_INTEGRATION
         v_value += event->delta_y;
 #else
-        direction = event->delta_y > 0 ? 1 : event->delta_y < 0 ? -1 : 0;
+        int direction = event->delta_y > 0 ? 1 : event->delta_y < 0 ? -1 : 0;
         v_value += gtk_adjustment_get_step_increment (vadj) * direction;
 #endif
         break;
@@ -1811,7 +1793,6 @@ gnucash_sheet_key_press_event_internal (GtkWidget *widget, GdkEventKey *event)
     VirtualLocation cur_virt_loc;
     VirtualLocation new_virt_loc;
     gncTableTraversalDir direction = 0;
-    int distance;
     GdkModifierType modifiers = gtk_accelerator_get_default_mod_mask ();
 
     g_return_val_if_fail (widget != NULL, TRUE);
@@ -1833,6 +1814,13 @@ gnucash_sheet_key_press_event_internal (GtkWidget *widget, GdkEventKey *event)
     /* Followed by the input method */
     if (gtk_entry_im_context_filter_keypress (GTK_ENTRY(sheet->entry), event))
     {
+#if !(defined(__APPLE__) || defined(__WIN32__))
+        /* There's sometimes a timing issue when running under KDE
+         * Plasma where this call removes the selection. This 1ms
+         * sleep prevents it.
+         */
+        usleep(1000);
+#endif
         /* Restore the saved cursor position in case GtkEntry's IMContext
          * handlers messed with it after we set it in our insert_cb.
          */
@@ -1882,14 +1870,12 @@ static gint
 gnucash_sheet_key_press_event (GtkWidget *widget, GdkEventKey *event)
 {
     GnucashSheet *sheet;
-    GtkEditable *editable = NULL;
 
     g_return_val_if_fail (widget != NULL, TRUE);
     g_return_val_if_fail (GNUCASH_IS_SHEET(widget), TRUE);
     g_return_val_if_fail (event != NULL, TRUE);
 
     sheet = GNUCASH_SHEET(widget);
-    editable = GTK_EDITABLE(sheet->entry);
     /* bug#60582 comment#27 2
            save shift state to enable <shift minus> and <shift equal>
        bug#618434
@@ -1910,8 +1896,6 @@ gnucash_sheet_key_press_event (GtkWidget *widget, GdkEventKey *event)
 static gint
 gnucash_sheet_key_release_event (GtkWidget *widget, GdkEventKey *event)
 {
-    GnucashSheet *sheet;
-
     g_return_val_if_fail (widget != NULL, TRUE);
     g_return_val_if_fail (GNUCASH_IS_SHEET(widget), TRUE);
     g_return_val_if_fail (event != NULL, TRUE);

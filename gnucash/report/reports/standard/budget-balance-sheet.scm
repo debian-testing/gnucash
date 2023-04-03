@@ -42,9 +42,6 @@
 (define optname-report-title (N_ "Report Title"))
 (define opthelp-report-title (N_ "Title for this report."))
 
-(define optname-party-name (N_ "Company name"))
-(define opthelp-party-name (N_ "Name of company/individual."))
-
 (define optname-report-form (N_ "Single column Balance Sheet"))
 (define opthelp-report-form
   (N_ "Print liability/equity section in the same column under the assets section as opposed to a second column right of the assets section."))
@@ -113,82 +110,63 @@
 
 ;; options generator
 (define (budget-balance-sheet-options-generator)
-  (let* ((options (gnc:new-options))
-         (book (gnc-get-current-book)) ; XXX Find a way to get the book that opened the report
-         (add-option 
-          (lambda (new-option)
-            (gnc:register-option options new-option))))
-    
-    (add-option
-      (gnc:make-string-option
-      gnc:pagename-general optname-report-title
-      "a" opthelp-report-title (G_ reportname)))
-    (add-option
-      (gnc:make-string-option
-      gnc:pagename-general optname-party-name
-      "b" opthelp-party-name (or (gnc:company-info book gnc:*company-name*) "")))
-    
-    (add-option
-     (gnc:make-simple-boolean-option
-      gnc:pagename-general optname-report-form
-      "c" opthelp-report-form #t))
+  (let* ((options (gnc-new-optiondb)))
 
-    (add-option
-     (gnc:make-budget-option
+    (gnc-register-string-option options
+      gnc:pagename-general optname-report-title
+      "a" opthelp-report-title (G_ reportname))
+    
+    (gnc-register-simple-boolean-option options
+      gnc:pagename-general optname-report-form
+      "c" opthelp-report-form #t)
+
+    (gnc-register-budget-option options
       gnc:pagename-general optname-budget
-      "d" opthelp-budget))
+      "d" opthelp-budget (gnc-budget-get-default (gnc-get-current-book)))
     
     ;; accounts to work on
-    (add-option
-     (gnc:make-account-list-option
+    (gnc-register-account-list-option options
       gnc:pagename-accounts optname-accounts
       "a"
       opthelp-accounts
-      (lambda ()
-	(gnc:filter-accountlist-type 
+      (gnc:filter-accountlist-type
          (list ACCT-TYPE-BANK ACCT-TYPE-CASH ACCT-TYPE-CREDIT
                ACCT-TYPE-ASSET ACCT-TYPE-LIABILITY
                ACCT-TYPE-STOCK ACCT-TYPE-MUTUAL ACCT-TYPE-CURRENCY
                ACCT-TYPE-PAYABLE ACCT-TYPE-RECEIVABLE
                ACCT-TYPE-EQUITY ACCT-TYPE-INCOME ACCT-TYPE-EXPENSE)
 	 (gnc-account-get-descendants-sorted (gnc-get-current-root-account))))
-      #f #t))
+
     (gnc:options-add-account-levels!
      options gnc:pagename-accounts optname-depth-limit
      "b" opthelp-depth-limit 3)
-    (add-option
-     (gnc:make-simple-boolean-option
+    (gnc-register-simple-boolean-option options
       gnc:pagename-accounts optname-bottom-behavior
-      "c" opthelp-bottom-behavior #f))
+      "c" opthelp-bottom-behavior #f)
     
     ;; all about currencies
     (gnc:options-add-currency!
      options pagename-commodities
-     optname-report-commodity "a")
-    
+     optname-report-commodity "a")    
     (gnc:options-add-price-source! 
      options pagename-commodities
      optname-price-source "b" 'pricedb-nearest)
-    
-    (add-option 
-     (gnc:make-simple-boolean-option
+
+    (gnc-register-simple-boolean-option options
       pagename-commodities optname-show-foreign 
-      "c" opthelp-show-foreign #t))
+      "c" opthelp-show-foreign #t)
     
-    (add-option 
-     (gnc:make-simple-boolean-option
+    (gnc-register-simple-boolean-option options
       pagename-commodities optname-show-rates
-      "d" opthelp-show-rates #f))
+      "d" opthelp-show-rates #f)
     
     ;; what to show for zero-balance accounts
-    (add-option 
-     (gnc:make-simple-boolean-option
+    (gnc-register-simple-boolean-option options
       gnc:pagename-display optname-show-zb-accts
-      "a" opthelp-show-zb-accts #t))
-    (add-option 
-     (gnc:make-simple-boolean-option
+      "a" opthelp-show-zb-accts #t)
+    (gnc-register-simple-boolean-option options
       gnc:pagename-display optname-omit-zb-bals
-      "b" opthelp-omit-zb-bals #f))
+      "b" opthelp-omit-zb-bals #f)
     ;; what to show for non-leaf accounts
     (gnc:options-add-subtotal-view!
      options gnc:pagename-display
@@ -196,46 +174,37 @@
      "c")
 
     ;; some detailed formatting options
-    (add-option 
-     (gnc:make-simple-boolean-option
+    (gnc-register-simple-boolean-option options
       gnc:pagename-display optname-account-links
-      "d" opthelp-account-links #t))
-    (add-option 
-     (gnc:make-simple-boolean-option
+      "d" opthelp-account-links #t)
+    (gnc-register-simple-boolean-option options
       gnc:pagename-display optname-use-rules
-      "e" opthelp-use-rules #f))
+      "e" opthelp-use-rules #f)
     
-    (add-option 
-     (gnc:make-simple-boolean-option
+    (gnc-register-simple-boolean-option options
       gnc:pagename-display optname-label-assets
-      "f" opthelp-label-assets #t))
-    (add-option 
-     (gnc:make-simple-boolean-option
+      "f" opthelp-label-assets #t)
+    (gnc-register-simple-boolean-option options
       gnc:pagename-display optname-total-assets
-      "g" opthelp-total-assets #t))
+      "g" opthelp-total-assets #t)
     
-    (add-option 
-     (gnc:make-simple-boolean-option
+    (gnc-register-simple-boolean-option options
       gnc:pagename-display optname-label-liabilities
-      "h" opthelp-label-liabilities #t))
-    (add-option 
-     (gnc:make-simple-boolean-option
+      "h" opthelp-label-liabilities #t)
+    (gnc-register-simple-boolean-option options
       gnc:pagename-display optname-total-liabilities
-      "i" opthelp-total-liabilities #t))
+      "i" opthelp-total-liabilities #t)
     
-    (add-option 
-     (gnc:make-simple-boolean-option
+    (gnc-register-simple-boolean-option options
       gnc:pagename-display optname-label-equity
-      "j" opthelp-label-equity #t))
-    (add-option 
-     (gnc:make-simple-boolean-option
+      "j" opthelp-label-equity #t)
+    (gnc-register-simple-boolean-option options
       gnc:pagename-display optname-total-equity
-      "k" opthelp-total-equity #t))
+      "k" opthelp-total-equity #t)
 
-    (add-option
-      (gnc:make-simple-boolean-option
+    (gnc-register-simple-boolean-option options
        gnc:pagename-display optname-new-existing
-       "l" opthelp-new-existing #t))
+       "l" opthelp-new-existing #t)
     
     ;; Set the accounts page as default option tab
     (gnc:options-set-default-section options gnc:pagename-accounts)
@@ -251,13 +220,12 @@
 
 (define (budget-balance-sheet-renderer report-obj)
   (define (get-option pagename optname)
-    (gnc:option-value
-     (gnc:lookup-option 
-      (gnc:report-options report-obj) pagename optname)))
+    (gnc-optiondb-lookup-value
+      (gnc:report-options report-obj) pagename optname))
 
   (define (get-budget-account-budget-balance budget account)
     (let ((bal (gnc:budget-account-get-net budget account #f #f)))
-      (if (gnc-reverse-budget-balance account #t) (gnc:collector- bal) bal)))
+      (if (gnc-reverse-balance account) (gnc:collector- bal) bal)))
 
   (define (get-budget-account-initial-balance budget account)
     (gnc:budget-account-get-initial-balance budget account))
@@ -285,7 +253,7 @@
   ;; get all option's values
   (let* (
 	 (report-title (get-option gnc:pagename-general optname-report-title))
-	 (company-name (get-option gnc:pagename-general optname-party-name))
+	 (company-name (or (gnc:company-info (gnc-get-current-book) gnc:*company-name*) ""))
          (budget (get-option gnc:pagename-general optname-budget))
          (budget-valid? (and budget (not (null? budget))))
          (date-t64 (if budget-valid? (gnc:budget-get-start-date budget) #f))

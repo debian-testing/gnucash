@@ -29,15 +29,12 @@
  */
 
 #include <guid.hpp>
-extern "C"
-{
 #include <config.h>
 
 #include <glib.h>
 #include <stdlib.h>
 #include <string.h>
 #include "gncOrderP.h"
-}
 
 #include "gnc-sql-connection.hpp"
 #include "gnc-sql-backend.hpp"
@@ -48,7 +45,7 @@ extern "C"
 
 #define _GNC_MOD_NAME   GNC_ID_ORDER
 
-static QofLogModule log_module = G_LOG_DOMAIN;
+[[maybe_unused]] static QofLogModule log_module = G_LOG_DOMAIN;
 
 #define TABLE_NAME "orders"
 #define TABLE_VERSION 1

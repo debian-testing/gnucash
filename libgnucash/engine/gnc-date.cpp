@@ -27,8 +27,6 @@
 
 #define __EXTENSIONS__
 #include <glib.h>
-extern "C"
-{
 
 #include <config.h>
 #include <libintl.h>
@@ -45,7 +43,6 @@ extern "C"
 #ifdef G_OS_WIN32
 #  include <windows.h>
 #endif
-}
 
 #include <cinttypes>
 #include <unicode/calendar.h>
@@ -734,6 +731,8 @@ qof_scan_date_internal (const char *buff, int *day, int *month, int *year,
     /* today's date */
     gnc_time (&secs);
     now = gnc_localtime (&secs);
+    if (!now)
+        return FALSE;
     now_day = now->tm_mday;
     now_month = now->tm_mon + 1;
     now_year = now->tm_year + 1900;
@@ -1102,7 +1101,8 @@ qof_strftime(gchar *buf, gsize max, const gchar *format, const struct tm *tm)
 gchar *
 gnc_date_timestamp (void)
 {
-    return g_strdup(GncDateTime::timestamp().c_str());
+    auto timestamp = GncDateTime::timestamp();
+    return g_strdup(timestamp.c_str());
 }
 
 /********************************************************************\
@@ -1116,7 +1116,6 @@ gnc_date_timestamp (void)
 time64
 gnc_iso8601_to_time64_gmt(const char *cstr)
 {
-    time64 time;
     if (!cstr) return INT64_MAX;
     try
     {
@@ -1141,8 +1140,6 @@ gnc_iso8601_to_time64_gmt(const char *cstr)
 char *
 gnc_time64_to_iso8601_buff (time64 time, char * buff)
 {
-    constexpr size_t max_iso_date_length = 32;
-
     if (! buff) return NULL;
     try
     {
@@ -1234,8 +1231,9 @@ GDate* gnc_g_date_new_today ()
     auto result = g_date_new_dmy (ymd.day, month, ymd.year);
     g_assert(g_date_valid (result));
     return result;
-}void
+}
 
+void
 gnc_gdate_set_today (GDate* gd)
 {
     GDate *today = gnc_g_date_new_today ();
@@ -1332,6 +1330,12 @@ void
 gnc_tm_get_today_start (struct tm *tm)
 {
     gnc_tm_get_day_start(tm, time(NULL));
+}
+
+void
+gnc_tm_get_today_neutral (struct tm *tm)
+{
+    gnc_tm_get_day_neutral(tm, time(NULL));
 }
 
 void
@@ -1544,8 +1548,8 @@ gnc_gdate_set_quarter_end (GDate *date)
 void
 gnc_gdate_set_prev_quarter_start (GDate *date)
 {
-    gnc_gdate_set_quarter_start(date);
     g_date_subtract_months(date, 3);
+    gnc_gdate_set_quarter_start(date);
 }
 
 void

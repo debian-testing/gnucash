@@ -8,9 +8,6 @@
 ;;
 ;;  * BUGS:
 ;;    
-;;    The Company Name field does not currently default to the name
-;;    in (gnc-get-current-book).
-;;    
 ;;    Line & column alignments may still not conform with
 ;;    textbook accounting practice (they're close though!).
 ;;    
@@ -51,9 +48,6 @@
 ;; defined in *one* place.
 (define optname-report-title (N_ "Report Title"))
 (define opthelp-report-title (N_ "Title for this report."))
-
-(define optname-party-name (N_ "Company name"))
-(define opthelp-party-name (N_ "Name of company/individual."))
 
 (define optname-budget (N_ "Budget"))
 (define opthelp-budget (N_ "Budget to use."))
@@ -131,86 +125,70 @@
 
 ;; options generator
 (define (budget-income-statement-options-generator-internal reportname)
-  (let* ((options (gnc:new-options))
-         (book (gnc-get-current-book)) ; XXX Find a way to get the book that opened the report
-         (add-option 
-          (lambda (new-option)
-            (gnc:register-option options new-option))))
-    
-    (add-option
-      (gnc:make-string-option
+  (let* ((options (gnc-new-optiondb)))
+
+    (gnc-register-string-option options
       gnc:pagename-general optname-report-title
-      "a" opthelp-report-title (G_ reportname)))
-    (add-option
-      (gnc:make-string-option
-      gnc:pagename-general optname-party-name
-      "b" opthelp-party-name (or (gnc:company-info book gnc:*company-name*) "")))
+      "a" opthelp-report-title (G_ reportname))
 
-    (add-option
-     (gnc:make-budget-option
+    (gnc-register-budget-option options
       gnc:pagename-general optname-budget
-      "c" opthelp-budget))
+      "c" opthelp-budget
+      (gnc-budget-get-default (gnc-get-current-book)))
 
-    (add-option
-     (gnc:make-complex-boolean-option
+    (gnc-register-complex-boolean-option options
       gnc:pagename-general
       optname-use-budget-period-range
       "d"
       opthelp-use-budget-period-range
       #f
-      #f
       ;; Make budget-period-start and budget-period-end option widgets
       ;; selectable only when we are running the report for a budget period
       ;; range.
       (lambda (value)
-        (gnc-option-db-set-option-selectable-by-name
+        (gnc-optiondb-set-option-selectable-by-name
           options
           gnc:pagename-general
           optname-budget-period-start
           value)
-        (gnc-option-db-set-option-selectable-by-name
+        (gnc-optiondb-set-option-selectable-by-name
           options
           gnc:pagename-general
           optname-budget-period-end
-          value))))
+          value)))
 
-    (add-option
-     (gnc:make-number-range-option
+    (gnc-register-number-range-option options
       gnc:pagename-general optname-budget-period-start
       "e" opthelp-budget-period-start
       ;; FIXME: It would be nice if the max number of budget periods (60) was
       ;; defined globally somewhere so we could reference it here.  However, it
       ;; only appears to be defined currently in src/gnome/glade/budget.glade.
-      1 1 60 0 1))
+      1 1 60 1)
     
-    (add-option
-     (gnc:make-number-range-option
+    (gnc-register-number-range-option options
       gnc:pagename-general optname-budget-period-end
       "f" opthelp-budget-period-end
       ;; FIXME: It would be nice if the max number of budget periods (60) was
       ;; defined globally somewhere so we could reference it here.  However, it
       ;; only appears to be defined currently in src/gnome/glade/budget.glade.
-      1 1 60 0 1))
+      1 1 60 1)
     
     ;; accounts to work on
-    (add-option
-     (gnc:make-account-list-option
+    (gnc-register-account-list-option options
       gnc:pagename-accounts optname-accounts
       "a"
       opthelp-accounts
-      (lambda ()
-	(gnc:filter-accountlist-type
+      (gnc:filter-accountlist-type
 	 ;; select, by default, only income and expense accounts
 	 (list ACCT-TYPE-INCOME ACCT-TYPE-EXPENSE)
 	 (gnc-account-get-descendants-sorted (gnc-get-current-root-account))))
-      #f #t))
+
     (gnc:options-add-account-levels!
      options gnc:pagename-accounts optname-depth-limit
      "b" opthelp-depth-limit 3)
-    (add-option
-     (gnc:make-simple-boolean-option
+    (gnc-register-simple-boolean-option options
       gnc:pagename-accounts optname-bottom-behavior
-      "c" opthelp-bottom-behavior #f))
+      "c" opthelp-bottom-behavior #f)
     
     ;; all about currencies
     (gnc:options-add-currency!
@@ -221,25 +199,21 @@
      options pagename-commodities
      optname-price-source "b" 'pricedb-nearest)
     
-    (add-option 
-     (gnc:make-simple-boolean-option
+    (gnc-register-simple-boolean-option options
       pagename-commodities optname-show-foreign 
-      "c" opthelp-show-foreign #t))
+      "c" opthelp-show-foreign #t)
     
-    (add-option 
-     (gnc:make-simple-boolean-option
+    (gnc-register-simple-boolean-option options
       pagename-commodities optname-show-rates
-      "d" opthelp-show-rates #f))
+      "d" opthelp-show-rates #f)
     
     ;; what to show for zero-balance accounts
-    (add-option 
-     (gnc:make-simple-boolean-option
+    (gnc-register-simple-boolean-option options
       gnc:pagename-display optname-show-zb-accts
-      "a" opthelp-show-zb-accts #t))
-    (add-option 
-     (gnc:make-simple-boolean-option
+      "a" opthelp-show-zb-accts #t)
+    (gnc-register-simple-boolean-option options
       gnc:pagename-display optname-omit-zb-bals
-      "b" opthelp-omit-zb-bals #f))
+      "b" opthelp-omit-zb-bals #f)
     ;; what to show for non-leaf accounts
     (gnc:options-add-subtotal-view!
      options gnc:pagename-display
@@ -247,42 +221,34 @@
      "c")
 
     ;; some detailed formatting options
-    (add-option 
-     (gnc:make-simple-boolean-option
+    (gnc-register-simple-boolean-option options
       gnc:pagename-display optname-account-links
-      "d" opthelp-account-links #t))
-    (add-option 
-     (gnc:make-simple-boolean-option
+      "d" opthelp-account-links #t)
+    (gnc-register-simple-boolean-option options
       gnc:pagename-display optname-use-rules
-      "e" opthelp-use-rules #f))
+      "e" opthelp-use-rules #f)
     
-    (add-option 
-     (gnc:make-simple-boolean-option
+    (gnc-register-simple-boolean-option options
       gnc:pagename-display optname-label-revenue
-      "f" opthelp-label-revenue #t))
-    (add-option 
-     (gnc:make-simple-boolean-option
+      "f" opthelp-label-revenue #t)
+    (gnc-register-simple-boolean-option options
       gnc:pagename-display optname-total-revenue
-      "g" opthelp-total-revenue #t))
+      "g" opthelp-total-revenue #t)
     
-    (add-option 
-     (gnc:make-simple-boolean-option
+    (gnc-register-simple-boolean-option options
       gnc:pagename-display optname-label-expense
-      "h" opthelp-label-expense #t))
-    (add-option 
-     (gnc:make-simple-boolean-option
+      "h" opthelp-label-expense #t)
+    (gnc-register-simple-boolean-option options
       gnc:pagename-display optname-total-expense
-      "i" opthelp-total-expense #t))
+      "i" opthelp-total-expense #t)
 
-    (add-option
-     (gnc:make-simple-boolean-option
+    (gnc-register-simple-boolean-option options
       gnc:pagename-display optname-two-column
-      "j" opthelp-two-column #f))
+      "j" opthelp-two-column #f)
 
-    (add-option
-     (gnc:make-simple-boolean-option
+    (gnc-register-simple-boolean-option options
       gnc:pagename-display optname-standard-order
-      "k" opthelp-standard-order #t))
+      "k" opthelp-standard-order #t)
     
     ;; Set the accounts page as default option tab
     (gnc:options-set-default-section options gnc:pagename-accounts)
@@ -296,9 +262,8 @@
 
 (define (budget-income-statement-renderer-internal report-obj reportname)
   (define (get-option pagename optname)
-    (gnc:option-value
-     (gnc:lookup-option 
-      (gnc:report-options report-obj) pagename optname)))
+    (gnc-optiondb-lookup-value
+      (gnc:report-options report-obj) pagename optname))
   
   (define (get-assoc-account-balances-budget
            budget accountlist period-start period-end get-balance-fn)
@@ -308,14 +273,14 @@
 
   (define (get-budget-account-budget-balance budget account period-start period-end)
     (let ((bal (gnc:budget-account-get-net budget account period-start period-end)))
-      (if (gnc-reverse-budget-balance account #t) (gnc:collector- bal) bal)))
+      (if (gnc-reverse-balance account) (gnc:collector- bal) bal)))
 
   (gnc:report-starting reportname)
   
   ;; get all option's values
   (let* (
 	 (report-title (get-option gnc:pagename-general optname-report-title))
-	 (company-name (get-option gnc:pagename-general optname-party-name))
+	 (company-name (or (gnc:company-info (gnc-get-current-book) gnc:*company-name*) ""))
          (budget (get-option gnc:pagename-general optname-budget))
          (budget-valid? (and budget (not (null? budget))))
          (use-budget-period-range?

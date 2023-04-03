@@ -15,12 +15,6 @@
 /* always defined to indicate that i18n is enabled */
 #cmakedefine ENABLE_NLS 1
 
-/* Don't use deprecated gdk functions */
-#cmakedefine GDK_DISABLE_DEPRECATED 1
-
-/* Don't use deprecated gdk-pixbuf functions */
-#cmakedefine GDK_PIXBUF_DISABLE_DEPRECATED 1
-
 /* Using GDK Quartz (not X11) */
 #cmakedefine GDK_QUARTZ
 
@@ -43,28 +37,16 @@
 /* Microsoft Windows OS */
 #cmakedefine GNC_PLATFORM_WINDOWS 1
 
-/* using GNOME */
-#cmakedefine GNOME
-
-/* Don't use deprecated gnome functions */
-#cmakedefine GNOME_DISABLE_DEPRECATED
-
 /* GnuCash build identification, which defaults to a description of the vcs
    commit from which gnucash is built. Distributions may want to insert a
    package management based version string instead. */
 #define GNUCASH_BUILD_ID "@GNUCASH_BUILD_ID@"
 
-/* Most recent stable GnuCash series */
-#define GNUCASH_LATEST_STABLE_SERIES "@GNUCASH_LATEST_STABLE_SERIES@"
-
 /* GnuCash earliest compatible databaseversion number */
 #define GNUCASH_RESAVE_VERSION @GNUCASH_RESAVE_VERSION@
 
-/* Don't use deprecated gtk functions */
-#cmakedefine GTK_DISABLE_DEPRECATED 1
-
-/* Don't use deprecated glib functions */
-#cmakedefine G_DISABLE_DEPRECATED 1
+/* GnuCash prefix to use for GLib resources */
+#define GNUCASH_RESOURCE_PREFIX "@GNUCASH_RESOURCE_PREFIX@"
 
 /* define if the Boost library is available */
 #cmakedefine HAVE_BOOST
@@ -128,6 +110,9 @@
 
 /* Define to 1 if you have the `pthread' library (-lpthread). */
 #cmakedefine HAVE_LIBPTHREAD 1
+
+/* Define to 1 if Finance::Quote is installed in perl. */
+#cmakedefine HAVE_F_Q 1
 
 /* System has libsecret 0.18 or better */
 #cmakedefine HAVE_LIBSECRET 1
@@ -294,9 +279,6 @@
 
 /* Name of package containing qt3-wizard. */
 #define QT3_WIZARD_PACKAGE "aqbanking"
-
-/* We are not using Register2 */
-#cmakedefine REGISTER2_ENABLED 1
 
 /* Define to 1 if you have the ANSI C header files. */
 #cmakedefine STDC_HEADERS 1

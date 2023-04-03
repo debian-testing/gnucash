@@ -593,7 +593,6 @@ gnc_query_view_get_selected_entry_list (GNCQueryView *qview)
 {
     GtkTreeSelection *selection;
     acc_data acc_entries;
-    GList *entries = NULL;
 
     g_return_val_if_fail (qview != NULL, NULL);
     g_return_val_if_fail (GNC_IS_QUERY_VIEW(qview), NULL);
@@ -809,7 +808,6 @@ gnc_query_view_fill (GNCQueryView *qview)
     for (item = entries; item; item = item->next)
     {
         GList *node;
-        gint row = 0;
         const QofParam *gup;
         QofParam *qp = NULL;
 
@@ -869,7 +867,6 @@ gnc_query_view_fill (GNCQueryView *qview)
             }
             i++;
         }
-        row++;
         /* and set a watcher on this item */
         gup = priv->get_guid;
         guid = (const GncGUID*)((gup->param_getfcn)(item->data, gup));

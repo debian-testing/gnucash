@@ -22,7 +22,8 @@
 (define-module (gnucash report report-core))
 
 (eval-when (compile load eval expand)
-  (load-extension "libgnc-report" "scm_init_sw_report_module"))
+  (load-extension "libgnc-report" "scm_init_sw_report_module")
+  (load-extension "libgnc-expressions-guile" "scm_init_sw_expressions_module"))
 
 (use-modules (gnucash engine))
 (use-modules (gnucash utilities))
@@ -31,6 +32,7 @@
 (use-modules (gnucash gnome-utils))
 (use-modules (ice-9 match))
 (use-modules (srfi srfi-1))
+(use-modules (srfi srfi-2))
 (use-modules (srfi srfi-9))
 (use-modules (srfi srfi-26))
 (use-modules (gnucash report report-register-hooks))
@@ -39,11 +41,13 @@
 (use-modules (gnucash report html-utilities))
 
 (load-and-reexport (sw_report)
-                   (sw_engine))
+                   (sw_engine)
+                   (gnucash options))
 
 (export <report>)
 (export gnc:all-report-template-guids)
 (export gnc:custom-report-template-guids)
+(export gnc:custom-report-invoice-template-guids)
 (export gnc:define-report)
 (export gnc:delete-report)
 (export gnc:find-report-template)
@@ -73,13 +77,13 @@
 (export gnc:report-export-thunk)
 (export gnc:report-export-types)
 (export gnc:report-id)
+(export gnc:report-is-invoice-report?)
 (export gnc:report-menu-name)
 (export gnc:report-name)
 (export gnc:report-needs-save?)
 (export gnc:report-options)
 (export gnc:report-render-html)
 (export gnc:render-report)
-(export gnc:report-run)
 (export gnc:report-serialize)
 (export gnc:report-set-ctext!)
 (export gnc:report-set-dirty?!)
@@ -114,7 +118,6 @@
 (export gnc:report-to-template-new)
 (export gnc:report-to-template-update)
 (export gnc:report-type)
-(export gnc:restore-report-by-guid)
 (export gnc:restore-report-by-guid-with-custom-template)
 
 ;; Terminology in this file:
@@ -169,7 +172,7 @@
   (make-new-record-template version name report-guid parent-type options-generator
                             options-cleanup-cb options-changed-cb
                             renderer in-menu? menu-path menu-name
-                            menu-tip export-types export-thunk)
+                            menu-tip hook export-types export-thunk)
   report-template?
   (version report-template-version)
   (report-guid report-template-report-guid report-template-set-report-guid!)
@@ -183,11 +186,12 @@
   (menu-path report-template-menu-path)
   (menu-name report-template-menu-name)
   (menu-tip report-template-menu-tip)
+  (hook report-template-hook)
   (export-types report-template-export-types)
   (export-thunk report-template-export-thunk))
 
 (define (make-report-template)
-  (make-new-record-template #f #f #f #f #f #f #f #f #t #f #f #f #f #f))
+  (make-new-record-template #f #f #f #f #f #f #f #f #t #f #f #f #f #f #f))
 (define gnc:report-template-version report-template-version)
 (define gnc:report-template-report-guid report-template-report-guid)
 (define gnc:report-template-set-report-guid! report-template-set-report-guid!)
@@ -203,6 +207,7 @@
 (define gnc:report-template-menu-path report-template-menu-path)
 (define gnc:report-template-menu-name report-template-menu-name)
 (define gnc:report-template-menu-tip report-template-menu-tip)
+(define gnc:report-template-hook report-template-hook)
 (define gnc:report-template-export-types report-template-export-types)
 (define gnc:report-template-export-thunk report-template-export-thunk)
 
@@ -287,37 +292,36 @@ not found.")))
          (gnc:report-template-renderer templ))))
 
 (define (gnc:report-template-new-options report-template)
-  (let ((generator (gnc:report-template-options-generator report-template))
-        (namer
-         (gnc:make-string-option
-          gnc:pagename-general gnc:optname-reportname "0a"
-          (N_ "Enter a descriptive name for this report.")
-          (G_ (gnc:report-template-name report-template))))
-        (stylesheet
-         (gnc:make-multichoice-option
-          gnc:pagename-general gnc:optname-stylesheet "0b"
-          (N_ "Select a stylesheet for the report.")
-          (string->symbol (N_ "Default"))
-          (map
-           (lambda (ss)
-             (vector
-              (string->symbol (gnc:html-style-sheet-name ss))
-              (gnc:html-style-sheet-name ss)))
-           (gnc:get-html-style-sheets)))))
-
-    (let ((options (if (procedure? generator)
+  (let* ((generator (gnc:report-template-options-generator report-template))
+         (options (if (procedure? generator)
                        (or (gnc:backtrace-if-exception generator)
                            (begin
                              (gnc:warn "BUG DETECTED: Scheme exception raised in "
                                        "report options generator procedure named "
                                        (procedure-name generator))
-                             (gnc:new-options)))
-                       (gnc:new-options))))
-      (or (gnc:lookup-option options gnc:pagename-general gnc:optname-reportname)
-          (gnc:register-option options namer))
-      (or (gnc:lookup-option options gnc:pagename-general gnc:optname-stylesheet)
-          (gnc:register-option options stylesheet))
-      options)))
+                             (gnc-new-optiondb)))
+                       (gnc-new-optiondb)))
+         (optiondb (gnc:optiondb options)))
+      (or
+       (gnc-lookup-option optiondb gnc:pagename-general gnc:optname-reportname)
+       (gnc-register-string-option optiondb
+        gnc:pagename-general gnc:optname-reportname "0a"
+        (N_ "Enter a descriptive name for this report.")
+        (G_ (gnc:report-template-name report-template))))
+      (or
+       (gnc-lookup-option optiondb gnc:pagename-general gnc:optname-stylesheet)
+       (gnc-register-multichoice-option
+        optiondb
+        gnc:pagename-general gnc:optname-stylesheet "0b"
+        (N_ "Select a stylesheet for the report.")
+        (N_ "Default")
+        (map
+         (lambda (ss)
+           (vector
+            (string->symbol (gnc:html-style-sheet-name ss))
+            (gnc:html-style-sheet-name ss)))
+         (gnc:get-html-style-sheets))))
+      options))
 
 ;; A <report> represents an instantiation of a particular report type.
 (define-record-type <report>
@@ -377,30 +381,9 @@ not found.")))
     (let ((options (if (null? rest)
                        (gnc:report-template-new-options template)
                        (car rest))))
-      (gnc:report-set-options! r options)
-      (gnc:options-register-callback
-       #f #f
-       (lambda ()
-         (gnc:report-set-dirty?! r #t)
-         (let ((cb (gnc:report-template-options-changed-cb template)))
-           (if cb (cb r))))
-       options))
+      (gnc:report-set-options! r options))
     (gnc:report-set-id! r (gnc-report-add r))
     (gnc:report-id r)))
-
-
-(define (gnc:restore-report-by-guid id template-id template-name options)
-  (issue-deprecation-warning "gnc:restore-report-by-guid is now deprecated.
- use gnc:restore-report-by-guid-with-custom-template instead.")
-  (if options
-      (let* ((r (make-report template-id id options #t #t #f #f ""))
-             (report-id (gnc-report-add r)))
-        (if (number? report-id)
-            (gnc:report-set-id! r report-id))
-        report-id)
-      (begin
-        (gui-error-missing-template template-name)
-        #f)))
 
 (define (gnc:restore-report-by-guid-with-custom-template
          id template-id template-name custom-template-id options)
@@ -443,27 +426,22 @@ not found.")))
              (gnc:report-name report)))))
 
 (define (gnc:report-name report)
-  (let* ((opt (gnc:report-options report)))
+  (let* ((opt (gnc:optiondb (gnc:report-options report))))
     (and opt
-         (gnc:option-value
-          (gnc:lookup-option opt gnc:pagename-general gnc:optname-reportname)))))
+         (gnc-optiondb-lookup-value opt gnc:pagename-general gnc:optname-reportname))))
 
 (define (gnc:report-stylesheet report)
   (gnc:html-style-sheet-find
-   (symbol->string (gnc:option-value
-                    (gnc:lookup-option
-                     (gnc:report-options report)
+   (symbol->string (gnc-optiondb-lookup-value
+                    (gnc:optiondb (gnc:report-options report))
                      gnc:pagename-general
-                     gnc:optname-stylesheet)))))
+                     gnc:optname-stylesheet))))
 
 (define (gnc:report-set-stylesheet! report stylesheet)
-  (gnc:option-set-value
-   (gnc:lookup-option
-    (gnc:report-options report)
-    gnc:pagename-general
-    gnc:optname-stylesheet)
-   (string->symbol
-    (gnc:html-style-sheet-name stylesheet))))
+  (gnc-set-option
+   (gnc:optiondb (gnc:report-options report))
+   gnc:pagename-general gnc:optname-stylesheet
+   (string->symbol (gnc:html-style-sheet-name stylesheet))))
 
 
 ;; Load and save helper functions
@@ -476,6 +454,21 @@ not found.")))
 ;; return a list of the custom report template guids.
 (define (gnc:custom-report-template-guids)
   (map car (gnc:custom-report-templates-list)))
+
+(define (gnc:report-is-invoice-report? guid)
+  (let ((tmpl (gnc:find-report-template guid)))
+    (cond
+     ((not tmpl) #f)
+     ((eq? (gnc:report-template-hook tmpl) 'invoice) #t)
+     (else (and-let* ((type (gnc:report-template-parent-type tmpl))
+                      (template (gnc:find-report-template type)))
+             (eq? (gnc:report-template-hook template) 'invoice))))))
+
+;; return a list of the invoice report template guids.
+(define (gnc:custom-report-invoice-template-guids)
+  (hash-fold
+   (lambda (k v p) (if (gnc:report-is-invoice-report? k) (cons k p) p))
+    '() *gnc:_report-templates_*))
 
 (define (gnc:find-report-template guid)
   (hash-ref *gnc:_report-templates_* guid))
@@ -493,7 +486,7 @@ not found.")))
           (hash-map->list cons *gnc:_report-templates_*)))
 
 ;; This function should be called right before changing a custom-template's name
-;; to test if the new name is unique among the existting custom reports.
+;; to test if the new name is unique among the existing custom reports.
 ;; If not the calling function can prevent the name from being updated.
 (define (gnc:report-template-has-unique-name? templ-guid new-name)
   (or (not new-name)
@@ -588,8 +581,8 @@ not found.")))
              "      ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;\n"
              "      (let*\n"
              "        (\n"
-             "          (option (gnc:lookup-option options \"__general\" \"report-list\"))\n"
-             "          (saved-report-list (gnc:option-value option))\n"
+             "          (option (gnc-lookup-option (gnc:optiondb options) \"__general\" \"report-list\"))\n"
+             "          (saved-report-list (GncOption-set-value option))\n"
              "        )\n"
              "        (\n"
              "          (lambda (option)\n"
@@ -766,20 +759,6 @@ not found.")))
   (define (get-report) (gnc:report-render-html report #t))
   (gnc:apply-with-error-handling get-report '()))
 
-;; looks up the report by id and renders it with gnc:report-render-html
-;; marks the cursor busy during rendering; returns the html
-(define (gnc:report-run id)
-  (issue-deprecation-warning "gnc:report-run is deprecated. use gnc:render-report instead.")
-  (let ((report (gnc-report-find id))
-        (html #f))
-    (gnc-set-busy-cursor '() #t)
-    (gnc:backtrace-if-exception
-     (lambda ()
-       (if report (set! html (gnc:report-render-html report #t)))))
-    (gnc-unset-busy-cursor '())
-    html))
-
-
 ;; "thunk" should take the report-type and the report template record
 (define (gnc:report-templates-for-each thunk)
   (hash-for-each
@@ -789,9 +768,9 @@ not found.")))
 
 ;; return the list of reports embedded in the specified report
 (define (gnc:report-embedded-list options)
-  (let* ((option (gnc:lookup-option options "__general" "report-list")))
+  (let* ((option (gnc-lookup-option (gnc:optiondb options) "__general" "report-list")))
     (and option
-         (let ((opt-value (gnc:option-value option)))
+         (let ((opt-value (GncOption-get-value option)))
            (map car opt-value)))))
 
 ;; delete an existing report from the hash table and then call to

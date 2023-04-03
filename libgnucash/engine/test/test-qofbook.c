@@ -19,21 +19,14 @@
  * 51 Franklin Street, Fifth Floor    Fax:    +1-617-542-2652       *
  * Boston, MA  02110-1301,  USA       gnu@gnu.org                   *
 \********************************************************************/
-#ifdef __cplusplus
-extern "C"
-{
-#endif
-
 #include <config.h>
 #include <string.h>
 #include <glib.h>
 #include <inttypes.h>
 #include <unittest-support.h>
-#ifdef __cplusplus
-}
-#endif
 
 #include "../qof.h"
+#include "../gnc-features.h"
 #include "../qofbook-p.h"
 #include "../qofbookslots.h"
 /* For gnc_account_create_root() */
@@ -433,6 +426,116 @@ test_book_increment_and_format_counter ( Fixture *fixture, gconstpointer pData )
 }
 
 static void
+test_book_get_default_report_guid ( Fixture *fixture, gconstpointer pData )
+{
+    const char *err_no_book = "No book";
+    const char *r;
+
+    /* need this as long as we have fatal warnings enabled */
+    g_test_log_set_fatal_handler ( ( GTestLogFatalFunc )handle_faults, NULL );
+
+    g_test_message( "Testing default report guid when book is null" );
+    r = qof_book_get_default_invoice_report_guid ( NULL );
+    g_assert_cmpstr( r, == , NULL );
+    g_assert( g_strrstr( test_struct.msg, err_no_book ) != NULL );
+    g_free( test_struct.msg );
+
+    g_test_message( "Testing default report guid for default value" );
+    r = qof_book_get_default_invoice_report_guid ( fixture->book );
+    g_assert_cmpstr( r, == , NULL );
+}
+
+static void
+test_book_get_default_report_name ( Fixture *fixture, gconstpointer pData )
+{
+    const char *err_no_book = "No book";
+    const char *r;
+
+    /* need this as long as we have fatal warnings enabled */
+    g_test_log_set_fatal_handler ( ( GTestLogFatalFunc )handle_faults, NULL );
+
+    g_test_message( "Testing default report name when book is null" );
+    r = qof_book_get_default_invoice_report_name ( NULL );
+    g_assert_cmpstr( r, == , NULL );
+    g_assert( g_strrstr( test_struct.msg, err_no_book ) != NULL );
+    g_free( test_struct.msg );
+
+    g_test_message( "Testing default report name for default value" );
+    r = qof_book_get_default_invoice_report_name ( fixture->book );
+    g_assert_cmpstr( r, == , NULL );
+}
+
+static void
+test_book_get_default_report_timeout ( Fixture *fixture, gconstpointer pData )
+{
+    const char *err_no_book = "No book";
+    int r;
+
+    /* need this as long as we have fatal warnings enabled */
+    g_test_log_set_fatal_handler ( ( GTestLogFatalFunc )handle_faults, NULL );
+
+    g_test_message( "Testing default report timeout when book is null" );
+    r = qof_book_get_default_invoice_report_timeout ( NULL );
+    g_assert_cmpint( r, == , 0 );
+    g_assert( g_strrstr( test_struct.msg, err_no_book ) != NULL );
+    g_free( test_struct.msg );
+
+    g_test_message( "Testing default report timeout for default value" );
+    r = qof_book_get_default_invoice_report_timeout ( fixture->book );
+    g_assert_cmpint( r, == , 0 );
+}
+
+static void
+test_book_set_default_report ( Fixture *fixture, gconstpointer pData )
+{
+    const char *err_no_book = "No book";
+    const char *err_no_guid = "No guid";
+    const char *err_no_name = "No name";
+    const char *test_guid1 = "5123a759ceb9483abf2182d01c140eff";
+    const char *test_guid2 = "5123a759ceb9483abf2182d01c140eee";
+    const char *test_name = "My Invoice Report";
+    const char *r;
+
+    /* need this as long as we have fatal warnings enabled */
+    g_test_log_set_fatal_handler ( ( GTestLogFatalFunc )handle_faults, NULL );
+
+    g_test_message( "Testing setting default report when book is null" );
+    qof_book_set_default_invoice_report ( NULL, test_guid1, test_name );
+    r = qof_book_get_default_invoice_report_guid ( fixture->book );
+    g_assert_cmpstr( r, == , NULL );
+    g_assert( g_strrstr( test_struct.msg, err_no_book ) != NULL );
+    g_free( test_struct.msg );
+
+    g_test_message( "Testing setting default report when guid is null" );
+    qof_book_set_default_invoice_report ( fixture->book, NULL, test_name );
+    r = qof_book_get_default_invoice_report_guid ( fixture->book );
+    g_assert_cmpstr( r, == , NULL );
+    g_assert( g_strrstr( test_struct.msg, err_no_guid ) != NULL );
+    g_free( test_struct.msg );
+
+    g_test_message( "Testing setting default report when name is null" );
+    qof_book_set_default_invoice_report ( fixture->book, test_guid1, NULL );
+    r = qof_book_get_default_invoice_report_guid ( fixture->book );
+    g_assert_cmpstr( r, == , NULL );
+    g_assert( g_strrstr( test_struct.msg, err_no_name ) != NULL );
+    g_free( test_struct.msg );
+
+    g_test_message( "Testing setting default report when name is empty string" );
+    qof_book_set_default_invoice_report ( fixture->book, test_guid1, "" );
+    r = qof_book_get_default_invoice_report_guid ( fixture->book );
+    g_assert_cmpstr( r, == , test_guid1 );
+    r = qof_book_get_default_invoice_report_name ( fixture->book );
+    g_assert_cmpstr( r, == , "" );
+
+    g_test_message( "Testing setting default report with guid and name" );
+    qof_book_set_default_invoice_report ( fixture->book, test_guid2, test_name );
+    r = qof_book_get_default_invoice_report_guid ( fixture->book );
+    g_assert_cmpstr( r, == , test_guid2 );
+    r = qof_book_get_default_invoice_report_name ( fixture->book );
+    g_assert_cmpstr( r, == , test_name );
+}
+
+static void
 test_book_use_trading_accounts( Fixture *fixture, gconstpointer pData )
 {
     g_assert( qof_book_use_trading_accounts( fixture-> book ) == FALSE );
@@ -451,111 +554,6 @@ test_book_use_trading_accounts( Fixture *fixture, gconstpointer pData )
     g_assert( qof_book_use_trading_accounts( fixture-> book ) == FALSE );
     qof_book_commit_edit (fixture->book);
 
-}
-
-static void
-test_book_use_book_currency( Fixture *fixture, gconstpointer pData )
-{
-    const gchar *cur;
-    const gchar *pol;
-    GncGUID *acct;
-    const GncGUID *acct2;
-
-    cur = qof_book_get_book_currency_name( fixture-> book );
-    g_assert_cmpstr( cur, == , NULL );
-    pol = qof_book_get_default_gains_policy( fixture-> book );
-    g_assert_cmpstr( pol, == , NULL );
-    acct2 = qof_book_get_default_gain_loss_acct_guid( fixture-> book );
-    g_assert (acct2 == NULL );
-
-    g_test_message( "Testing with existing trading accounts set to true - t" );
-    qof_book_begin_edit (fixture->book);
-    qof_instance_set (QOF_INSTANCE (fixture->book),
-		      "trading-accts", "t",
-		      NULL);
-    cur = qof_book_get_book_currency_name( fixture-> book );
-    g_assert_cmpstr( cur, == , NULL );
-    pol = qof_book_get_default_gains_policy( fixture-> book );
-    g_assert_cmpstr( pol, == , NULL );
-    acct2 = qof_book_get_default_gain_loss_acct_guid( fixture-> book );
-    g_assert (acct2 == NULL );
-    qof_book_commit_edit (fixture->book);
-
-    qof_book_destroy( fixture->book );
-    fixture->book = qof_book_new();
-
-    g_test_message( "Testing with book-currency set and no default-gains-policy or account" );
-    qof_book_begin_edit (fixture->book);
-    qof_instance_set (QOF_INSTANCE (fixture->book),
-		      "book-currency", "USD",
-		      NULL);
-    cur = qof_book_get_book_currency_name( fixture-> book );
-    g_assert_cmpstr( cur, == , "USD" );
-    pol = qof_book_get_default_gains_policy( fixture-> book );
-    g_assert_cmpstr( pol, == , NULL );
-    acct2 = qof_book_get_default_gain_loss_acct_guid( fixture-> book );
-    g_assert (acct2 == NULL );
-    qof_book_commit_edit (fixture->book);
-
-    qof_book_destroy( fixture->book );
-    fixture->book = qof_book_new();
-
-    g_test_message( "Testing with default-gains-policy set and no book-currency" );
-    qof_book_begin_edit (fixture->book);
-    qof_instance_set (QOF_INSTANCE (fixture->book),
-		      "default-gains-policy", "fifo",
-		      NULL);
-    cur = qof_book_get_book_currency_name( fixture-> book );
-    g_assert_cmpstr( cur, == , NULL );
-    pol = qof_book_get_default_gains_policy( fixture-> book );
-    g_assert_cmpstr( pol, == , "fifo" );
-    acct2 = qof_book_get_default_gain_loss_acct_guid( fixture-> book );
-    g_assert (acct2 == NULL );
-    qof_book_commit_edit (fixture->book);
-
-    qof_book_destroy( fixture->book );
-    fixture->book = qof_book_new();
-
-    g_test_message( "Testing with book-currency and default-gains-policy set to nonsense" );
-    qof_book_begin_edit (fixture->book);
-    qof_instance_set (QOF_INSTANCE (fixture->book),
-		      "book-currency", "myMoney",
-		      NULL);
-    qof_instance_set (QOF_INSTANCE (fixture->book),
-		      "default-gains-policy", "random",
-		      NULL);
-    cur = qof_book_get_book_currency_name( fixture-> book );
-    g_assert_cmpstr( cur, == , "myMoney" );
-    pol = qof_book_get_default_gains_policy( fixture-> book );
-    g_assert_cmpstr( pol, == , "random" );
-    acct2 = qof_book_get_default_gain_loss_acct_guid( fixture-> book );
-    g_assert (acct2 == NULL );
-    qof_book_commit_edit (fixture->book);
-
-    qof_book_destroy( fixture->book );
-    fixture->book = qof_book_new();
-
-    g_test_message( "Testing with book-currency, default-gains-policy and default-gains-account set to valid values" );
-    qof_book_begin_edit (fixture->book);
-    qof_instance_set (QOF_INSTANCE (fixture->book),
-		      "book-currency", "USD",
-		      NULL);
-    qof_instance_set (QOF_INSTANCE (fixture->book),
-		      "default-gains-policy", "fifo",
-		      NULL);
-    acct = guid_new();
-    qof_instance_set (QOF_INSTANCE (fixture->book),
-		      "default-gain-loss-account-guid", acct,
-		      NULL);
-    cur = qof_book_get_book_currency_name( fixture-> book );
-    g_assert_cmpstr( cur, == , "USD" );
-    pol = qof_book_get_default_gains_policy( fixture-> book );
-    g_assert_cmpstr( pol, == , "fifo" );
-    acct2 = qof_book_get_default_gain_loss_acct_guid( fixture-> book );
-    g_assert_cmpstr( guid_to_string (acct), == , guid_to_string (acct2) );
-    g_assert (guid_equal(acct, acct2));
-    guid_free (acct);
-    qof_book_commit_edit (fixture->book);
 }
 
 static void
@@ -768,6 +766,38 @@ test_book_get_collection( Fixture *fixture, gconstpointer pData )
     g_assert( m_col == m_col2 );
 }
 
+
+static void
+test_book_features (Fixture *fixture, gconstpointer pData)
+{
+    char* msg;
+    g_test_message ("Testing book features");
+
+    g_assert_null (gnc_features_test_unknown (fixture->book));
+    g_assert_false (gnc_features_check_used (fixture->book, "Credit Notes"));
+
+    gnc_features_set_used (fixture->book, "Credit Notes");
+    g_assert_null (gnc_features_test_unknown (fixture->book));
+    g_assert_true (gnc_features_check_used (fixture->book, "Credit Notes"));
+
+    gnc_features_set_unused (fixture->book, "Credit Notes");
+    g_assert_null (gnc_features_test_unknown (fixture->book));
+    g_assert_false (gnc_features_check_used (fixture->book, "Credit Notes"));
+
+    /* cannot use gnc_features_set_used to set an unknown feature: it bails out.
+     * use qof_book_set_feature instead. */
+    qof_book_set_feature (fixture->book, "Nanotech", "With Quantum Computing");
+    g_assert_true (gnc_features_check_used (fixture->book, "Nanotech"));
+    msg = gnc_features_test_unknown (fixture->book);
+    g_assert_cmpstr (msg, ==, "This Dataset contains features not \
+supported by this version of GnuCash. You must use a newer version \
+of GnuCash in order to support the following features:\n* With Quantum Computing");
+    g_free (msg);
+
+    qof_book_unset_feature (fixture->book, "Nanotech");
+    g_assert_null (gnc_features_test_unknown (fixture->book));
+}
+
 static void
 test_book_foreach_collection( Fixture *fixture, gconstpointer pData )
 {
@@ -930,8 +960,11 @@ test_suite_qofbook ( void )
     GNC_TEST_ADD( suitename, "get counter", Fixture, NULL, setup, test_book_get_counter, teardown );
     GNC_TEST_ADD( suitename, "get counter format", Fixture, NULL, setup, test_book_get_counter_format, teardown );
     GNC_TEST_ADD( suitename, "increment and format counter", Fixture, NULL, setup, test_book_increment_and_format_counter, teardown );
+    GNC_TEST_ADD( suitename, "get default report guid", Fixture, NULL, setup, test_book_get_default_report_guid, teardown );
+    GNC_TEST_ADD( suitename, "get default report name", Fixture, NULL, setup, test_book_get_default_report_name, teardown );
+    GNC_TEST_ADD( suitename, "get default report timeout", Fixture, NULL, setup, test_book_get_default_report_timeout, teardown );
+    GNC_TEST_ADD( suitename, "set default report", Fixture, NULL, setup, test_book_set_default_report, teardown );
     GNC_TEST_ADD( suitename, "use trading accounts", Fixture, NULL, setup, test_book_use_trading_accounts, teardown );
-    GNC_TEST_ADD( suitename, "use book-currency", Fixture, NULL, setup, test_book_use_book_currency, teardown );
     GNC_TEST_ADD( suitename, "get autofreeze days", Fixture, NULL, setup, test_book_get_num_days_autofreeze, teardown );
     GNC_TEST_ADD( suitename, "use split action for num field", Fixture, NULL, setup, test_book_use_split_action_for_num_field, teardown );
     GNC_TEST_ADD( suitename, "mark session dirty", Fixture, NULL, setup, test_book_mark_session_dirty, teardown );
@@ -940,6 +973,7 @@ test_suite_qofbook ( void )
     GNC_TEST_ADD( suitename, "shutting down", Fixture, NULL, setup, test_book_shutting_down, teardown );
     GNC_TEST_ADD( suitename, "set get data", Fixture, NULL, setup, test_book_set_get_data, teardown );
     GNC_TEST_ADD( suitename, "get collection", Fixture, NULL, setup, test_book_get_collection, teardown );
+    GNC_TEST_ADD( suitename, "features", Fixture, NULL, setup, test_book_features, teardown );
     GNC_TEST_ADD( suitename, "foreach collection", Fixture, NULL, setup, test_book_foreach_collection, teardown );
     GNC_TEST_ADD_FUNC( suitename, "set data finalizers", test_book_set_data_fin );
     GNC_TEST_ADD( suitename, "mark closed", Fixture, NULL, setup, test_book_mark_closed, teardown );

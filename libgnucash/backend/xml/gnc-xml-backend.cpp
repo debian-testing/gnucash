@@ -17,8 +17,6 @@
 #include <glib.h>
 #include <glib/gstdio.h>
 
-extern "C"
-{
 #include <config.h>
 #include <platform.h>
 #if PLATFORM(WINDOWS)
@@ -35,8 +33,6 @@ extern "C"
 #include <gnc-uri-utils.h>
 #include <TransLog.h>
 #include <gnc-prefs.h>
-
-}
 
 #include <sstream>
 
@@ -136,7 +132,10 @@ GncXmlBackend::session_begin(QofSession* session, const char* new_uri,
     if (!check_path(m_fullpath.c_str(),
                     mode == SESSION_NEW_STORE || mode == SESSION_NEW_OVERWRITE))
         return;
-    m_dirname = g_path_get_dirname (m_fullpath.c_str());
+
+    auto dirname = g_path_get_dirname (m_fullpath.c_str());
+    m_dirname = dirname;
+    g_free (dirname);
 
 
 
@@ -373,12 +372,17 @@ GncXmlBackend::write_to_file (bool make_backup)
     strcpy (tmp_name, m_fullpath.c_str());
     strcat (tmp_name, ".tmp-XXXXXX");
 
-    /* Clang static analyzer flags this as a security risk, which is
+    /* Clang static analyzer and GNU ld flag mktemp as a security risk, which is
      * theoretically true, but we can't use mkstemp because we need to
      * open the file ourselves because of compression. None of the alternatives
      * is any more secure.
+     *
+     * Xcode marks mktemp as deprecated
      */
+#pragma GCC diagnostic push
+#pragma GCC diagnostic warning "-Wdeprecated-declarations"
     if (!mktemp (tmp_name))
+#pragma GCC diagnostic pop
     {
         g_free (tmp_name);
         set_error(ERR_BACKEND_MISC);

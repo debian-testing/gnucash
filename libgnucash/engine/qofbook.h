@@ -40,12 +40,12 @@
 #ifndef QOF_BOOK_H
 #define QOF_BOOK_H
 
+#include <glib.h>
 #ifdef __cplusplus
-#include <glib.h> //To preempt it being included extern "C" in a later header.
-extern "C"
-{
+class GncOptionDB;
+#else
+typedef struct GncOptionDB GncOptionDB;
 #endif
-
 /* We only want a few things exported to Guile */
 #ifndef SWIG
 
@@ -58,6 +58,11 @@ typedef struct KvpValueImpl KvpValue;
 #include "qofid.h"
 #include "qofinstance.h"
 #include "qofbackend.h"
+
+#ifdef __cplusplus
+extern "C"
+{
+#endif
 
 /* --- type macros --- */
 #define QOF_TYPE_BOOK            (qof_book_get_type ())
@@ -74,10 +79,8 @@ typedef struct KvpValueImpl KvpValue;
 
 typedef void (*QofBookDirtyCB) (QofBook *, gboolean dirty, gpointer user_data);
 
-typedef struct gnc_option_db GNCOptionDB;
-
-typedef void (*GNCOptionSave) (GNCOptionDB*, QofBook*, gboolean);
-typedef void (*GNCOptionLoad) (GNCOptionDB*, QofBook*);
+typedef void (*GncOptionSave) (GncOptionDB*, QofBook*, gboolean);
+typedef void (*GncOptionLoad) (GncOptionDB*, QofBook*);
 
 /* Book structure */
 struct _QofBook
@@ -87,7 +90,7 @@ struct _QofBook
     /* Boolean indicates that the session is dirty -- that is, it has
      * not yet been written out to disk after the last time the
      * backend ran commit_edit(). This is distinct from the inherited
-     * QofInstance::dirty, which indicates that some persisitent
+     * QofInstance::dirty, which indicates that some persistent
      * property of the book object itself has been edited and not
      * committed. Some backends write data out as part of
      * commit_edit() and so don't use this flag.
@@ -267,27 +270,6 @@ gboolean qof_book_empty(const QofBook *book);
 /** Returns flag indicating whether this book uses trading accounts */
 gboolean qof_book_use_trading_accounts (const QofBook *book);
 
-/** Returns pointer to book-currency name for book, if one exists in the
-  * KVP, or NULL; does not validate contents nor determine if there is a valid
-  * default gain/loss policy, both of which are required, for the
-  * 'book-currency' currency accounting method to apply. Use instead
-  * 'gnc_book_get_book_currency_name' which does these validations. */
-const gchar * qof_book_get_book_currency_name (QofBook *book);
-
-/** Returns pointer to default gain/loss policy for book, if one exists in the
-  * KVP, or NULL; does not validate contents nor determine if there is a valid
-  * book-currency, both of which are required, for the 'book-currency'
-  * currency accounting method to apply. Use instead
-  * 'gnc_book_get_default_gains_policy' which does these validations. */
-const gchar * qof_book_get_default_gains_policy (QofBook *book);
-
-/** Returns pointer to default gain/loss account GUID for book, if one exists in
-  * the KVP, or NULL; does not validate contents nor determine if there is a
-  * valid book-currency, both of which are required, for the 'book-currency'
-  * currency accounting method to apply. Use instead
-  * 'gnc_book_get_default_gain_loss_acct' which does these validations. */
-GncGUID * qof_book_get_default_gain_loss_acct_guid (QofBook *book);
-
 /** Returns TRUE if the auto-read-only feature should be used, otherwise
  * FALSE. This is just a wrapper on qof_book_get_num_days_autoreadonly() == 0. */
 gboolean qof_book_uses_autoreadonly (const QofBook *book);
@@ -306,6 +288,27 @@ gint qof_book_get_num_days_autoreadonly (const QofBook *book);
  * The returned object was allocated newly; the caller must
  * g_date_free() the object afterwards. */
 GDate* qof_book_get_autoreadonly_gdate (const QofBook *book);
+
+/** Save the Invoice Report name / guid to be used as the default for printing
+ *  Invoices
+ */
+void qof_book_set_default_invoice_report (QofBook *book, const gchar *guid,
+                                          const gchar *name);
+
+/** Get the guid of the Invoice Report to be used as the default for printing
+ *  Invoices
+ */
+gchar * qof_book_get_default_invoice_report_guid (const QofBook *book);
+
+/** Get the name of the Invoice Report to be used as the default for printing
+ *  Invoices
+ */
+gchar * qof_book_get_default_invoice_report_name (const QofBook *book);
+
+/** Get the length of time available to change the used Invoice Report
+ *  when printing Invoices
+ */
+gdouble qof_book_get_default_invoice_report_timeout (const QofBook *book);
 
 /** Returns TRUE if this book uses split action field as the 'Num' field, FALSE
  *  if it uses transaction number field */
@@ -382,6 +385,7 @@ void qof_book_option_frame_delete (QofBook *book, const char* opt_name);
 /** Access functions for reading and setting the used-features on this book.
  */
 GHashTable *qof_book_get_features (QofBook *book);
+void qof_book_unset_feature (QofBook *book, const gchar *key);
 void qof_book_set_feature (QofBook *book, const gchar *key, const gchar *descr);
 
 void qof_book_begin_edit(QofBook *book);
@@ -391,21 +395,21 @@ void qof_book_commit_edit(QofBook *book);
 /** @ingroup KVP
  @{
  */
-/** Load a GNCOptionsDB from KVP data.
+/** Load a GncOptionsDB from KVP data.
  * @param book: The book.
  * @param load_cb: A callback function that does the loading.
- * @param odb: The GNCOptionDB to load.
+ * @param odb: The GncOptionDB to load.
  */
-void qof_book_load_options (QofBook *book, GNCOptionLoad load_cb,
-                GNCOptionDB *odb);
-/** Save a GNCOptionsDB back to the book's KVP.
+void qof_book_load_options (QofBook *book, GncOptionLoad load_cb,
+                            GncOptionDB *odb);
+/** Save a GncOptionsDB back to the book's KVP.
  * @param book: The book.
  * @param save_cb: A callback function that does the saving.
- * @param odb: The GNCOptionsDB to save from.
- * @param clear: Should the GNCOptionsDB be emptied after the save?
+ * @param odb: The GncOptionsDB to save from.
+ * @param clear: Should the GncOptionsDB be emptied after the save?
  */
-void qof_book_save_options (QofBook *book, GNCOptionSave save_cb,
-                            GNCOptionDB* odb, gboolean clear);
+void qof_book_save_options (QofBook *book, GncOptionSave save_cb,
+                            GncOptionDB* odb, gboolean clear);
 /** Save a single option value.
  * Used from Scheme, the KvpValue<-->SCM translation is handled by the functions
  * in kvp-scm.c and automated by SWIG. The starting element is set as
@@ -436,11 +440,11 @@ void qof_book_options_delete (QofBook *book, GSList *path);
 /** deprecated */
 #define qof_book_get_guid(X) qof_entity_get_guid (QOF_INSTANCE(X))
 
-#endif /* SWIG */
 #ifdef __cplusplus
 }
 #endif
 
+#endif /* SWIG */
 #endif /* QOF_BOOK_H */
 /** @} */
 /** @} */

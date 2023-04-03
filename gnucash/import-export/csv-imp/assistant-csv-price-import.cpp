@@ -29,8 +29,6 @@
 
 #include <guid.hpp>
 
-extern "C"
-{
 #include "config.h"
 
 #include <gtk/gtk.h>
@@ -50,7 +48,6 @@ extern "C"
 
 #include "gnc-csv-gnumeric-popup.h"
 #include "go-charmap-sel.h"
-}
 
 #include <algorithm>
 #include <exception>
@@ -148,7 +145,8 @@ private:
 
     GtkWidget       *file_page;                     /**< Assistant file page widget */
     GtkWidget       *file_chooser;                  /**< The widget for the file chooser */
-    std::string      m_file_name;                   /**< The import file name */
+    std::string      m_fc_file_name;                /**< The file name currently selected in the file chooser */
+    std::string      m_final_file_name;             /**< The name of the import file effectively to use */
 
     GtkWidget       *preview_page;                  /**< Assistant preview page widget */
     GtkComboBox     *settings_combo;                /**< The Settings Combo */
@@ -739,15 +737,18 @@ CsvImpPriceAssist::check_for_valid_filename ()
 {
     auto file_name = gtk_file_chooser_get_filename (GTK_FILE_CHOOSER(file_chooser));
     if (!file_name || g_file_test (file_name, G_FILE_TEST_IS_DIR))
+    {
+        g_free (file_name);
         return false;
+    }
 
     auto filepath = gnc_uri_get_path (file_name);
     auto starting_dir = g_path_get_dirname (filepath);
 
-    m_file_name = file_name;
+    m_fc_file_name = file_name;
     gnc_set_default_directory (GNC_PREFS_GROUP, starting_dir);
 
-    DEBUG("file_name selected is %s", m_file_name.c_str());
+    DEBUG("file_name selected is %s", m_fc_file_name.c_str());
     DEBUG("starting directory is %s", starting_dir);
 
     g_free (filepath);
@@ -801,7 +802,7 @@ void CsvImpPriceAssist::preview_populate_settings_combo()
 
     // Append the default entry
     auto presets = get_import_presets_price ();
-    for (auto preset : presets)
+    for (const auto& preset : presets)
     {
         GtkTreeIter iter;
         gtk_list_store_append (GTK_LIST_STORE(model), &iter);
@@ -1043,6 +1044,11 @@ void CsvImpPriceAssist::preview_update_separators (GtkWidget* widget)
 
     /* Set the parse options using the checked_separators list. */
     price_imp->separators (checked_separators);
+
+    /* if there are no separators, there will only be one column
+     * so make sure column header is NONE */
+    if (checked_separators.empty())
+        price_imp->set_column_type_price (0, GncPricePropType::NONE);
 
     /* Parse the data using the new options. We don't want to reguess
      * the column types because we want to leave the user's
@@ -1662,10 +1668,9 @@ void CsvImpPriceAssist::preview_refresh_table ()
     /* Insert columns if the model has more data columns than the treeview. */
     while (ntcols < ncols - PREV_N_FIXED_COLS + 1)
     {
-        /* Default cell renderer is text, except for the first (error) column */
-        auto renderer = gtk_cell_renderer_text_new();
-        if (ntcols == 0)
-            renderer = gtk_cell_renderer_pixbuf_new(); // Error column uses an icon
+        /* Default cell renderer is text, except for the first (error)
+           column uses an icon */
+        auto renderer = (ntcols == 0) ? gtk_cell_renderer_pixbuf_new () : gtk_cell_renderer_text_new ();
         auto col = gtk_tree_view_column_new ();
         gtk_tree_view_column_pack_start (col, renderer, false);
         ntcols = gtk_tree_view_append_column (treeview, col);
@@ -1677,11 +1682,16 @@ void CsvImpPriceAssist::preview_refresh_table ()
         preview_style_column (i, combostore);
 
     auto column_types = price_imp->column_types_price();
+    auto any_of_type = [](std::vector<GncPricePropType>& column_types,
+                          GncPricePropType req_column_type) -> bool
+    {
+        return std::any_of (column_types.begin(), column_types.end(),
+                            [&req_column_type](GncPricePropType column_type) -> bool
+                            { return column_type == req_column_type; });
+    };
 
     // look for a namespace column, clear the commodity combo
-    auto col_type_name = std::find (column_types.begin(),
-                column_types.end(), GncPricePropType::FROM_NAMESPACE);
-    if (col_type_name != column_types.end())
+    if (any_of_type (column_types, GncPricePropType::FROM_NAMESPACE))
     {
         g_signal_handlers_block_by_func (commodity_selector, (gpointer) csv_price_imp_preview_commodity_sel_cb, this);
         set_commodity_for_combo (GTK_COMBO_BOX(commodity_selector), nullptr);
@@ -1689,9 +1699,7 @@ void CsvImpPriceAssist::preview_refresh_table ()
     }
 
     // look for a symbol column, clear the commodity combo
-    auto col_type_sym = std::find (column_types.begin(),
-                column_types.end(), GncPricePropType::FROM_SYMBOL);
-    if (col_type_sym != column_types.end())
+    if (any_of_type (column_types, GncPricePropType::FROM_SYMBOL))
     {
         g_signal_handlers_block_by_func (commodity_selector, (gpointer) csv_price_imp_preview_commodity_sel_cb, this);
         set_commodity_for_combo (GTK_COMBO_BOX(commodity_selector), nullptr);
@@ -1699,9 +1707,7 @@ void CsvImpPriceAssist::preview_refresh_table ()
     }
 
     // look for a currency column, clear the currency combo
-    auto col_type_curr = std::find (column_types.begin(),
-                column_types.end(), GncPricePropType::TO_CURRENCY);
-    if (col_type_curr != column_types.end())
+    if (any_of_type (column_types, GncPricePropType::TO_CURRENCY))
     {
         g_signal_handlers_block_by_func (currency_selector, (gpointer) csv_price_imp_preview_currency_sel_cb, this);
         set_commodity_for_combo (GTK_COMBO_BOX(currency_selector), nullptr);
@@ -1722,25 +1728,34 @@ void CsvImpPriceAssist::preview_refresh_table ()
 void
 CsvImpPriceAssist::preview_refresh ()
 {
+    // Cache skip settings. Updating the widgets one by one
+    // triggers a callback that transfers all skip widgets'
+    // values to settings. So by the time the next widget value
+    // is to be set, that widget's 'new' setting has already been
+    // replaced by its old setting preveneting us from using it
+    // here sensibly.
+
+    auto skip_start_lines = price_imp->skip_start_lines();
+    auto skip_end_lines = price_imp->skip_end_lines();
+    auto skip_alt_lines = price_imp->skip_alt_lines();
+
     // Set start row
     auto adj = gtk_spin_button_get_adjustment (start_row_spin);
     gtk_adjustment_set_upper (adj, price_imp->m_parsed_lines.size());
-    gtk_spin_button_set_value (start_row_spin,
-            price_imp->skip_start_lines());
+    gtk_spin_button_set_value (start_row_spin, skip_start_lines);
 
     // Set end row
     adj = gtk_spin_button_get_adjustment (end_row_spin);
     gtk_adjustment_set_upper (adj, price_imp->m_parsed_lines.size());
-    gtk_spin_button_set_value (end_row_spin,
-            price_imp->skip_end_lines());
+    gtk_spin_button_set_value (end_row_spin, skip_end_lines);
 
     // Set Alternate rows
     gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON(skip_alt_rows_button),
-            price_imp->skip_alt_lines());
+                                  skip_alt_lines);
 
     // Set over-write indicator
     gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON(over_write_cbutton),
-            price_imp->over_write());
+                                  price_imp->over_write());
 
     // Set Import Format
     gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON(csv_button),
@@ -1763,13 +1778,21 @@ CsvImpPriceAssist::preview_refresh ()
             price_imp->to_currency());
 
     // Handle separator checkboxes and custom field, only relevant if the file format is csv
+    // Note we defer the change signal until all buttons have been updated
+    // An early update may result in an incomplete tokenize run that would
+    // cause our list of saved column types to be truncated
     if (price_imp->file_format() == GncImpFileFormat::CSV)
     {
         auto separators = price_imp->separators();
         const auto stock_sep_chars = std::string (" \t,:;-");
+
         for (int i = 0; i < SEP_NUM_OF_TYPES; i++)
+        {
+            g_signal_handlers_block_by_func (sep_button[i], (gpointer) csv_price_imp_preview_sep_button_cb, this);
             gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON(sep_button[i]),
                 separators.find (stock_sep_chars[i]) != std::string::npos);
+            g_signal_handlers_unblock_by_func (sep_button[i], (gpointer) csv_price_imp_preview_sep_button_cb, this);
+        }
 
         // If there are any other separators in the separators string,
         // add them as custom separators
@@ -1779,9 +1802,16 @@ CsvImpPriceAssist::preview_refresh ()
             separators.erase(pos);
             pos = separators.find_first_of (stock_sep_chars);
         }
+        g_signal_handlers_block_by_func (custom_cbutton, (gpointer) csv_price_imp_preview_sep_button_cb, this);
+        g_signal_handlers_block_by_func (custom_entry, (gpointer) csv_price_imp_preview_sep_button_cb, this);
+
         gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON(custom_cbutton),
-                !separators.empty());
+                                      !separators.empty());
         gtk_entry_set_text (GTK_ENTRY(custom_entry), separators.c_str());
+
+        g_signal_handlers_unblock_by_func (custom_cbutton, (gpointer) csv_price_imp_preview_sep_button_cb, this);
+        g_signal_handlers_unblock_by_func (custom_entry, (gpointer) csv_price_imp_preview_sep_button_cb, this);
+        csv_price_imp_preview_sep_button_cb (GTK_WIDGET(custom_cbutton), this);
     }
     // Repopulate the parsed data table
     g_idle_add ((GSourceFunc)csv_imp_preview_queue_rebuild_table, this);
@@ -1810,11 +1840,17 @@ CsvImpPriceAssist::assist_file_page_prepare ()
     gtk_assistant_set_page_complete (csv_imp_asst, preview_page, false);
 
     /* Set the default directory */
-    auto starting_dir = gnc_get_default_directory (GNC_PREFS_GROUP);
-    if (starting_dir)
+    if (!m_final_file_name.empty())
+        gtk_file_chooser_set_filename (GTK_FILE_CHOOSER(file_chooser),
+                                       m_final_file_name.c_str());
+    else
     {
-        gtk_file_chooser_set_current_folder (GTK_FILE_CHOOSER(file_chooser), starting_dir);
-        g_free (starting_dir);
+        auto starting_dir = gnc_get_default_directory (GNC_PREFS_GROUP);
+        if (starting_dir)
+        {
+            gtk_file_chooser_set_current_folder (GTK_FILE_CHOOSER(file_chooser), starting_dir);
+            g_free (starting_dir);
+        }
     }
 }
 
@@ -1823,45 +1859,48 @@ CsvImpPriceAssist::assist_preview_page_prepare ()
 {
     auto go_back = false;
 
-    /* Load the file into parse_data, reset it if altrady loaded. */
-    if (price_imp)
-        price_imp.reset();
 
-    /* Load the file into parse_data. */
-    price_imp = std::unique_ptr<GncPriceImport>(new GncPriceImport);
-    /* Assume data is CSV. User can later override to Fixed Width if needed */
-    try
+    if (m_final_file_name != m_fc_file_name)
     {
-        price_imp->file_format (GncImpFileFormat::CSV);
-        price_imp->load_file (m_file_name);
-        price_imp->tokenize (true);
-    }
-    catch (std::ifstream::failure& e)
-    {
-        /* File loading failed ... */
-        gnc_error_dialog (GTK_WINDOW(csv_imp_asst), "%s", e.what());
-        go_back = true;
-    }
-    catch (std::range_error &e)
-    {
-        /* Parsing failed ... */
-        gnc_error_dialog (GTK_WINDOW(csv_imp_asst), "%s", _(e.what()));
-        go_back = true;
+        /* Load the file into parse_data. */
+        price_imp = std::unique_ptr<GncPriceImport>(new GncPriceImport);
+        /* Assume data is CSV. User can later override to Fixed Width if needed */
+        try
+        {
+            price_imp->file_format (GncImpFileFormat::CSV);
+            price_imp->load_file (m_fc_file_name);
+            price_imp->tokenize (true);
+
+            /* Get settings store and populate */
+            preview_populate_settings_combo();
+            gtk_combo_box_set_active (settings_combo, 0);
+
+            // set over_write to false as default
+            price_imp->over_write (false);
+
+            /* Disable the "Next" Assistant Button */
+            gtk_assistant_set_page_complete (csv_imp_asst, preview_page, false);
+        }
+        catch (std::ifstream::failure& e)
+        {
+            /* File loading failed ... */
+            gnc_error_dialog (GTK_WINDOW(csv_imp_asst), "%s", e.what());
+            go_back = true;
+        }
+        catch (std::range_error &e)
+        {
+            /* Parsing failed ... */
+            gnc_error_dialog (GTK_WINDOW(csv_imp_asst), "%s", _(e.what()));
+            go_back = true;
+        }
     }
 
     if (go_back)
         gtk_assistant_previous_page (csv_imp_asst);
     else
     {
-        /* Get settings store and populate */
-        preview_populate_settings_combo();
-        gtk_combo_box_set_active (settings_combo, 0);
-
-        // set over_write to false as default
-        price_imp->over_write (false);
-
-        /* Disable the "Next" Assistant Button */
-        gtk_assistant_set_page_complete (csv_imp_asst, preview_page, false);
+        m_final_file_name = m_fc_file_name;
+        preview_refresh ();
 
         /* Load the data into the treeview. */
         g_idle_add ((GSourceFunc)csv_imp_preview_queue_rebuild_table, this);
@@ -1882,24 +1921,24 @@ CsvImpPriceAssist::assist_summary_page_prepare ()
     auto added_str = g_strdup_printf (ngettext ("%d added price",
                                                 "%d added prices",
                                                 price_imp->m_prices_added),
-                                      price_imp->m_prices_added);
+                                                price_imp->m_prices_added);
     /* Translators: This is a ngettext(3) message, %d is the number of duplicate prices */
     auto dupl_str = g_strdup_printf (ngettext ("%d duplicate price",
                                                "%d duplicate prices",
                                                price_imp->m_prices_duplicated),
-                                     price_imp->m_prices_duplicated);
+                                               price_imp->m_prices_duplicated);
     /* Translators: This is a ngettext(3) message, %d is the number of replaced prices */
     auto repl_str = g_strdup_printf (ngettext ("%d replaced price",
                                                "%d replaced prices",
                                                price_imp->m_prices_replaced),
-                                     price_imp->m_prices_replaced);
+                                               price_imp->m_prices_replaced);
     auto msg = g_strdup_printf (
         _("The prices were imported from file '%s'.\n\n"
           "Import summary:\n"
           "- %s\n"
           "- %s\n"
           "- %s"),
-          m_file_name.c_str(), added_str, dupl_str,repl_str);
+          m_final_file_name.c_str(), added_str, dupl_str,repl_str);
     text += msg;
     text += "</b></span>";
 

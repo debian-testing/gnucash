@@ -26,8 +26,6 @@
  * restoring data to/from an SQL db
  */
 #include <guid.hpp>
-extern "C"
-{
 #include <config.h>
 
 #include <glib.h>
@@ -39,7 +37,6 @@ extern "C"
 #if defined( S_SPLINT_S )
 #include "splint-defs.h"
 #endif
-}
 
 #include "gnc-sql-connection.hpp"
 #include "gnc-sql-backend.hpp"
@@ -54,7 +51,7 @@ extern "C"
 #define AMOUNTS_TABLE "budget_amounts"
 #define AMOUNTS_TABLE_VERSION 1
 
-static QofLogModule log_module = G_LOG_DOMAIN;
+[[maybe_unused]] static QofLogModule log_module = G_LOG_DOMAIN;
 
 #define BUDGET_MAX_NAME_LEN 2048
 #define BUDGET_MAX_DESCRIPTION_LEN 2048

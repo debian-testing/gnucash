@@ -238,7 +238,7 @@ enum
 };
 
 /* GObject Initialization */
-G_DEFINE_TYPE(GncEntry, gnc_entry, QOF_TYPE_INSTANCE);
+G_DEFINE_TYPE(GncEntry, gnc_entry, QOF_TYPE_INSTANCE)
 
 static void
 gnc_entry_init(GncEntry* entry)
@@ -463,10 +463,14 @@ static void gncEntryFree (GncEntry *entry)
         gncAccountValueDestroy (entry->i_tax_values);
     if (entry->b_tax_values)
         gncAccountValueDestroy (entry->b_tax_values);
-    if (entry->i_tax_table)
-        gncTaxTableDecRef (entry->i_tax_table);
-    if (entry->b_tax_table)
-        gncTaxTableDecRef (entry->b_tax_table);
+
+    if (!qof_book_shutting_down (qof_instance_get_book (QOF_INSTANCE(entry))))
+    {
+        if (entry->i_tax_table)
+            gncTaxTableDecRef (entry->i_tax_table);
+        if (entry->b_tax_table)
+            gncTaxTableDecRef (entry->b_tax_table);
+    }
 
     /* qof_instance_release (&entry->inst); */
     g_object_unref (entry);

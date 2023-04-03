@@ -107,7 +107,7 @@ enum
 };
 
 /* GObject Initialization */
-G_DEFINE_TYPE(GncVendor, gnc_vendor, QOF_TYPE_INSTANCE);
+G_DEFINE_TYPE(GncVendor, gnc_vendor, QOF_TYPE_INSTANCE)
 
 static void
 gnc_vendor_init(GncVendor* vendor)
@@ -139,7 +139,6 @@ gnc_vendor_get_property (GObject         *object,
                          GParamSpec      *pspec)
 {
     GncVendor *vendor;
-    gchar *key;
 
     g_return_if_fail(GNC_IS_VENDOR(object));
 
@@ -201,7 +200,6 @@ gnc_vendor_set_property (GObject         *object,
                          GParamSpec      *pspec)
 {
     GncVendor *vendor;
-    gchar *key;
 
     g_return_if_fail(GNC_IS_VENDOR(object));
 
@@ -496,13 +494,18 @@ static void gncVendorFree (GncVendor *vendor)
     CACHE_REMOVE (vendor->notes);
     gncAddressBeginEdit (vendor->addr);
     gncAddressDestroy (vendor->addr);
+
+    gncJobFreeList (vendor->jobs);
     g_list_free (vendor->jobs);
     g_free (vendor->balance);
 
-    if (vendor->terms)
-        gncBillTermDecRef (vendor->terms);
-    if (vendor->taxtable)
-        gncTaxTableDecRef (vendor->taxtable);
+    if (!qof_book_shutting_down (qof_instance_get_book (QOF_INSTANCE(vendor))))
+    {
+        if (vendor->terms)
+            gncBillTermDecRef (vendor->terms);
+        if (vendor->taxtable)
+            gncTaxTableDecRef (vendor->taxtable);
+    }
 
     /* qof_instance_release (&vendor->inst); */
     g_object_unref (vendor);

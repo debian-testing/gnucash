@@ -76,60 +76,55 @@ exist but have no suitable transactions."))
   (qof-query-set-sort-increasing query #t #t #t))
 
 (define (aging-options-generator options)
-  (let* ((add-option
-          (lambda (new-option)
-            (gnc:register-option options new-option))))
-
     (gnc:options-add-report-date!
      options gnc:pagename-general optname-to-date "a")
 
     ;; Use a default report date of 'today'
-    (gnc:option-set-default-value
-     (gnc:lookup-option options gnc:pagename-general optname-to-date)
+    (GncOption-set-default-value
+     (gnc-lookup-option options gnc:pagename-general optname-to-date)
      (cons 'relative 'today))
 
-    (add-option
-     (gnc:make-multichoice-option
-      gnc:pagename-general optname-sort-by "i" (N_ "Sort companies by.") 'name
+    (gnc-register-multichoice-option
+     options
+     gnc:pagename-general optname-sort-by "i" (N_ "Sort companies by.")
+     "name"
       (list
        (vector 'name (N_ "Name of the company"))
        (vector 'total (N_ "Total amount owed to/from Company"))
-       (vector 'oldest-bracket (N_ "Bracket Total Owed")))))
+       (vector 'oldest-bracket (N_ "Bracket Total Owed"))))
 
-    (add-option
-     (gnc:make-multichoice-option
-      gnc:pagename-general optname-sort-order "ia" (N_ "Sort order.") 'increasing
-      (list
-       (vector 'increasing (N_ "Ascending"))
-       (vector 'decreasing (N_ "Descending")))))
+    (gnc-register-multichoice-option
+     options gnc:pagename-general optname-sort-order "ia" (N_ "Sort order.")
+     "increasing"
+     (list
+      (vector 'increasing (N_ "Ascending"))
+      (vector 'decreasing (N_ "Descending"))))
 
-    (add-option
-     (gnc:make-simple-boolean-option
+    (gnc-register-simple-boolean-option options
       gnc:pagename-general optname-show-zeros "j"
       (N_ "Show all vendors/customers even if they have a zero balance.")
-      #f))
+      #f)
 
-    (add-option
-     (gnc:make-multichoice-option
-      gnc:pagename-general optname-date-driver "k" (N_ "Leading date.") 'duedate
+    (gnc-register-multichoice-option
+     options gnc:pagename-general optname-date-driver "k" (N_ "Leading date.")
+     "duedate"
       (list
        (vector 'duedate (N_ "Due Date"))
-       (vector 'postdate (N_ "Post Date")))))
+       (vector 'postdate (N_ "Post Date"))))
 
     (gnc:options-set-default-section options "General")
 
     (for-each
      (lambda (opt)
-       (add-option
-        (gnc:make-simple-boolean-option
-         gnc:pagename-display (car opt) (cadr opt) (caddr opt) #f)))
+       (gnc-register-simple-boolean-option options
+         gnc:pagename-display (car opt) (cadr opt) (caddr opt) #f))
      addr-options-list)
 
-    options))
+    options)
 
 (define (options->address options receivable? owner)
   (define (op-value name)
-    (gnc:option-value (gnc:lookup-option options gnc:pagename-display name)))
+    (gnc-optiondb-lookup-value options gnc:pagename-display name))
   (let* ((address-list-names (map car addr-options-list))
          (address-list-options (map op-value address-list-names))
          (addr-source (if receivable? (op-value optname-addr-source) 'billing))
@@ -157,12 +152,6 @@ exist but have no suitable transactions."))
     (not (or (eqv? type TXN-TYPE-INVOICE)
              (eqv? type TXN-TYPE-PAYMENT)))))
 
-(define (split-has-owner? split owner)
-  (gncOwnerEqual (gnc:split->owner split) owner))
-
-(define (split-owner-is-invalid? split)
-  (not (gncOwnerIsValid (gnc:split->owner split))))
-
 (define (split-from-acct? split acct)
   (equal? acct (xaccSplitGetAccount split)))
 
@@ -173,7 +162,15 @@ exist but have no suitable transactions."))
 (define (aging-renderer report-obj receivable)
   (define options (gnc:report-options report-obj))
   (define (op-value section name)
-    (gnc:option-value (gnc:lookup-option options section name)))
+    (gnc-optiondb-lookup-value options section name))
+
+  (define split->owner (gnc:make-split->owner))
+
+  (define (split-has-owner? split owner)
+    (gncOwnerEqual (split->owner split) owner))
+
+  (define (split-owner-is-invalid? split)
+    (not (gncOwnerIsValid (split->owner split))))
 
   (define make-heading-list
     (list (G_ "Company")
@@ -230,10 +227,6 @@ exist but have no suitable transactions."))
       (setup-query query accounts report-date)
       (let* ((splits (xaccQueryGetSplitsUniqueTrans query)))
         (qof-query-destroy query)
-
-        ;; split->owner hashtable should be empty at the start of
-        ;; report renderer. clear it anyway.
-        (gnc:split->owner #f)
 
         ;; loop into each APAR account
         (let loop ((accounts accounts)
@@ -316,7 +309,6 @@ exist but have no suitable transactions."))
                         acc-totals)))))
                  (reverse accounts-and-owners))
 
-                (gnc:split->owner #f)       ;free the gncOwners
                 (gnc:html-document-add-object! document table)
 
                 (unless (null? invalid-splits)
@@ -373,7 +365,7 @@ exist but have no suitable transactions."))
                        owners-and-aging))
 
                   ((this . _)
-                   (match-let* ((owner (gnc:split->owner this))
+                   (match-let* ((owner (split->owner this))
                                 ((owner-splits . other-owner-splits)
                                  (list-split acc-splits split-has-owner? owner))
                                 (aging (gnc:owner-splits->aging-list
@@ -390,19 +382,18 @@ exist but have no suitable transactions."))
     document))
 
 (define (payable-options-generator)
-  (aging-options-generator (gnc:new-options)))
+  (aging-options-generator (gnc-new-optiondb)))
 
 (define (receivable-options-generator)
-  (let ((options (aging-options-generator (gnc:new-options))))
-    (define (add-option new-option)
-      (gnc:register-option options new-option))
+  (let ((options (aging-options-generator (gnc-new-optiondb))))
 
-    (add-option
-     (gnc:make-multichoice-option
-      gnc:pagename-display optname-addr-source "a" (N_ "Address source.") 'billing
-      (list
-       (vector 'billing (N_ "Billing address"))
-       (vector 'shipping (N_ "Shipping address")))))
+    (gnc-register-multichoice-option
+     options gnc:pagename-display optname-addr-source "a"
+     (N_ "Address source.")
+     "billing"
+     (list
+      (vector 'billing (N_ "Billing address"))
+      (vector 'shipping (N_ "Shipping address"))))
     options))
 
 (define (payables-renderer report-obj)
@@ -433,19 +424,17 @@ exist but have no suitable transactions."))
  'in-menu? #t)
 
 (define (receivables-report-create-internal acct title show-zeros?)
-  (let* ((options (gnc:make-report-options receivables-aging-guid))
-         (zero-op (gnc:lookup-option options gnc:pagename-general optname-show-zeros))
-         (title-op (gnc:lookup-option options gnc:pagename-general gnc:optname-reportname)))
-    (when title (gnc:option-set-value title-op title))
-    (gnc:option-set-value zero-op show-zeros?)
+  (let* ((options (gnc:make-report-options receivables-aging-guid)))
+    (when title (gnc-set-option
+                 options gnc:pagename-general gnc:optname-reportname title))
+    (gnc-set-option options gnc:pagename-general optname-show-zeros show-zeros?)
     (gnc:make-report receivables-aging-guid options)))
 
 (define (payables-report-create-internal acct title show-zeros?)
-  (let* ((options (gnc:make-report-options payables-aging-guid))
-         (zero-op (gnc:lookup-option options gnc:pagename-general optname-show-zeros))
-         (title-op (gnc:lookup-option options gnc:pagename-general gnc:optname-reportname)))
-    (when title (gnc:option-set-value title-op title))
-    (gnc:option-set-value zero-op show-zeros?)
+  (let* ((options (gnc:make-report-options payables-aging-guid)))
+    (when title (gnc-set-option
+                 options gnc:pagename-general gnc:optname-reportname title))
+    (gnc-set-option options gnc:pagename-general optname-show-zeros show-zeros?)
     (gnc:make-report payables-aging-guid options)))
 
 (define (gnc:receivables-create-internal

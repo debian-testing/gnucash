@@ -8,13 +8,12 @@ set(test_core_noinst_HEADERS
   unittest-support.h
 )
 
-INCLUDE_DIRECTORIES(
+include_directories(
   ${CMAKE_BINARY_DIR}/common
   ${CMAKE_SOURCE_DIR}/common
   ${CMAKE_SOURCE_DIR}/libgnucash/engine
   ${CMAKE_SOURCE_DIR}/common/test-core
 
-  ${GLIB2_INCLUDE_DIRS}
   ${GUILE_INCLUDE_DIRS}
 )
 
@@ -22,7 +21,7 @@ set_dist_list(test_core_DIST ${test_core_SOURCES} ${test_core_noinst_HEADERS} CM
         unittest-support.i unittest-support.scm)
 
 add_library(test-core STATIC ${test_core_SOURCES} ${test_core_noinst_HEADERS})
-target_link_libraries(test-core gnc-engine ${GLIB2_LDFLAGS})
+target_link_libraries(test-core gnc-engine PkgConfig::GLIB2)
 if (UNIX)
   target_compile_options(test-core PRIVATE -fPIC)
 endif()
@@ -41,7 +40,8 @@ gnc_add_swig_python_command (swig-unittest-support-python
 )
 
 add_library(test-core-guile ${SWIG_UNITTEST_SUPPORT_GUILE_C})
-target_link_libraries(test-core-guile test-core ${GUILE_LDFLAGS} ${GLIB2_LDFLAGS})
+target_link_libraries(test-core-guile test-core ${GUILE_LDFLAGS} PkgConfig::GLIB2)
+add_dependencies (test-core-guile swig-unittest-support-guile-c )
 
 if (WITH_PYTHON)
   add_library(unittest_support MODULE ${SWIG_UNITTEST_SUPPORT_PYTHON_C})
@@ -65,12 +65,6 @@ gnc_add_scheme_test_targets(scm-test-core
     DEPENDS "${GUILE_DEPENDS}")
 
 add_dependencies(check scm-test-core)
-
-# Module interfaces deprecated in 4.x, will be removed for 5.x
-gnc_add_scheme_deprecated_module (
-    OLD_MODULE "gnucash unittest-support"
-    NEW_MODULE "tests unittest-support"
-    DEPENDS "scm-test-core")
 
 
 if (GTEST_SRC_DIR)

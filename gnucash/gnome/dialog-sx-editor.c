@@ -33,6 +33,7 @@
 \********************************************************************/
 
 #include <config.h>
+#include <stdbool.h>
 
 #include <gtk/gtk.h>
 #include <glib/gi18n.h>
@@ -83,7 +84,7 @@ static gint _sx_engine_event_handler_id = -1;
 
 #define NUM_LEDGER_LINES_DEFAULT 6
 
-#define EX_CAL_NUM_MONTHS 6
+#define EX_CAL_NUM_MONTHS 12
 #define EX_CAL_MO_PER_COL 3
 
 #define GNC_D_WIDTH 25
@@ -114,7 +115,7 @@ struct _GncSxEditorDialog
     GncDenseCalStore *dense_cal_model;
     GncDenseCal *example_cal;
 
-    GtkEditable *nameEntry;
+    GtkEntry *nameEntry;
 
     GtkLabel *lastOccurLabel;
 
@@ -162,14 +163,14 @@ static gboolean sxed_confirmed_cancel (GncSxEditorDialog *sxed);
 static gboolean editor_component_sx_equality (gpointer find_data,
                                               gpointer user_data);
 
-static GtkActionEntry gnc_sxed_menu_entries [] =
+static GActionEntry gnc_sxed_menu_entries [] =
 {
-    { "EditAction", NULL, N_("_Edit"), NULL, NULL, NULL },
-    { "TransactionAction", NULL, N_("_Transaction"), NULL, NULL, NULL },
-    { "ViewAction", NULL, N_("_View"), NULL, NULL, NULL },
-    { "ActionsAction", NULL, N_("_Actions"), NULL, NULL, NULL },
+    { "EditAction", NULL, NULL, NULL, NULL },
+    { "TransactionAction", NULL, NULL, NULL, NULL },
+    { "ViewAction", NULL, NULL, NULL, NULL },
+    { "ActionsAction", NULL, NULL, NULL, NULL },
 };
-static guint gnc_sxed_menu_n_entries = G_N_ELEMENTS (gnc_sxed_menu_entries);
+static guint gnc_sxed_menu_n_entries = G_N_ELEMENTS(gnc_sxed_menu_entries);
 
 /** Implementations *****************************************************/
 
@@ -230,7 +231,7 @@ editor_cancel_button_clicked_cb (GtkButton *b, GncSxEditorDialog *sxed)
 static void
 editor_help_button_clicked_cb (GtkButton *b, GncSxEditorDialog *sxed)
 {
-    gnc_gnome_help (GTK_WINDOW (sxed->dialog), HF_HELP, HL_SXEDITOR);
+    gnc_gnome_help (GTK_WINDOW (sxed->dialog), DF_MANUAL, DL_SXEDITOR);
 }
 
 
@@ -264,9 +265,9 @@ editor_ok_button_clicked_cb (GtkButton *b, GncSxEditorDialog *sxed)
 static gboolean
 gnc_sxed_check_name_changed (GncSxEditorDialog *sxed)
 {
-    const char *name = gtk_entry_get_text (GTK_ENTRY (sxed->nameEntry));
+    const char *name = gtk_entry_get_text (sxed->nameEntry);
 
-    if (strlen (name) == 0)
+    if (!name || !name[0])
         return TRUE;
 
     if (xaccSchedXactionGetName (sxed->sx) == NULL ||
@@ -481,33 +482,27 @@ check_credit_debit_balance (gpointer key, gpointer val, gpointer ud)
 static gboolean
 gnc_sxed_check_names (GncSxEditorDialog *sxed)
 {
-    gchar *name, *nameKey;
-    gboolean nameExists, nameHasChanged;
-    GList *sxList;
-
-    name = gtk_editable_get_chars (GTK_EDITABLE (sxed->nameEntry), 0, -1);
-    if (strlen (name) == 0)
+    const gchar *name = gtk_entry_get_text (sxed->nameEntry);
+    if (!name || !name[0])
     {
         const char *sx_has_no_name_msg =
             _("Please name the Scheduled Transaction.");
         gnc_error_dialog (GTK_WINDOW (sxed->dialog), "%s", sx_has_no_name_msg);
-        g_free (name);
         return FALSE;
 
     }
 
-    nameExists = FALSE;
-    nameKey = g_utf8_collate_key (name, -1);
-    nameHasChanged =
+    bool nameExists = FALSE;
+    gchar *nameKey = g_utf8_collate_key (name, -1);
+    bool nameHasChanged =
         (xaccSchedXactionGetName (sxed->sx) == NULL)
         || (strcmp (xaccSchedXactionGetName (sxed->sx), name) != 0);
-    for (sxList = gnc_book_get_schedxactions (gnc_get_current_book ())->sx_list;
+    for (GList *sxList = gnc_book_get_schedxactions (gnc_get_current_book ())->sx_list;
          nameHasChanged && !nameExists && sxList;
          sxList = sxList->next)
     {
-        char *existingName, *existingNameKey;
-        existingName = xaccSchedXactionGetName ((SchedXaction*)sxList->data);
-        existingNameKey = g_utf8_collate_key (existingName, -1);
+        const char *existingName = xaccSchedXactionGetName ((SchedXaction*)sxList->data);
+        char *existingNameKey = g_utf8_collate_key (existingName, -1);
         nameExists |=  (strcmp (nameKey, existingNameKey) == 0);
         g_free (existingNameKey);
     }
@@ -519,12 +514,8 @@ gnc_sxed_check_names (GncSxEditorDialog *sxed)
               "Are you sure you want to name this one the same?");
         if (!gnc_verify_dialog (GTK_WINDOW (sxed->dialog), FALSE,
                                 sx_has_existing_name_msg, name))
-        {
-            g_free (name);
             return FALSE;
-        }
     }
-    g_free (name);
     return TRUE;
 }
 
@@ -668,7 +659,7 @@ gnc_sxed_split_calculate_formula (GncSxEditorDialog *sxed, Split *s,
     qof_instance_get (QOF_INSTANCE (s),
                       key, &str,
                       NULL);
-    if (str == NULL || strlen (str) == 0)
+    if (!str || !str[0])
     {
         if (str)
             g_free (str);
@@ -862,7 +853,11 @@ gnc_sxed_check_consistent (GncSxEditorDialog *sxed)
         xaccAccountForEachTransaction (tmpl_acct, check_transaction_splits, &sd);
 
         if (sd.err)
+        {
+            g_hash_table_destroy (vars);
+            g_hash_table_destroy (txns);
             return FALSE;
+        }
 
         g_hash_table_foreach (txns, check_credit_debit_balance, &unbalanceable);
     }
@@ -906,13 +901,9 @@ gnc_sxed_save_sx (GncSxEditorDialog *sxed)
     gnc_sx_begin_edit (sxed->sx);
 
     /* name */
-    {
-        char *name;
-
-        name = gtk_editable_get_chars (sxed->nameEntry, 0, -1);
+    const gchar *name = gtk_entry_get_text (sxed->nameEntry);
+    if (name && *name)
         xaccSchedXactionSetName (sxed->sx, name);
-        g_free (name);
-    }
 
     /* date */
     {
@@ -1205,7 +1196,7 @@ gnc_ui_scheduled_xaction_editor_dialog_create (GtkWindow *parent,
     /* Connect the Widgets */
     sxed->dialog = GTK_WIDGET (gtk_builder_get_object (builder, "scheduled_transaction_editor_dialog"));
     sxed->notebook = GTK_NOTEBOOK (gtk_builder_get_object (builder, "editor_notebook"));
-    sxed->nameEntry = GTK_EDITABLE (gtk_builder_get_object (builder, "sxe_name"));
+    sxed->nameEntry = GTK_ENTRY (gtk_builder_get_object (builder, "sxe_name"));
     sxed->enabledOpt = GTK_TOGGLE_BUTTON (gtk_builder_get_object (builder, "enabled_opt"));
     sxed->autocreateOpt = GTK_TOGGLE_BUTTON (gtk_builder_get_object (builder, "autocreate_opt"));
     sxed->notifyOpt = GTK_TOGGLE_BUTTON (gtk_builder_get_object (builder, "notify_opt"));
@@ -1284,7 +1275,7 @@ gnc_ui_scheduled_xaction_editor_dialog_create (GtkWindow *parent,
     /* populate */
     schedXact_editor_populate (sxed);
 
-    /* Do not call show_all here. Screws up the gtkuimanager code */
+    /* Do not call show_all here */
     gtk_widget_show (sxed->dialog);
     gtk_notebook_set_current_page (GTK_NOTEBOOK (sxed->notebook), 0);
 
@@ -1329,7 +1320,8 @@ schedXact_editor_create_freq_sel (GncSxEditorDialog *sxed)
     gtk_box_pack_start (GTK_BOX (b), example_cal_scrolled_win, TRUE, TRUE, 0);
 
     sxed->dense_cal_model = gnc_dense_cal_store_new (EX_CAL_NUM_MONTHS * 31);
-    sxed->example_cal = GNC_DENSE_CAL (gnc_dense_cal_new_with_model (GNC_DENSE_CAL_MODEL (sxed->dense_cal_model)));
+    sxed->example_cal = GNC_DENSE_CAL(gnc_dense_cal_new_with_model (GTK_WINDOW(sxed->dialog),
+                                                                    GNC_DENSE_CAL_MODEL(sxed->dense_cal_model)));
     g_assert (sxed->example_cal);
     gnc_dense_cal_set_num_months (sxed->example_cal, EX_CAL_NUM_MONTHS);
     gnc_dense_cal_set_months_per_col (sxed->example_cal, EX_CAL_MO_PER_COL);
@@ -1354,10 +1346,10 @@ schedXact_editor_create_ledger (GncSxEditorDialog *sxed)
     /* First the embedded window */
     main_vbox = GTK_WIDGET (gtk_builder_get_object (sxed->builder, "register_vbox"));
     sxed->embed_window =
-        gnc_embedded_window_new ("SXWindowActions",
+        gnc_embedded_window_new ("embedded-win",
                                  gnc_sxed_menu_entries,
                                  gnc_sxed_menu_n_entries,
-                                 "gnc-sxed-window-ui.xml",
+                                 "gnc-embedded-register-window.ui",
                                  sxed->dialog,
                                  FALSE, /* no accelerators */
                                  sxed);
@@ -1366,8 +1358,13 @@ schedXact_editor_create_ledger (GncSxEditorDialog *sxed)
 
     /* Now create the register plugin page. */
     sxed->plugin_page = gnc_plugin_page_register_new_ledger (sxed->ledger);
-    gnc_plugin_page_set_ui_description (sxed->plugin_page,
-                                        "gnc-sxed-window-ui-full.xml");
+
+    gnc_plugin_page_merge_actions (sxed->plugin_page);
+
+    gtk_widget_insert_action_group (GTK_WIDGET(sxed->embed_window),
+                                    gnc_plugin_page_get_simple_action_group_name (sxed->plugin_page),
+                                    G_ACTION_GROUP(gnc_plugin_page_get_action_group (sxed->plugin_page)));
+
     gnc_plugin_page_register_set_options (sxed->plugin_page,
                                           NUM_LEDGER_LINES_DEFAULT, FALSE);
     gnc_embedded_window_open_page (sxed->embed_window, sxed->plugin_page);
@@ -1397,7 +1394,7 @@ schedXact_editor_populate (GncSxEditorDialog *sxed)
     name = xaccSchedXactionGetName (sxed->sx);
     if (name)
     {
-        gtk_entry_set_text (GTK_ENTRY (sxed->nameEntry), name );
+        gtk_entry_set_text (sxed->nameEntry, name);
     }
     {
         gd = xaccSchedXactionGetLastOccurDate (sxed->sx);

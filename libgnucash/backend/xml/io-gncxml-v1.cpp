@@ -25,8 +25,6 @@
  *                                                                  *
  *******************************************************************/
 #include <guid.hpp>
-extern "C"
-{
 #include <config.h>
 
 #include <stdlib.h>
@@ -44,7 +42,6 @@ extern "C"
 #include <TransLog.h>
 #include <gnc-pricedb.h>
 #include <gnc-pricedb-p.h>
-}
 
 #include "io-gncxml.h"
 #include "sixtp.h"
@@ -764,8 +761,6 @@ kvp_frame_slot_end_handler (gpointer data_for_children,
                             gpointer* result, const gchar* tag)
 {
     KvpFrame* f = (KvpFrame*) parent_data;
-    GSList* lp;
-    gboolean first = TRUE;
     gchar* key = NULL;
     KvpValue* value = NULL;
     gboolean delete_value = FALSE;

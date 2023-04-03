@@ -29,7 +29,6 @@
 #include <glib.h>
 #include <glib/gi18n.h>
 #include <gio/gio.h>
-#include <libguile.h>
 #include <ctype.h>
 #include <errno.h>
 #include <limits.h>
@@ -45,18 +44,15 @@
 
 
 #include "qof.h"
-#include "guile-mappings.h"
 #include "gnc-prefs.h"
 #include "Account.h"
 #include "Transaction.h"
 #include "gnc-engine.h"
 #include "gnc-features.h"
 #include "gnc-hooks.h"
-#include "gnc-locale-tax.h"
 #include "gnc-session.h"
 #include "engine-helpers.h"
 #include "gnc-locale-utils.h"
-#include "gnc-guile-utils.h"
 
 #define GNC_PREF_CURRENCY_CHOICE_LOCALE "currency-choice-locale"
 #define GNC_PREF_CURRENCY_CHOICE_OTHER  "currency-choice-other"
@@ -175,23 +171,6 @@ gnc_reverse_balance (const Account *account)
         gnc_reverse_balance_init ();
 
     return reverse_type[type];
-}
-
-gboolean gnc_using_unreversed_budgets (QofBook* book)
-{
-    return gnc_features_check_used (book, GNC_FEATURE_BUDGET_UNREVERSED);
-}
-
-/* similar to gnc_reverse_balance but also accepts a gboolean
-   unreversed which specifies the reversal strategy - FALSE = pre-4.x
-   always-assume-credit-accounts, TRUE = all amounts unreversed */
-gboolean
-gnc_reverse_budget_balance (const Account *account, gboolean unreversed)
-{
-    if (unreversed == gnc_using_unreversed_budgets(gnc_account_get_book(account)))
-        return gnc_reverse_balance (account);
-
-    return FALSE;
 }
 
 gboolean gnc_using_equity_type_opening_balance_account (QofBook* book)
@@ -440,122 +419,6 @@ gnc_get_current_book_tax_type (void)
     }
 }
 
-/** Returns TRUE if both book-currency and default gain/loss policy KVPs exist
-  * and are valid and trading accounts are not used. */
-gboolean
-gnc_book_use_book_currency (QofBook *book)
-{
-    const gchar *policy;
-    const gchar *currency;
-
-    if (!book) return FALSE;
-
-    policy = qof_book_get_default_gains_policy (book);
-    currency = qof_book_get_book_currency_name (book);
-
-    /* If either a default gain/loss policy or a book-currency does not exist,
-       book-currency accounting method not valid */
-    if (!policy || !currency)
-       return FALSE;
-
-    /* If both exist, both must be valid */
-    if (!gnc_valid_policy_name (policy) || !gnc_commodity_table_lookup
-                                            (gnc_commodity_table_get_table
-                                              (gnc_get_current_book()),
-                                                GNC_COMMODITY_NS_CURRENCY,
-                                                 currency))
-       return FALSE;
-
-    /* If both exist and are valid, there must be no trading accounts flag */
-    if (qof_book_use_trading_accounts (book))
-       return FALSE;
-
-    return TRUE;
-}
-
-/** Returns pointer to Book Currency name for book or NULL; determines
-  * that both book-currency and default gain/loss policy KVPs exist and that
-  * both are valid, a requirement for the 'book-currency' currency accounting
-  * method to apply. */
-const gchar *
-gnc_book_get_book_currency_name (QofBook *book)
-{
-    if (!book) return NULL;
-
-    if (gnc_book_use_book_currency (book))
-        return qof_book_get_book_currency_name (book);
-
-    return NULL;
-}
-
-/** Returns pointer to Book Currency for book or NULL; determines
-  * that both book-currency and default gain/loss policy KVPs exist and that
-  * both are valid, a requirement for the 'book-currency' currency accounting
-  * method to apply. */
-gnc_commodity *
-gnc_book_get_book_currency (QofBook *book)
-{
-    if (!book) return NULL;
-
-    if (gnc_book_use_book_currency (book))
-        return gnc_commodity_table_lookup
-                    (gnc_commodity_table_get_table(book),
-                     GNC_COMMODITY_NS_CURRENCY,
-                     qof_book_get_book_currency_name (book));
-
-    return NULL;
-}
-
-/** Returns pointer to default gain/loss policy for book or NULL; determines
-  * that both book-currency and default gain/loss policy KVPs exist and that
-  * both are valid, a requirement for the 'book-currency' currency accounting
-  * method to apply. */
-const gchar *
-gnc_book_get_default_gains_policy (QofBook *book)
-{
-    if (!book) return NULL;
-
-    if (gnc_book_use_book_currency (book))
-        return qof_book_get_default_gains_policy (book);
-
-    return NULL;
-}
-
-/** Returns pointer to default gain/loss account for book or NULL; determines
-  * that both book-currency and default gain/loss policy KVPs exist and that
-  * both are valid, a requirement for the 'book-currency' currency accounting
-  * method to apply. Also, account must not be hidden or a placeholder, and
-  * must be of same currency as book-currency and income or expense type */
-Account *
-gnc_book_get_default_gain_loss_acct (QofBook *book)
-{
-    Account *gains_account = NULL;
-
-    if (!book) return NULL;
-
-    if (gnc_book_use_book_currency (book))
-    {
-        GncGUID *guid = qof_book_get_default_gain_loss_acct_guid (book);
-        gains_account = xaccAccountLookup (guid, book);
-        guid_free (guid);
-    }
-
-    if (gains_account &&
-        !xaccAccountGetPlaceholder(gains_account) &&
-        !xaccAccountGetHidden(gains_account) &&
-        (gnc_commodity_equal(xaccAccountGetCommodity(gains_account),
-                                    gnc_book_get_book_currency(book))) &&
-        ((xaccAccountGetType(gains_account) == ACCT_TYPE_INCOME) ||
-            (xaccAccountGetType(gains_account) == ACCT_TYPE_EXPENSE)))
-    {
-        return gains_account;
-    }
-    else
-    {
-        return NULL;
-    }
-}
-
 Account *
 gnc_get_current_root_account (void)
 {
@@ -565,7 +428,9 @@ gnc_get_current_root_account (void)
 gnc_commodity_table *
 gnc_get_current_commodities (void)
 {
-    return gnc_commodity_table_get_table (gnc_get_current_book ());
+     if (gnc_current_session_exist())
+          return gnc_commodity_table_get_table (gnc_get_current_book ());
+     return NULL;
 }
 
 gchar *
@@ -598,263 +463,6 @@ gnc_account_lookup_for_register(const Account *base_account, const char *name)
         return gnc_account_lookup_by_name (base_account, name);
     else
         return gnc_account_lookup_by_full_name (base_account, name);
-}
-
-
-/* Caller is responsible for g_free'ing returned memory */
-char *
-gnc_ui_account_get_tax_info_string (const Account *account)
-{
-    static SCM get_form = SCM_UNDEFINED;
-    static SCM get_desc = SCM_UNDEFINED;
-
-    gboolean tax_related = FALSE;
-    const char *code;
-
-    if (!account)
-        return NULL;
-
-    tax_related = xaccAccountGetTaxRelated (account);
-    code = xaccAccountGetTaxUSCode (account);
-
-    if (!code)
-    {
-        if (!tax_related)
-            return NULL;
-        /* tax_related && !code */
-        else
-            /* Translators: This and the following strings appear on
-               the account tab if the Tax Info column is displayed,
-               i.e. if the user wants to record the tax form number
-               and location on that tax form which corresponds to this
-               gnucash account. For the US Income Tax support in
-               gnucash, each tax code that can be assigned to an
-               account generally corresponds to a specific line number
-               on a paper form and each form has a unique
-               identification (e.g., Form 1040, Schedule A). */
-            return g_strdup (_("Tax-related but has no tax code"));
-    }
-    else  /* with tax code */
-    {
-        const gchar *tax_type;
-        GNCAccountType atype;
-        SCM tax_entity_type;
-        SCM category;
-        gchar *num_code = NULL;
-        const gchar *prefix = "N";
-        gchar *return_string = NULL;
-
-        tax_type = gnc_get_current_book_tax_type ();
-        if (tax_type == NULL || (g_strcmp0 (tax_type, "") == 0))
-            return g_strdup (_("Tax entity type not specified"));
-
-        atype = xaccAccountGetType (account);
-        tax_entity_type = scm_from_utf8_string (tax_type);
-
-        if (get_form == SCM_UNDEFINED)
-        {
-            const gchar *tax_module;
-            /* load the tax info */
-            gnc_locale_tax_init ();
-
-            get_form = scm_c_eval_string
-                       ("(false-if-exception gnc:txf-get-form)");
-            get_desc = scm_c_eval_string
-                       ("(false-if-exception gnc:txf-get-description)");
-        }
-
-        g_return_val_if_fail (scm_is_procedure (get_form), NULL);
-        g_return_val_if_fail (scm_is_procedure (get_desc), NULL);
-
-        category = scm_c_eval_string (atype == ACCT_TYPE_INCOME ?
-                                      "txf-income-categories" :
-                                      (atype == ACCT_TYPE_EXPENSE ?
-                                       "txf-expense-categories" :
-                                       (((atype == ACCT_TYPE_BANK)      ||
-                                         (atype == ACCT_TYPE_CASH)      ||
-                                         (atype == ACCT_TYPE_ASSET)     ||
-                                         (atype == ACCT_TYPE_STOCK)     ||
-                                         (atype == ACCT_TYPE_MUTUAL)    ||
-                                         (atype == ACCT_TYPE_RECEIVABLE)) ?
-                                        "txf-asset-categories" :
-                                        (((atype == ACCT_TYPE_CREDIT)    ||
-                                          (atype == ACCT_TYPE_LIABILITY) ||
-                                          (atype == ACCT_TYPE_EQUITY)    ||
-                                          (atype == ACCT_TYPE_PAYABLE)) ?
-                                         "txf-liab-eq-categories" : ""))));
-
-        if (g_str_has_prefix (code, prefix))
-        {
-            const gchar *num_code_tmp;
-            num_code_tmp = g_strdup (code);
-            num_code_tmp++; /* to lose the leading N */
-            num_code = g_strdup (num_code_tmp);
-            num_code_tmp--;
-            g_free ((gpointer *) num_code_tmp);
-        }
-        else
-        {
-            num_code = g_strdup (code);
-        }
-
-        if (category == SCM_UNDEFINED)
-        {
-            if (tax_related)
-                return_string = g_strdup_printf
-                                (_("Tax type %s: invalid code %s for account type"),
-                                 tax_type, num_code);
-            else
-                return_string = g_strdup_printf
-                                (_("Not tax-related; tax type %s: invalid code %s for account type"),
-                                 tax_type, num_code);
-        }
-        else
-        {
-            SCM code_scm;
-            SCM form_scm;
-            code_scm = scm_from_locale_symbol (code);
-            form_scm = scm_call_3 (get_form, category, code_scm, tax_entity_type);
-            if (!scm_is_string (form_scm))
-            {
-                if (tax_related)
-                    return_string =  g_strdup_printf
-                                     (_("Invalid code %s for tax type %s"),
-                                      num_code, tax_type);
-                else
-                    return_string =  g_strdup_printf
-                                     (_("Not tax-related; invalid code %s for tax type %s"),
-                                      num_code, tax_type);
-            }
-            else
-            {
-                gchar *form = NULL;
-
-                /* Note: using scm_to_utf8_stringn directly here instead
-                   of our wrapper gnc_scm_to_utf8_string. 'form' should
-                   be freed with 'free' instead of 'g_free'. This will
-                   be taken care of automatically during scm_dynwind_end,
-                   because we inform guile of this memory allocation via
-                   scm_dynwind_free a little further. */
-                form = scm_to_utf8_stringn (form_scm, NULL);
-                if (!form)
-                {
-                    if (tax_related)
-                        return_string = g_strdup_printf
-                                        (_("No form: code %s, tax type %s"), num_code,
-                                         tax_type);
-                    else
-                        return_string = g_strdup_printf
-                                        (_("Not tax-related; no form: code %s, tax type %s"),
-                                         num_code, tax_type);
-                }
-                else
-                {
-                    SCM desc_scm;
-
-                    /* Create a dynwind context because we will be calling (scm) functions
-                       that potentially exit non-locally */
-                    scm_dynwind_begin (0);
-                    scm_dynwind_free (form);
-                    desc_scm = scm_call_3 (get_desc, category, code_scm,
-                                           tax_entity_type);
-                    if (!scm_is_string (desc_scm))
-                    {
-                        if (tax_related)
-                            return_string = g_strdup_printf
-                                            (_("No description: form %s, code %s, tax type %s"),
-                                             form, num_code, tax_type);
-                        else
-                            return_string = g_strdup_printf
-                                            (_("Not tax-related; no description: form %s, code %s, tax type %s"),
-                                             form, num_code, tax_type);
-                    }
-                    else
-                    {
-                        gchar *desc = NULL;
-                        desc = gnc_scm_to_utf8_string (desc_scm);
-                        if (!desc)
-                        {
-                            if (tax_related)
-                                return_string = g_strdup_printf
-                                                (_("No description: form %s, code %s, tax type %s"),
-                                                 form, num_code, tax_type);
-                            else
-                                return_string = g_strdup_printf
-                                                (_("Not tax-related; no description: form %s, code %s, tax type %s"),
-                                                 form, num_code, tax_type);
-                        }
-                        else
-                        {
-                            gint64 copy_number;
-                            gchar *copy_txt = NULL;
-                            copy_number = xaccAccountGetTaxUSCopyNumber (account);
-                            copy_txt = (copy_number == 1) ?
-                                       g_strdup ("") :
-                                       g_strdup_printf ("(%d)",
-                                                        (gint) copy_number);
-                            if (tax_related)
-                            {
-                                if (g_strcmp0 (form, "") == 0)
-                                    return_string = g_strdup_printf ("%s", desc);
-                                else
-                                    return_string = g_strdup_printf ("%s%s: %s",
-                                                                     form, copy_txt, desc);
-                            }
-                            else
-                            {
-                                return_string = g_strdup_printf
-                                                (_("Not tax-related; %s%s: %s (code %s, tax type %s)"),
-                                                 form, copy_txt, desc, num_code, tax_type);
-                            }
-                            g_free (copy_txt);
-                        }
-                        g_free (desc);
-                    }
-                    scm_dynwind_end ();
-                }
-            }
-        }
-        g_free (num_code);
-        return return_string;
-    }
-}
-
-/* Caller is responsible for g_free'ing returned memory */
-char *
-gnc_ui_account_get_tax_info_sub_acct_string (const Account *account)
-{
-    GList *descendant, *account_descendants;
-
-    if (!account)
-        return NULL;
-
-    account_descendants = gnc_account_get_descendants (account);
-    if (account_descendants)
-    {
-        gint sub_acct_tax_number = 0;
-        for (descendant = account_descendants; descendant;
-                descendant = g_list_next(descendant))
-        {
-            if (xaccAccountGetTaxRelated (descendant->data))
-                sub_acct_tax_number++;
-        }
-        g_list_free (account_descendants);
-        g_list_free (descendant);
-        /* Translators: This and the following strings appear on
-           the account tab if the Tax Info column is displayed,
-           i.e. if the user wants to record the tax form number
-           and location on that tax form which corresponds to this
-           gnucash account. For the US Income Tax support in
-           gnucash, each tax code that can be assigned to an
-           account generally corresponds to a specific line number
-           on a paper form and each form has a unique
-           identification (e.g., Form 1040, Schedule A). */
-        return (sub_acct_tax_number == 0) ? NULL :
-               g_strdup_printf (_("(Tax-related subaccounts: %d)"),
-                                sub_acct_tax_number);
-    }
-    else
-        return NULL;
 }
 
 /********************************************************************\
@@ -1170,10 +778,8 @@ gnc_default_currency_common (gchar *requested_currency,
                                           GNC_COMMODITY_NS_CURRENCY,
                                           requested_currency);
 
-    if (gnc_book_use_book_currency (gnc_get_current_book ()))
-        return gnc_book_get_book_currency (gnc_get_current_book ());
-
-    if (gnc_prefs_get_bool (section, GNC_PREF_CURRENCY_CHOICE_OTHER))
+    if (gnc_current_session_exist() &&
+        gnc_prefs_get_bool (section, GNC_PREF_CURRENCY_CHOICE_OTHER))
     {
         mnemonic = gnc_prefs_get_string(section, GNC_PREF_CURRENCY_OTHER);
         currency = gnc_commodity_table_lookup(gnc_get_current_commodities(),
@@ -1185,11 +791,13 @@ gnc_default_currency_common (gchar *requested_currency,
 
     if (!currency)
         currency = gnc_locale_default_currency ();
+
     if (currency)
     {
         mnemonic = requested_currency;
         g_free(mnemonic);
     }
+
     return currency;
 }
 
@@ -1497,7 +1105,8 @@ PrintAmountInternal(char *buf, gnc_numeric val, const GNCPrintAmountInfo *info)
 {
     struct lconv *lc = gnc_localeconv();
     int num_whole_digits;
-    char temp_buf[128];
+    static const size_t buf_size = 128;
+    char temp_buf[buf_size];
     gnc_numeric whole, rounding;
     int min_dp, max_dp;
     gboolean value_is_negative, value_is_decimal;
@@ -1572,7 +1181,7 @@ PrintAmountInternal(char *buf, gnc_numeric val, const GNCPrintAmountInfo *info)
     // Value may now be decimal, for example if the factional part is zero
     value_is_decimal = gnc_numeric_to_decimal(&val, NULL);
     /* print the integer part without separators */
-    sprintf(temp_buf, "%" G_GINT64_FORMAT, whole.num);
+    snprintf(temp_buf, buf_size, "%" G_GINT64_FORMAT, whole.num);
     num_whole_digits = strlen (temp_buf);
 
     if (!info->use_separators)
@@ -1649,10 +1258,10 @@ PrintAmountInternal(char *buf, gnc_numeric val, const GNCPrintAmountInfo *info)
         val = gnc_numeric_reduce (val);
 
         if (val.denom > 0)
-            sprintf (temp_buf, "%" G_GINT64_FORMAT "/%" G_GINT64_FORMAT,
+            snprintf (temp_buf, buf_size, "%" G_GINT64_FORMAT "/%" G_GINT64_FORMAT,
                      val.num, val.denom);
         else
-            sprintf (temp_buf, "%" G_GINT64_FORMAT " * %" G_GINT64_FORMAT,
+            snprintf (temp_buf, buf_size, "%" G_GINT64_FORMAT " * %" G_GINT64_FORMAT,
                      val.num, -val.denom);
 
         if (whole.num == 0)
@@ -1877,6 +1486,9 @@ gnc_print_amount_with_bidi_ltr_isolate (gnc_numeric val, GNCPrintAmountInfo info
     static const char ltr_pop_isolate[] = { 0xe2, 0x81, 0xa9 };
     size_t offset = info.use_symbol ? 3 : 0;
 
+    if (!gnc_commodity_is_currency (info.commodity))
+        offset = 0;
+
     memset (buf, 0, BUFLEN);
     if (!xaccSPrintAmount (buf + offset, val, info))
     {
@@ -1884,7 +1496,7 @@ gnc_print_amount_with_bidi_ltr_isolate (gnc_numeric val, GNCPrintAmountInfo info
         return buf;
     };
 
-    if (!info.use_symbol)
+    if (offset == 0)
         return buf;
 
     memcpy (buf, ltr_isolate, 3);
@@ -2150,79 +1762,21 @@ multiplier (int num_decimals)
     return 1;
 }
 
-gboolean
-xaccParseAmount (const char * in_str, gboolean monetary, gnc_numeric *result,
-                 char **endstr)
-{
-    return xaccParseAmountPosSign (in_str, monetary, result, endstr, FALSE);
-}
-
-gboolean
-xaccParseAmountPosSign (const char * in_str, gboolean monetary, gnc_numeric *result,
-                        char **endstr, gboolean skip)
-{
-    struct lconv *lc = gnc_localeconv();
-
-    gunichar negative_sign;
-    gunichar decimal_point;
-    gunichar group_separator;
-    gchar *ignore = NULL;
-    char *plus_sign = "+";
-
-    negative_sign = g_utf8_get_char(lc->negative_sign);
-    if (monetary)
-    {
-        group_separator = g_utf8_get_char(lc->mon_thousands_sep);
-        decimal_point = g_utf8_get_char(lc->mon_decimal_point);
-    }
-    else
-    {
-        group_separator = g_utf8_get_char(lc->thousands_sep);
-        decimal_point = g_utf8_get_char(lc->decimal_point);
-    }
-
-    if (skip)
-    {
-        /* We want the locale's positive sign to be ignored.
-        * If the locale doesn't specify one, we assume "+" as
-        * an optional positive sign and ignore that */
-        ignore = lc->positive_sign;
-        if (!ignore || !*ignore)
-            ignore = plus_sign;
-    }
-
-    return xaccParseAmountExtended(in_str, monetary, negative_sign,
-                                   decimal_point, group_separator,
-                                   ignore, result, endstr);
-}
-
-gboolean
-xaccParseAmountExtended (const char * in_str, gboolean monetary,
+static gboolean
+xaccParseAmountInternal (const char * in_str, gboolean monetary,
                          gunichar negative_sign, gunichar decimal_point,
                          gunichar group_separator, const char *ignore_list,
+                         gboolean use_auto_decimal,
                          gnc_numeric *result, char **endstr)
 {
-    gboolean is_negative;
-    gboolean got_decimal;
-    gboolean need_paren;
-    long long int numer;
-    long long int denom;
-    int count;
-
-    ParseState state;
-
-    const gchar *in;
-    gunichar uc;
-    gchar *out_str;
-    gchar *out;
-
     /* Initialize *endstr to in_str */
-    if (endstr != NULL)
+    if (endstr)
         *endstr = (char *) in_str;
 
-    if (in_str == NULL)
+    if (!in_str)
         return FALSE;
 
+    const gchar *in;
     if (!g_utf8_validate(in_str, -1, &in))
     {
         printf("Invalid utf8 string '%s'. Bad character at position %ld.\n",
@@ -2232,29 +1786,29 @@ xaccParseAmountExtended (const char * in_str, gboolean monetary,
 
     /* 'out_str' will be used to store digits for numeric conversion.
      * 'out' will be used to traverse out_str. */
-    out = out_str = g_new(gchar, strlen(in_str) + 128);
+    gchar *out_str = g_new(gchar, strlen(in_str) + 128);
+    gchar *out = out_str;
 
     /* 'in' is used to traverse 'in_str'. */
     in = in_str;
 
-    is_negative = FALSE;
-    got_decimal = FALSE;
-    need_paren = FALSE;
-    numer = 0;
-    denom = 1;
+    gboolean is_negative = FALSE;
+    gboolean got_decimal = FALSE;
+    gboolean need_paren = FALSE;
+    long long int numer = 0;
+    long long int denom = 1;
 
     /* Initialize the state machine */
-    state = START_ST;
+    ParseState state = START_ST;
 
     /* This while loop implements a state machine for parsing numbers. */
     while (TRUE)
     {
         ParseState next_state = state;
-
-        uc = g_utf8_get_char(in);
+        gunichar uc = g_utf8_get_char(in);
 
         /* Ignore anything in the 'ignore list' */
-        if (ignore_list && uc && g_utf8_strchr(ignore_list, -1, uc) != NULL)
+        if (ignore_list && uc && g_utf8_strchr(ignore_list, -1, uc))
         {
             in = g_utf8_next_char(in);
             continue;
@@ -2265,144 +1819,124 @@ xaccParseAmountExtended (const char * in_str, gboolean monetary,
         switch (state)
         {
             /* START_ST means we have parsed 0 or more whitespace characters */
-        case START_ST:
-            if (g_unichar_isdigit(uc))
-            {
-                count = g_unichar_to_utf8(uc, out);
-                out += count; /* we record the digits themselves in out_str
-                         * for later conversion by libc routines */
-                next_state = NUMER_ST;
-            }
-            else if (uc == decimal_point)
-            {
-                next_state = FRAC_ST;
-            }
-            else if (g_unichar_isspace(uc))
-            {
-            }
-            else if (uc == negative_sign)
-            {
-                is_negative = TRUE;
-                next_state = NEG_ST;
-            }
-            else if (uc == '(')
-            {
-                is_negative = TRUE;
-                need_paren = TRUE;
-                next_state = NEG_ST;
-            }
-            else
-            {
-                next_state = NO_NUM_ST;
-            }
+            case START_ST:
+                if (g_unichar_isdigit(uc))
+                {
+                    int count = g_unichar_to_utf8(uc, out);
+                    out += count; /* we record the digits themselves in out_str
+                    * for later conversion by libc routines */
+                    next_state = NUMER_ST;
+                }
+                else if (uc == decimal_point)
+                    next_state = FRAC_ST;
+                else if (g_unichar_isspace(uc))
+                    ;
+                else if (uc == negative_sign)
+                {
+                    is_negative = TRUE;
+                    next_state = NEG_ST;
+                }
+                else if (uc == '(')
+                {
+                    is_negative = TRUE;
+                    need_paren = TRUE;
+                    next_state = NEG_ST;
+                }
+                else
+                    next_state = NO_NUM_ST;
 
-            break;
+                break;
 
             /* NEG_ST means we have just parsed a negative sign. For now,
              * we only recognize formats where the negative sign comes first. */
-        case NEG_ST:
-            if (g_unichar_isdigit(uc))
-            {
-                count = g_unichar_to_utf8(uc, out);
-                out += count;
-                next_state = NUMER_ST;
-            }
-            else if (uc == decimal_point)
-            {
-                next_state = FRAC_ST;
-            }
-            else if (g_unichar_isspace(uc))
-            {
-            }
-            else
-            {
-                next_state = NO_NUM_ST;
-            }
+            case NEG_ST:
+                if (g_unichar_isdigit(uc))
+                {
+                    int count = g_unichar_to_utf8(uc, out);
+                    out += count;
+                    next_state = NUMER_ST;
+                }
+                else if (uc == decimal_point)
+                    next_state = FRAC_ST;
+                else if (g_unichar_isspace(uc))
+                    ;
+                else
+                    next_state = NO_NUM_ST;
 
-            break;
+                break;
 
             /* NUMER_ST means we have started parsing the number, but
              * have not encountered a decimal separator. */
-        case NUMER_ST:
-            if (g_unichar_isdigit(uc))
-            {
-                count = g_unichar_to_utf8(uc, out);
-                out += count;
-            }
-            else if (uc == decimal_point)
-            {
-                next_state = FRAC_ST;
-            }
-            else if (uc == group_separator)
-            {
-                 ; //ignore it
-            }
-            else if (uc == ')' && need_paren)
-            {
-                next_state = DONE_ST;
-                need_paren = FALSE;
-            }
-            else
-            {
-                next_state = DONE_ST;
-            }
+            case NUMER_ST:
+                if (g_unichar_isdigit(uc))
+                {
+                    int count = g_unichar_to_utf8(uc, out);
+                    out += count;
+                }
+                else if (uc == decimal_point)
+                    next_state = FRAC_ST;
+                else if (uc == group_separator)
+                    ; //ignore it
+                else if (uc == ')' && need_paren)
+                {
+                    next_state = DONE_ST;
+                    need_paren = FALSE;
+                }
+                else
+                    next_state = DONE_ST;
 
-            break;
+                break;
 
             /* FRAC_ST means we are now parsing fractional digits. */
-        case FRAC_ST:
-            if (g_unichar_isdigit(uc))
-            {
-                count = g_unichar_to_utf8(uc, out);
-                out += count;
-            }
-            else if (uc == decimal_point)
-            {
-                /* If a subsequent decimal point is also whitespace,
-                 * assume it was intended as such and stop parsing.
-                 * Otherwise, there is a problem. */
-                if (g_unichar_isspace(decimal_point))
+            case FRAC_ST:
+                if (g_unichar_isdigit(uc))
+                {
+                    int count = g_unichar_to_utf8(uc, out);
+                    out += count;
+                }
+                else if (uc == decimal_point)
+                {
+                    /* If a subsequent decimal point is also whitespace,
+                        * assume it was intended as such and stop parsing.
+                        * Otherwise, there is a problem. */
+                    if (g_unichar_isspace(decimal_point))
+                        next_state = DONE_ST;
+                    else
+                        next_state = NO_NUM_ST;
+                }
+                else if (uc == group_separator)
+                {
+                    /* If a subsequent group separator is also whitespace,
+                        * assume it was intended as such and stop parsing.
+                        * Otherwise ignore it. */
+                    if (g_unichar_isspace(group_separator))
+                        next_state = DONE_ST;
+                }
+                else if (uc == ')' && need_paren)
+                {
                     next_state = DONE_ST;
+                    need_paren = FALSE;
+                }
                 else
-                    next_state = NO_NUM_ST;
-            }
-            else if (uc == group_separator)
-            {
-                /* If a subsequent group separator is also whitespace,
-                 * assume it was intended as such and stop parsing.
-                 * Otherwise ignore it. */
-                if (g_unichar_isspace(group_separator))
                     next_state = DONE_ST;
-            }
-            else if (uc == ')' && need_paren)
-            {
-                next_state = DONE_ST;
-                need_paren = FALSE;
-            }
-            else
-            {
-                next_state = DONE_ST;
-            }
 
-            break;
+                break;
 
-        default:
-            PERR("bad state");
-            g_assert_not_reached();
-            break;
+            default:
+                PERR("bad state");
+                g_assert_not_reached();
+                break;
         }
 
         /* If we're moving into the FRAC_ST or out of the machine
          * without going through FRAC_ST, record the integral value. */
         if (((next_state == FRAC_ST) && (state != FRAC_ST)) ||
-                ((next_state == DONE_ST) && !got_decimal))
+            ((next_state == DONE_ST) && !got_decimal))
         {
             *out = '\0';
 
-            if (*out_str != '\0' && sscanf(out_str, QOF_SCANF_LLD, &numer) < 1)
-            {
+            if (*out_str && sscanf(out_str, QOF_SCANF_LLD, &numer) < 1)
                 next_state = NO_NUM_ST;
-            }
             else if (next_state == FRAC_ST)
             {
                 /* reset the out pointer to record the fraction */
@@ -2431,12 +1965,10 @@ xaccParseAmountExtended (const char * in_str, gboolean monetary,
     *out = '\0';
 
     /* Add in fractional value */
-    if (got_decimal && (*out_str != '\0'))
+    if (got_decimal && *out_str)
     {
-        size_t len;
-        long long int fraction;
 
-        len = strlen(out_str);
+        size_t len = strlen(out_str);
 
         if (len > 12)
         {
@@ -2444,6 +1976,7 @@ xaccParseAmountExtended (const char * in_str, gboolean monetary,
             len = 12;
         }
 
+        long long int fraction;
         if (sscanf (out_str, QOF_SCANF_LLD, &fraction) < 1)
         {
             g_free(out_str);
@@ -2454,7 +1987,7 @@ xaccParseAmountExtended (const char * in_str, gboolean monetary,
         numer *= denom;
         numer += fraction;
     }
-    else if (monetary && auto_decimal_enabled && !got_decimal)
+    else if (monetary && use_auto_decimal && !got_decimal)
     {
         if ((auto_decimal_places > 0) && (auto_decimal_places <= 12))
         {
@@ -2468,20 +2001,103 @@ xaccParseAmountExtended (const char * in_str, gboolean monetary,
         }
     }
 
-    if (result != NULL)
+    if (result)
     {
         *result = gnc_numeric_create (numer, denom);
         if (is_negative)
             *result = gnc_numeric_neg (*result);
     }
 
-    if (endstr != NULL)
+    if (endstr)
         *endstr = (char *) in;
 
     g_free (out_str);
 
     return TRUE;
 }
+
+
+static gboolean
+xaccParseAmountBasicInternal (const char * in_str, gboolean monetary,
+                              gboolean use_auto_decimal, gnc_numeric *result,
+                              char **endstr, gboolean skip)
+{
+    struct lconv *lc = gnc_localeconv();
+    gunichar negative_sign = g_utf8_get_char(lc->negative_sign);
+
+    gunichar decimal_point;
+    gunichar group_separator;
+    if (monetary)
+    {
+        group_separator = g_utf8_get_char(lc->mon_thousands_sep);
+        decimal_point = g_utf8_get_char(lc->mon_decimal_point);
+    }
+    else
+    {
+        group_separator = g_utf8_get_char(lc->thousands_sep);
+        decimal_point = g_utf8_get_char(lc->decimal_point);
+    }
+
+    gchar *ignore = NULL;
+    if (skip)
+    {
+        /* We want the locale's positive sign to be ignored.
+         * If the locale doesn't specify one, we assume "+" as
+         * an optional positive sign and ignore that */
+        ignore = lc->positive_sign;
+        if (!ignore || !*ignore)
+            ignore = "+";
+    }
+
+    return xaccParseAmountInternal(in_str, monetary, negative_sign,
+                                   decimal_point, group_separator,
+                                   ignore, use_auto_decimal,
+                                   result, endstr);
+}
+
+
+gboolean
+xaccParseAmount (const char * in_str, gboolean monetary, gnc_numeric *result,
+                 char **endstr)
+{
+    return xaccParseAmountBasicInternal (in_str, monetary, auto_decimal_enabled,
+                                         result, endstr, FALSE);
+}
+
+gboolean
+xaccParseAmountImport (const char * in_str, gboolean monetary,
+                        gnc_numeric *result,
+                        char **endstr, gboolean skip)
+{
+    return xaccParseAmountBasicInternal (in_str, monetary, FALSE,
+                                         result, endstr, skip);
+}
+
+
+gboolean
+xaccParseAmountExtended (const char * in_str, gboolean monetary,
+                         gunichar negative_sign, gunichar decimal_point,
+                         gunichar group_separator, const char *ignore_list,
+                         gnc_numeric *result, char **endstr)
+{
+    return xaccParseAmountInternal (in_str, monetary, negative_sign,
+                                    decimal_point, group_separator,
+                                    ignore_list, auto_decimal_enabled,
+                                    result, endstr);
+}
+
+gboolean
+xaccParseAmountExtImport (const char * in_str, gboolean monetary,
+                             gunichar negative_sign, gunichar decimal_point,
+                             gunichar group_separator, const char *ignore_list,
+                             gnc_numeric *result, char **endstr)
+{
+    return xaccParseAmountInternal (in_str, monetary, negative_sign,
+                                    decimal_point, group_separator,
+                                    ignore_list, FALSE,
+                                    result, endstr);
+}
+
 
 /* enable/disable the auto_decimal_enabled option */
 static void
@@ -2595,7 +2211,7 @@ unichar_is_cntrl (gunichar uc)
 gchar *
 gnc_filter_text_for_control_chars (const gchar *text)
 {
-    gchar *normal_text, *nt;
+    const char *ch;
     GString *filtered;
     gboolean cntrl = FALSE;
     gboolean text_found = FALSE;
@@ -2606,20 +2222,18 @@ gnc_filter_text_for_control_chars (const gchar *text)
     if (!g_utf8_validate (text, -1, NULL))
         return NULL;
 
-    normal_text = g_utf8_normalize (text, -1, G_NORMALIZE_ALL_COMPOSE);
+    filtered = g_string_sized_new (strlen (text) + 1);
 
-    filtered = g_string_sized_new (strlen (normal_text) + 1);
+    ch = text;
 
-    nt = normal_text;
-
-    while (*nt)
+    while (*ch)
     {
-        gunichar uc = g_utf8_get_char (nt);
+        gunichar uc = g_utf8_get_char (ch);
 
         // check for starting with control characters
         if (unichar_is_cntrl (uc) && !text_found)
         {
-            nt = g_utf8_next_char (nt);
+            ch = g_utf8_next_char (ch);
             continue;
         }
         // check for alpha, num and punctuation
@@ -2632,18 +2246,17 @@ gnc_filter_text_for_control_chars (const gchar *text)
         if (unichar_is_cntrl (uc))
             cntrl = TRUE;
 
-        nt = g_utf8_next_char (nt);
+        ch = g_utf8_next_char (ch);
 
         if (cntrl) // if control characters in text replace with space
         {
-            gunichar uc2 = g_utf8_get_char (nt);
+            gunichar uc2 = g_utf8_get_char (ch);
 
             if (!unichar_is_cntrl (uc2))
                 filtered = g_string_append_unichar (filtered, ' ');
         }
         cntrl = FALSE;
     }
-    g_free (normal_text);
     return g_string_free (filtered, FALSE);
 }
 

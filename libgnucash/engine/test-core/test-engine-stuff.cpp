@@ -38,8 +38,6 @@
 #include <guid.hpp>
 #include <kvp-frame.hpp>
 
-extern "C"
-{
 #include <platform.h>
 #if PLATFORM(WINDOWS)
 #define __STDC_FORMAT_MACROS
@@ -69,10 +67,7 @@ extern "C"
 #include "test-engine-stuff.h"
 #include "test-stuff.h"
 #include "test-engine-strings.h"
-}
 #include <qofinstance-p.h>
-
-static gboolean glist_strings_only = FALSE;
 
 static GHashTable *exclude_kvp_types = NULL;
 static gint kvp_max_depth = 5;
@@ -127,20 +122,6 @@ set_max_kvp_frame_elements (gint max_kvp_frame_elements)
     kvp_frame_max_elements = MAX (max_kvp_frame_elements, 1);
 }
 
-static void
-kvp_exclude_type (KvpValue::Type kvp_type)
-{
-    gint *key;
-
-    if (!exclude_kvp_types)
-        exclude_kvp_types = g_hash_table_new (g_int_hash, g_int_equal);
-
-    key = g_new (gint, 1);
-    *key = kvp_type;
-
-    g_hash_table_insert (exclude_kvp_types, key, exclude_kvp_types);
-}
-
 static gboolean
 kvp_type_excluded (KvpValue::Type kvp_type)
 {
@@ -154,8 +135,6 @@ kvp_type_excluded (KvpValue::Type kvp_type)
 
     return FALSE;
 }
-
-static gboolean zero_nsec = FALSE;
 
 /* ========================================================== */
 
@@ -1572,32 +1551,6 @@ get_random_queryop(void)
     return op;
 }
 
-static GSList *
-get_random_kvp_path (void)
-{
-    GSList *path;
-    gint len;
-
-    path = NULL;
-    len = get_random_int_in_range (1, kvp_max_depth);
-
-    while (len--)
-        path = g_slist_prepend (path, get_random_string_without ("\n\\"));
-
-    return g_slist_reverse (path);
-}
-
-static void
-free_random_kvp_path (GSList *path)
-{
-    GSList *node;
-
-    for (node = path; node; node = node->next)
-        g_free (node->data);
-
-    g_slist_free (path);
-}
-
 static QofIdType
 get_random_id_type (void)
 {
@@ -1705,11 +1658,9 @@ get_random_query(void)
     while (num_terms-- > 0)
     {
         gint pr_type;
-        KvpValue *value;
         time64 start;
         time64 end;
         GList *guids;
-        GSList *path;
         char *string;
         GncGUID *guid;
 

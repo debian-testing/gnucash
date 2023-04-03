@@ -39,6 +39,10 @@ typedef struct _gncVendorClass GncVendorClass;
 #include "gncTaxTable.h"
 #include "gncJob.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define GNC_ID_VENDOR       "gncVendor"
 
 /* --- type macros --- */
@@ -108,8 +112,6 @@ int gncVendorCompare (const GncVendor *a, const GncVendor *b);
 /** Return a pointer to the instance gncVendor that is identified
  *  by the guid, and is residing in the book. Returns NULL if the
  *  instance can't be found.
- *  Equivalent function prototype is
- *  GncVendor * gncVendorLookup (QofBook *book, const GncGUID *guid);
  */
 static inline GncVendor * gncVendorLookup (const QofBook *book, const GncGUID *guid)
 {
@@ -134,6 +136,11 @@ static inline GncVendor * gncVendorLookup (const QofBook *book, const GncGUID *g
 /** Test support function, used by test-dbi-business-stuff.c */
 gboolean gncVendorEqual(const GncVendor *a, const GncVendor *b);
 gboolean gncVendorIsDirty (const GncVendor *vendor);
+
+#ifdef __cplusplus
+}
+#endif
+
 #endif /* GNC_VENDOR_H_ */
 /** @} */
 /** @} */

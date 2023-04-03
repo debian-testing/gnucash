@@ -56,8 +56,6 @@
 #include "gnc-html-webkit.h"
 #include "gnc-html-history.h"
 #include "print-session.h"
-#include "gnc-state.h"
-#include "print-session.h"
 
 
 G_DEFINE_TYPE(GncHtmlWebkit, gnc_html_webkit, GNC_TYPE_HTML )
@@ -466,7 +464,7 @@ handle_embedded_object( GncHtmlWebkit* self, gchar* html_str )
  * widget.
  ********************************************************************/
 
-static void
+static gboolean
 load_to_stream( GncHtmlWebkit* self, URLType type,
                 const gchar* location, const gchar* label )
 {
@@ -477,7 +475,7 @@ load_to_stream( GncHtmlWebkit* self, URLType type,
      DEBUG( "type %s, location %s, label %s", type ? type : "(null)",
             location ? location : "(null)", label ? label : "(null)");
 
-     g_return_if_fail( self != NULL );
+     g_return_val_if_fail( self != NULL, FALSE );
 
      if ( gnc_html_stream_handlers != NULL )
      {
@@ -486,7 +484,23 @@ load_to_stream( GncHtmlWebkit* self, URLType type,
           stream_handler = g_hash_table_lookup( gnc_html_stream_handlers, type );
           if ( stream_handler )
           {
-               gboolean ok = stream_handler( location, &fdata, &fdata_len );
+              GncHtml *weak_html = GNC_HTML(self);
+              gboolean ok;
+
+              g_object_add_weak_pointer(G_OBJECT(self),
+                                        (gpointer*)(&weak_html));
+              ok = stream_handler( location, &fdata, &fdata_len );
+
+              if (!weak_html) // will be NULL if self has been destroyed
+              {
+                  g_free (fdata);
+                  return FALSE;
+              }
+              else
+              {
+                  g_object_remove_weak_pointer(G_OBJECT(self),
+                                               (gpointer*)(&weak_html));
+              }
 
                if ( ok )
                {
@@ -533,7 +547,7 @@ load_to_stream( GncHtmlWebkit* self, URLType type,
                     }
                     /* No action required: Webkit jumps to the anchor on its own. */
                }
-               return;
+               return TRUE;
           }
      }
 
@@ -580,15 +594,17 @@ load_to_stream( GncHtmlWebkit* self, URLType type,
           }
      }
      while ( FALSE );
+     return TRUE;
 }
+
 static gboolean
 perform_navigation_policy (WebKitWebView *web_view,
                WebKitNavigationPolicyDecision *decision,
                GncHtml *self)
 {
      WebKitURIRequest *req = NULL;
-     const gchar* uri; // Can't init it here.
-     gchar *scheme = NULL, *location = NULL, *label = NULL;
+     const gchar* uri, *scheme; // Can't init it here.
+     gchar *location = NULL, *label = NULL;
      gboolean ignore = FALSE;
      WebKitNavigationAction *action =
       webkit_navigation_policy_decision_get_navigation_action (decision);
@@ -782,6 +798,7 @@ impl_webkit_show_url( GncHtml* self, URLType type,
      GncHTMLUrlCB url_handler;
      gboolean new_window;
      GncHtmlWebkitPrivate* priv;
+     gboolean stream_loaded = FALSE;
 
      g_return_if_fail( self != NULL );
      g_return_if_fail( GNC_IS_HTML_WEBKIT(self) );
@@ -872,10 +889,11 @@ impl_webkit_show_url( GncHtml* self, URLType type,
                DEBUG( "resetting base location to %s",
                       priv->base.base_location ? priv->base.base_location : "(null)" );
 
-               load_to_stream( GNC_HTML_WEBKIT(self), result.url_type,
-                               new_location, new_label );
+               stream_loaded = load_to_stream( GNC_HTML_WEBKIT(self),
+                                               result.url_type,
+                                               new_location, new_label );
 
-               if ( priv->base.load_cb != NULL )
+               if ( stream_loaded && priv->base.load_cb != NULL )
                {
                     priv->base.load_cb( GNC_HTML(self), result.url_type,
                                         new_location, new_label, priv->base.load_cb_data );
@@ -938,7 +956,8 @@ impl_webkit_show_url( GncHtml* self, URLType type,
                /* FIXME : handle new_window = 1 */
                gnc_html_history_append( priv->base.history,
                                         gnc_html_history_node_new( type, location, label ) );
-               load_to_stream( GNC_HTML_WEBKIT(self), type, location, label );
+               stream_loaded = load_to_stream( GNC_HTML_WEBKIT(self),
+                                               type, location, label );
 
           }
           while ( FALSE );
@@ -948,7 +967,7 @@ impl_webkit_show_url( GncHtml* self, URLType type,
           PERR( "URLType %s not supported.", type );
      }
 
-     if ( priv->base.load_cb != NULL )
+     if ( stream_loaded && priv->base.load_cb != NULL )
      {
           (priv->base.load_cb)( GNC_HTML(self), type, location, label, priv->base.load_cb_data );
      }
@@ -1106,8 +1125,7 @@ impl_webkit_print (GncHtml* self,const gchar* jobname)
      gchar *export_dirname = NULL;
      gchar *export_filename = NULL;
      gchar* basename = NULL;
-     GKeyFile *state_file = gnc_state_get_current();
-     
+
      g_return_if_fail (self != NULL);
      g_return_if_fail (GNC_IS_HTML_WEBKIT (self));
      priv = GNC_HTML_WEBKIT_GET_PRIVATE (self);

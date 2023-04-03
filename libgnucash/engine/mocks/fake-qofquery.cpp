@@ -59,8 +59,8 @@ public:
     {
         ASSERT_TRUE(query_used((QofQuery*)query));
         auto it = std::find(m_queriesUsed.begin(), m_queriesUsed.end(), query);
-        m_queriesUsed.erase(it);
         m_queriesConsumed.push_back(*it);
+        m_queriesUsed.erase(it);
     }
 
     /* Remove a formerly added QofFakeQueryObject from the pool */
@@ -124,8 +124,6 @@ qof_query_set_book (QofQuery *query, QofBook *book)
     ((QofFakeQuery*)query)->set_book(book);
 }
 
-extern "C"
-{
 void
 xaccQueryAddDateMatchTT (
         QofQuery *query,
@@ -146,7 +144,6 @@ xaccQueryAddSingleAccountMatch(QofQuery *query, Account *acc, QofQueryOp op)
     ((QofFakeQuery*)query)->add_single_account_match(acc, op);
 }
 
-} // extern "C"
 
 GList *
 qof_query_run (QofQuery *query)

@@ -80,10 +80,12 @@
       (list)))
 
 (define (gnc:register-guid type guid)
-  (gnc-build-url URL-TYPE-REGISTER (string-append type guid) ""))
+  (and guid  (gnc-build-url URL-TYPE-REGISTER (string-append type guid) "")))
 
 (define (gnc:account-anchor-text acct)
-  (gnc:register-guid "acct-guid=" (gncAccountGetGUID acct)))
+  (if acct
+      (gnc:register-guid "acct-guid=" (gncAccountGetGUID acct))
+      (format #t "No Account!")))
 
 (define (gnc:split-anchor-text split)
   (gnc:register-guid "split-guid=" (gncSplitGetGUID split)))
@@ -172,11 +174,7 @@
 	  (gnc:options-copy-values src-options options)
 	  (for-each
 	   (lambda (l)
-	     (let ((o (gnc:lookup-option options (car l) (cadr l))))
-	       (if o
-		   (gnc:option-set-value o (caddr l))
-		   (warn "gnc:make-report-anchor:" reportname
-			 " No such option: " (car l) (cadr l)))))
+             (gnc-set-option (gnc:optiondb options) (car l) (cadr l) (caddr l)))
 	   optionlist)
 	  (let ((id (gnc:make-report reportname options)))
 	    (gnc:report-anchor-text id)))
@@ -247,33 +245,6 @@
   (gnc:html-table-append-row!
    table (list (gnc:make-html-table-cell/size
                 1 colspan (gnc:make-html-text (gnc:html-markup-hr))))))
-
-;; Create a html-table of all exchange rates. The report-commodity is
-;; 'common-commodity', the exchange rates are given through the
-;; function 'exchange-fn' and the 'accounts' determine which
-;; commodities to show. Returns a html-object, a <html-table>.
-(define (gnc:html-make-exchangerates common-commodity exchange-fn accounts)
-  (issue-deprecation-warning
-   "gnc:html-make-exchangerates is deprecated. use gnc:html-make-rates-table instead.")
-  (let* ((comm-list (gnc:accounts-get-commodities accounts common-commodity))
-         (entries (length comm-list))
-         (markup (lambda (c) (gnc:make-html-table-cell/markup "number-cell" c)))
-         (table (gnc:make-html-table)))
-    (unless (= 0 entries)
-      (for-each
-       (lambda (commodity)
-         (let* ((orig-amt (gnc:make-gnc-monetary commodity 1))
-                (exchanged (exchange-fn orig-amt common-commodity))
-                (conv-amount (gnc:gnc-monetary-amount exchanged)))
-           (gnc:html-table-append-row!
-            table (list (markup orig-amt)
-                        (markup (gnc:default-price-renderer common-commodity
-                                                            conv-amount))))))
-       comm-list)
-      (gnc:html-table-set-col-headers!
-       table (list (gnc:make-html-table-header-cell/size
-                    1 2 (NG_ "Exchange rate" "Exchange rates" entries)))))
-    table))
 
 ;; Create a html-table of all prices. The report-currency is
 ;; 'currency', The prices are given through the function 'price-fn'
@@ -348,17 +319,16 @@
         (try gnc-budget-get-name)
         (format #f "~a" d)))
   (let ((render-list '())
-        (report-list (and=> (gnc:lookup-option options "__general" "report-list")
-                            gnc:option-value)))
+        (report-list (and=> (gnc-lookup-option (gnc:optiondb options) "__general" "report-list")
+                            GncOption-get-value)))
     (define (add-option-if-changed option)
-      (let* ((section (gnc:option-section option))
-             (name (gnc:option-name option))
-             (default-value (gnc:option-default-value option))
-             (value (gnc:option-value option))
+      (let* ((section (GncOption-get-section option))
+             (name (GncOption-get-name option))
+             (value (GncOption-get-value option))
              (retval (cons (format #f "~a / ~a" section name)
                            (disp value))))
-        (if (not (or (equal? default-value value)
-                     (char=? (string-ref section 0) #\_)))
+        (if (and (GncOption-is-changed option)
+                 (not (GncOption-is-internal option)))
             (addto! render-list retval))))
     (define (name-fn name) (if plaintext? name (gnc:html-markup-b name)))
     (define br (if plaintext? "\n" (gnc:html-markup-br)))
@@ -367,7 +337,7 @@
        (let ((report (gnc-report-find (car child))))
          (addto! render-list (cons "Embedded Report" (gnc:report-name report)))))
      (or report-list '()))
-    (gnc:options-for-each add-option-if-changed options)
+    (gnc-optiondb-foreach (gnc:optiondb options) add-option-if-changed)
     (let lp ((render-list (reverse render-list)) (acc '()))
       (match render-list
         (() (if plaintext? (string-concatenate acc) (apply gnc:make-html-text acc)))

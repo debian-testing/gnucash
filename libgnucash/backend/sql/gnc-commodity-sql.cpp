@@ -26,15 +26,12 @@
  * restoring data to/from an SQL db
  */
 #include <guid.hpp>
-extern "C"
-{
 #include <config.h>
 
 #include <glib.h>
 
 #include "qof.h"
 #include "gnc-commodity.h"
-}
 
 #include "gnc-sql-connection.hpp"
 #include "gnc-sql-backend.hpp"
@@ -47,7 +44,7 @@ extern "C"
 #include "splint-defs.h"
 #endif
 
-static QofLogModule log_module = G_LOG_DOMAIN;
+[[maybe_unused]] static QofLogModule log_module = G_LOG_DOMAIN;
 
 static  gpointer get_quote_source_name (gpointer pObject);
 static void set_quote_source_name (gpointer pObject,  gpointer pValue);

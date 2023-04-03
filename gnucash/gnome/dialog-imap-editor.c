@@ -391,24 +391,6 @@ gnc_imap_invalid_maps_dialog (ImapDialog *imap_dialog)
     }
 }
 
-static void
-gnc_imap_invalid_maps (ImapDialog *imap_dialog)
-{
-    gboolean inv_dialog_shown = FALSE;
-
-    if ((imap_dialog->type == BAYES) && (imap_dialog->inv_dialog_shown.inv_dialog_shown_bayes))
-        inv_dialog_shown = TRUE;
-
-    if ((imap_dialog->type == NBAYES) && (imap_dialog->inv_dialog_shown.inv_dialog_shown_nbayes))
-        inv_dialog_shown = TRUE;
-
-    if ((imap_dialog->type == ONLINE) && (imap_dialog->inv_dialog_shown.inv_dialog_shown_online))
-        inv_dialog_shown = TRUE;
-
-    if (!inv_dialog_shown)
-        gnc_imap_invalid_maps_dialog (imap_dialog);
-}
-
 void
 gnc_imap_dialog_response_cb (GtkDialog *dialog, gint response_id, gpointer user_data)
 {
@@ -438,8 +420,8 @@ filter_test_and_move_next (ImapDialog *imap_dialog, GtkTreeIter *iter,
     GtkTreePath *tree_path;
     gint         depth;
     gboolean     valid;
-    const gchar *match_string;
-    const gchar *map_full_acc;
+    gchar       *match_string;
+    gchar       *map_full_acc;
 
     // Read the row
     gtk_tree_model_get (imap_dialog->model, iter, MATCH_STRING, &match_string, MAP_FULL_ACC, &map_full_acc, -1);
@@ -479,6 +461,8 @@ filter_test_and_move_next (ImapDialog *imap_dialog, GtkTreeIter *iter,
     valid = gtk_tree_model_get_iter (imap_dialog->model, iter, tree_path);
 
     gtk_tree_path_free (tree_path);
+    g_free (match_string);
+    g_free (map_full_acc);
 
     return valid;
 }
@@ -909,7 +893,7 @@ view_selection_function (GtkTreeSelection *selection,
     // do we have a valid row
     if (gtk_tree_model_get_iter (model, &iter, path))
     {
-        const gchar *match_string;
+        gchar *match_string;
 
         // read the row
         gtk_tree_model_get (model, &iter, MATCH_STRING, &match_string, -1);
@@ -917,6 +901,7 @@ view_selection_function (GtkTreeSelection *selection,
         // match_string NULL, top level can not be selected with a filter
         if (match_string == NULL)
             return FALSE;
+        g_free (match_string);
     }
     return TRUE;
 }

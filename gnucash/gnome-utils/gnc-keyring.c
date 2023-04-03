@@ -37,6 +37,8 @@
 #include <Security/Security.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <Carbon/Carbon.h>
+// SecKeychain* are deprecated
+#pragma GCC diagnostic warning "-Wdeprecated-declarations"
 #endif
 
 /* This static indicates the debugging module that this .o belongs to. */
@@ -200,14 +202,14 @@ gboolean gnc_keyring_get_password ( GtkWidget *parent,
      * referenced above. */
     secret_password_store_sync (SECRET_SCHEMA_GNUCASH, SECRET_COLLECTION_DEFAULT,
                                 "Dummy password", "dummy", NULL, &error,
-                                "protocol", "gnucash",
-                                "server", "gnucash",
-                                "user", "gnucash",
+                                "protocol", PROJECT_NAME,
+                                "server", PROJECT_NAME,
+                                "user", PROJECT_NAME,
                                 NULL);
     secret_password_clear_sync (SECRET_SCHEMA_GNUCASH, NULL, &error,
-                                "protocol", "gnucash",
-                                "server", "gnucash",
-                                "user", "gnucash",
+                                "protocol", PROJECT_NAME,
+                                "server", PROJECT_NAME,
+                                "user", PROJECT_NAME,
                                 NULL);
 
     /* Note: only use the port attribute if it  was set by the user. */
