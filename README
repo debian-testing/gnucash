@@ -1,3 +1,13 @@
+In this fork, I maintain some corrections that I consider necessary.  
+GnuCash or anyone else can use these change as they wish.
+These changes are used on a regulary basis and can be considered stable
+
+This branch contains the following corrections: 
+
+-Force the Balance Sheet and Income Statement to use the Book Company Name.
+
+
+
 ############################################################
           GnuCash README file.
 
