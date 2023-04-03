@@ -3,6 +3,14 @@ GnuCash or anyone else can use these change as they wish.
 These changes are used on a regulary basis and can be considered stable
 
 -Force the Balance Sheet and Income Statement to use the Book Company Name.
+Branch company-name-reports-4.13 is for versions up to 4.13, tested
+Branch company-name-reports-4.14 is for versions 4.14 and higher, updated, but not yet tested
+
+
+
+
+
+
 
 
 ############################################################
