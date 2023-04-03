@@ -143,7 +143,7 @@
     (gnc-register-string-option options
       gnc:pagename-general optname-report-title
       "a" opthelp-report-title (G_ reportname))
-    
+
     ;; date at which to report balance
     (gnc:options-add-report-date!
      options gnc:pagename-general optname-date "c")
