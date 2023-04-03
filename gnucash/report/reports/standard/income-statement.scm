@@ -133,15 +133,11 @@
 
 ;; options generator
 (define (income-statement-options-generator-internal reportname)
-  (let* ((options (gnc:new-options))
-         (add-option 
-          (lambda (new-option)
-            (gnc:register-option options new-option))))
-    
-    (add-option
-      (gnc:make-string-option
+  (let* ((options (gnc-new-optiondb)))
+
+    (gnc-register-string-option options
       gnc:pagename-general optname-report-title
-      "a" opthelp-report-title (G_ reportname)))
+      "a" opthelp-report-title (G_ reportname))
     
     ;; period over which to report income
     (gnc:options-add-date-interval!
